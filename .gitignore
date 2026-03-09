@@ -1,0 +1,31 @@
+node_modules
+dist
+.vinxi
+.output
+.vercel
+.netlify
+
+# Data - NEVER commit well/production data
+data/
+*.csv
+*.xlsx
+*.xls
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tsbuildinfo
+apps/docs/src/routes/playground.tsx

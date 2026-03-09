@@ -1,0 +1,19 @@
+{
+  "name": "aai-components",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter docs dev",
+    "build": "pnpm --filter @aai-og/components build",
+    "build:docs": "pnpm --filter docs build",
+    "lint": "biome check --write .",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  }
+}
