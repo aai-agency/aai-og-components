@@ -1,6 +1,6 @@
 // Components
-export { OGMap } from "./components";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps } from "./components";
+export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager } from "./components";
+export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps } from "./components";
 
 // Core Types
 export type {
@@ -19,6 +19,8 @@ export type {
   MapViewState,
   MapOverlay,
   OverlayType,
+  OverlayStyle,
+  OverlayFeatureOverride,
   ColorScheme,
 } from "./types";
 
@@ -60,11 +62,11 @@ export {
 } from "./schemas";
 
 // Utilities
-export { computeBounds, fitBounds, getAssetColor, getWellColor, formatNumber, csvRowToAsset, csvRowToWell } from "./utils";
+export { isValidCoordinates, filterPlottable, computeBounds, fitBounds, getAssetColor, getWellColor, formatNumber, csvRowToAsset, csvRowToWell } from "./utils";
 
 // Machines (XState)
 export { mapMachine } from "./machines";
 export type { MapContext, MapEvent, MapInput, MapMachine } from "./machines";
 
 // Services
-export { InMemoryStore, SqliteStore } from "./services";
+export { InMemoryStore, LocalStorageStore, SqliteStore } from "./services";

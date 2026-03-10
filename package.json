@@ -15,5 +15,8 @@
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "uplot": "^1.6.32"
   }
 }

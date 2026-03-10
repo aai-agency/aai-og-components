@@ -1,61 +1,112 @@
 import JSZip from "jszip";
-import type { MapOverlay } from "../types";
+import type { MapOverlay, OverlayType } from "../types";
+
+// shpjs doesn't ship types — declare the module
+declare module "shpjs" {
+  function shp(buffer: ArrayBuffer): Promise<GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[]>;
+  export default shp;
+}
+
+/** Shared factory — eliminates duplicate MapOverlay construction across parsers */
+function buildOverlay(file: File, type: OverlayType, geojson: GeoJSON.FeatureCollection, extRegex: RegExp): MapOverlay {
+  return {
+    id: crypto.randomUUID(),
+    name: file.name.replace(extRegex, ""),
+    type,
+    visible: true,
+    geojson,
+    fileName: file.name,
+    version: 1,
+    uploadedAt: new Date().toISOString(),
+  };
+}
 
 /** Parse a KMZ file (zipped KML) into a MapOverlay */
 export async function parseKMZ(file: File): Promise<MapOverlay> {
   const buffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buffer);
 
-  // Find the .kml file inside the zip
   const kmlEntry = Object.values(zip.files).find(
     (f) => f.name.toLowerCase().endsWith(".kml") && !f.dir
   );
   if (!kmlEntry) throw new Error("No KML file found inside KMZ archive");
 
   const kmlText = await kmlEntry.async("text");
-  const geojson = kmlToGeoJSON(kmlText);
-
-  return {
-    id: crypto.randomUUID(),
-    name: file.name.replace(/\.kmz$/i, ""),
-    type: "kmz",
-    visible: true,
-    geojson,
-    fileName: file.name,
-  };
+  return buildOverlay(file, "kmz", kmlToGeoJSON(kmlText), /\.kmz$/i);
 }
 
 /** Parse a KML file into a MapOverlay */
 export async function parseKML(file: File): Promise<MapOverlay> {
   const text = await file.text();
-  const geojson = kmlToGeoJSON(text);
-
-  return {
-    id: crypto.randomUUID(),
-    name: file.name.replace(/\.kml$/i, ""),
-    type: "kml",
-    visible: true,
-    geojson,
-    fileName: file.name,
-  };
+  return buildOverlay(file, "kml", kmlToGeoJSON(text), /\.kml$/i);
 }
 
 /** Parse a GeoJSON file into a MapOverlay */
 export async function parseGeoJSONFile(file: File): Promise<MapOverlay> {
   const text = await file.text();
   const geojson = JSON.parse(text) as GeoJSON.FeatureCollection;
-
   if (geojson.type !== "FeatureCollection") {
     throw new Error("Expected a GeoJSON FeatureCollection");
   }
+  return buildOverlay(file, "geojson", geojson, /\.(geojson|json)$/i);
+}
 
+/** Parse a Shapefile (.zip containing .shp, .dbf, .shx, .prj) into a MapOverlay */
+export async function parseShapefile(file: File): Promise<MapOverlay> {
+  const { default: shp } = await import("shpjs");
+  const buffer = await file.arrayBuffer();
+  const result = await shp(buffer);
+
+  const geojson: GeoJSON.FeatureCollection = Array.isArray(result)
+    ? { type: "FeatureCollection", features: result.flatMap((fc) => fc.features) }
+    : result;
+
+  return buildOverlay(file, "shapefile", geojson, /\.zip$/i);
+}
+
+/** Shapefile component extensions that shpjs needs bundled together */
+const SHP_EXTENSIONS = [".shp", ".dbf", ".prj", ".shx", ".cpg", ".sbn", ".sbx"];
+
+/** Check if a set of files looks like loose shapefile components */
+export function isShapefileBundle(files: File[]): boolean {
+  return files.some((f) => f.name.toLowerCase().endsWith(".shp"));
+}
+
+/** Parse loose shapefile components (.shp, .dbf, .prj, .shx, etc.) by bundling them into a zip first */
+export async function parseShapefileBundle(files: File[]): Promise<MapOverlay> {
+  const shpFile = files.find((f) => f.name.toLowerCase().endsWith(".shp"));
+  if (!shpFile) throw new Error("No .shp file found in the selected files");
+
+  // Filter to only shapefile-related extensions
+  const shpFiles = files.filter((f) =>
+    SHP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
+  );
+
+  // Bundle into a zip using JSZip (already a dependency)
+  const zip = new JSZip();
+  for (const f of shpFiles) {
+    zip.file(f.name, await f.arrayBuffer());
+  }
+  const zipBuffer = await zip.generateAsync({ type: "arraybuffer" });
+
+  // Parse with shpjs
+  const { default: shp } = await import("shpjs");
+  const result = await shp(zipBuffer);
+
+  const geojson: GeoJSON.FeatureCollection = Array.isArray(result)
+    ? { type: "FeatureCollection", features: result.flatMap((fc) => fc.features) }
+    : result;
+
+  // Use the .shp filename as the overlay name
   return {
     id: crypto.randomUUID(),
-    name: file.name.replace(/\.(geojson|json)$/i, ""),
-    type: "geojson",
+    name: shpFile.name.replace(/\.shp$/i, ""),
+    type: "shapefile",
     visible: true,
     geojson,
-    fileName: file.name,
+    fileName: shpFile.name,
+    version: 1,
+    uploadedAt: new Date().toISOString(),
   };
 }
 

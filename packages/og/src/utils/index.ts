@@ -36,9 +36,32 @@ const WELL_TYPE_COLORS: Record<string, string> = {
   observation: "#6b7280",
 };
 
+// ── Data Validation ──────────────────────────────────────────────────────────
+
+/** Check if coordinates are plottable on a map (within WGS84 bounds, non-NaN) */
+export function isValidCoordinates(coords: Coordinates | null | undefined): boolean {
+  if (!coords) return false;
+  const { lat, lng } = coords;
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    !Number.isNaN(lat) &&
+    !Number.isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+/** Filter assets to only those with plottable coordinates */
+export function filterPlottable<T extends { coordinates: Coordinates }>(items: T[]): T[] {
+  return items.filter((item) => isValidCoordinates(item.coordinates));
+}
+
 // ── Bounds & View ────────────────────────────────────────────────────────────
 
-/** Compute bounding box for a set of assets */
+/** Compute bounding box for a set of assets (loop-based, stack-overflow safe) */
 export function computeBounds(
   items: (Asset | Well | { coordinates: Coordinates })[],
   padding = 0.5
@@ -46,13 +69,22 @@ export function computeBounds(
   if (items.length === 0) {
     return { minLat: 30, maxLat: 35, minLng: -105, maxLng: -95 };
   }
-  const lats = items.map((w) => w.coordinates.lat);
-  const lngs = items.map((w) => w.coordinates.lng);
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  for (const item of items) {
+    const { lat, lng } = item.coordinates;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+  }
   return {
-    minLat: Math.min(...lats) - padding,
-    maxLat: Math.max(...lats) + padding,
-    minLng: Math.min(...lngs) - padding,
-    maxLng: Math.max(...lngs) + padding,
+    minLat: minLat - padding,
+    maxLat: maxLat + padding,
+    minLng: minLng - padding,
+    maxLng: maxLng + padding,
   };
 }
 
