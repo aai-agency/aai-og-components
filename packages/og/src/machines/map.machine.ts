@@ -1,5 +1,5 @@
 import { setup, assign, fromPromise } from "xstate";
-import type { Asset, AssetTypeConfig, MapViewState, MapOverlay, ColorScheme, AssetStore } from "../types";
+import type { Asset, AssetTypeConfig, MapViewState, MapOverlay, ColorScheme, AssetStore, OverlayStyle } from "../types";
 
 // ── Context ──────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,11 @@ export type MapEvent =
   | { type: "ADD_OVERLAY"; overlay: MapOverlay }
   | { type: "REMOVE_OVERLAY"; id: string }
   | { type: "TOGGLE_OVERLAY"; id: string }
-  | { type: "UPLOAD_FILE"; file: File }
+  | { type: "RENAME_OVERLAY"; id: string; name: string }
+  | { type: "UPDATE_OVERLAY_STYLE"; id: string; style: Partial<MapOverlay["style"]> }
+  | { type: "UPDATE_FEATURE_OVERRIDE"; id: string; featureIndex: number; visible?: boolean; style?: Partial<OverlayStyle> }
+  | { type: "REUPLOAD_OVERLAY"; id: string; file: File }
+  | { type: "UPLOAD_FILE"; file: File; files?: File[] }
   | { type: "FILE_PARSED"; overlay: MapOverlay }
   | { type: "ERROR"; message: string }
   | { type: "CLICK_CLUSTER"; longitude: number; latitude: number; expansionZoom: number };
@@ -95,12 +99,15 @@ function fitBoundsFromAssets(assets: Asset[]): MapViewState {
   if (assets.length === 0) {
     return { longitude: -98.5, latitude: 39.8, zoom: 4 };
   }
-  const lats = assets.map((a) => a.coordinates.lat);
-  const lngs = assets.map((a) => a.coordinates.lng);
-  const minLat = Math.min(...lats) - 0.1;
-  const maxLat = Math.max(...lats) + 0.1;
-  const minLng = Math.min(...lngs) - 0.1;
-  const maxLng = Math.max(...lngs) + 0.1;
+  // Single-pass min/max to avoid stack overflow with Math.min(...20K items)
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (const a of assets) {
+    if (a.coordinates.lat < minLat) minLat = a.coordinates.lat;
+    if (a.coordinates.lat > maxLat) maxLat = a.coordinates.lat;
+    if (a.coordinates.lng < minLng) minLng = a.coordinates.lng;
+    if (a.coordinates.lng > maxLng) maxLng = a.coordinates.lng;
+  }
+  minLat -= 0.1; maxLat += 0.1; minLng -= 0.1; maxLng += 0.1;
   const centerLat = (minLat + maxLat) / 2;
   const centerLng = (minLng + maxLng) / 2;
   const maxDiff = Math.max(maxLat - minLat, maxLng - minLng);
@@ -116,21 +123,37 @@ const loadFromStore = fromPromise<Asset[], { store: AssetStore }>(
   }
 );
 
-const parseOverlayFile = fromPromise<MapOverlay, { file: File }>(
+const parseOverlayFile = fromPromise<MapOverlay, { file: File; files?: File[]; existingId?: string }>(
   async ({ input }) => {
-    const { parseKMZ, parseKML, parseGeoJSONFile } = await import("../utils/overlay-parsers");
+    const { parseKMZ, parseKML, parseGeoJSONFile, parseShapefile, parseShapefileBundle, isShapefileBundle } = await import("../utils/overlay-parsers");
     const name = input.file.name.toLowerCase();
 
+    // Check if multiple files were selected (loose shapefile components)
+    if (input.files && input.files.length > 1 && isShapefileBundle(input.files)) {
+      const overlay = await parseShapefileBundle(input.files);
+      if (input.existingId) overlay.id = input.existingId;
+      return overlay;
+    }
+
+    let overlay: MapOverlay;
     if (name.endsWith(".kmz")) {
-      return parseKMZ(input.file);
+      overlay = await parseKMZ(input.file);
+    } else if (name.endsWith(".kml")) {
+      overlay = await parseKML(input.file);
+    } else if (name.endsWith(".geojson") || name.endsWith(".json")) {
+      overlay = await parseGeoJSONFile(input.file);
+    } else if (name.endsWith(".zip") || name.endsWith(".shp")) {
+      overlay = await parseShapefile(input.file);
+    } else {
+      throw new Error(`Unsupported file type: ${name}`);
     }
-    if (name.endsWith(".kml")) {
-      return parseKML(input.file);
+
+    // If re-uploading, preserve the existing ID for versioning
+    if (input.existingId) {
+      overlay.id = input.existingId;
     }
-    if (name.endsWith(".geojson") || name.endsWith(".json")) {
-      return parseGeoJSONFile(input.file);
-    }
-    throw new Error(`Unsupported file type: ${name}`);
+
+    return overlay;
   }
 );
 
@@ -219,11 +242,13 @@ export const mapMachine = setup({
       on: {
         LOAD_ASSETS: {
           target: "ready",
-          actions: assign(({ event }) => {
+          actions: assign(({ context, event }) => {
             const assets = event.assets;
+            // Preserve explicit initialViewState; only auto-fit if using default
+            const isDefaultView = context.viewState.longitude === -98.5 && context.viewState.latitude === 39.8;
             const ctx: Partial<MapContext> = {
               assets,
-              viewState: fitBoundsFromAssets(assets),
+              viewState: isDefaultView ? fitBoundsFromAssets(assets) : context.viewState,
               error: null,
             };
             return ctx as MapContext;
@@ -402,6 +427,43 @@ export const mapMachine = setup({
             ),
           })),
         },
+        RENAME_OVERLAY: {
+          actions: assign(({ context, event }) => ({
+            overlays: context.overlays.map((o) =>
+              o.id === event.id ? { ...o, name: event.name } : o
+            ),
+          })),
+        },
+        UPDATE_OVERLAY_STYLE: {
+          actions: assign(({ context, event }) => ({
+            overlays: context.overlays.map((o) =>
+              o.id === event.id ? { ...o, style: { ...o.style, ...event.style } } : o
+            ),
+          })),
+        },
+        UPDATE_FEATURE_OVERRIDE: {
+          actions: assign(({ context, event }) => ({
+            overlays: context.overlays.map((o) => {
+              if (o.id !== event.id) return o;
+              const overrides = [...(o.featureOverrides ?? [])];
+              const idx = overrides.findIndex((f) => f.featureIndex === event.featureIndex);
+              const update = {
+                featureIndex: event.featureIndex,
+                ...(event.visible !== undefined ? { visible: event.visible } : {}),
+                ...(event.style ? { style: { ...(idx >= 0 ? overrides[idx].style : {}), ...event.style } } : {}),
+              };
+              if (idx >= 0) {
+                overrides[idx] = { ...overrides[idx], ...update };
+              } else {
+                overrides.push(update);
+              }
+              return { ...o, featureOverrides: overrides };
+            }),
+          })),
+        },
+        REUPLOAD_OVERLAY: {
+          target: ".reuploading",
+        },
 
         // ── File upload ──
         UPLOAD_FILE: {
@@ -429,18 +491,58 @@ export const mapMachine = setup({
             src: "parseOverlayFile",
             input: ({ event }) => {
               const e = event as Extract<MapEvent, { type: "UPLOAD_FILE" }>;
-              return { file: e.file };
+              return { file: e.file, files: e.files };
             },
             onDone: {
               target: "browsing",
-              actions: assign(({ context, event }) => ({
-                overlays: [...context.overlays, event.output],
-              })),
+              actions: assign(({ context, event }) => {
+                // Check if an overlay with the same fileName already exists (versioning)
+                const existing = context.overlays.find((o) => o.fileName === event.output.fileName);
+                if (existing) {
+                  return {
+                    overlays: context.overlays.map((o) =>
+                      o.id === existing.id
+                        ? { ...event.output, id: existing.id, name: existing.name, style: existing.style, featureOverrides: existing.featureOverrides, version: (existing.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
+                        : o
+                    ),
+                  };
+                }
+                return { overlays: [...context.overlays, event.output] };
+              }),
             },
             onError: {
               target: "browsing",
               actions: assign({
                 error: ({ event }) => `Failed to parse file: ${event.error}`,
+              }),
+            },
+          },
+        },
+        reuploading: {
+          invoke: {
+            src: "parseOverlayFile",
+            input: ({ event }) => {
+              const e = event as Extract<MapEvent, { type: "REUPLOAD_OVERLAY" }>;
+              return { file: e.file, existingId: e.id };
+            },
+            onDone: {
+              target: "browsing",
+              actions: assign(({ context, event }) => {
+                const newOverlay = event.output;
+                const existing = context.overlays.find((o) => o.id === newOverlay.id);
+                return {
+                  overlays: context.overlays.map((o) =>
+                    o.id === newOverlay.id
+                      ? { ...newOverlay, name: existing?.name ?? newOverlay.name, style: existing?.style, version: (existing?.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
+                      : o
+                  ),
+                };
+              }),
+            },
+            onError: {
+              target: "browsing",
+              actions: assign({
+                error: ({ event }) => `Failed to re-upload: ${event.error}`,
               }),
             },
           },

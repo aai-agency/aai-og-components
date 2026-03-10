@@ -1,5 +1,8 @@
 import type { CSSProperties } from "react";
+import type { Feature } from "geojson";
 import type { Asset, AssetTypeConfig, ColorScheme, MapViewState, AssetStore, Well } from "../../types";
+import type { MapControlId, MapLayerId } from "./controls";
+import type { AssetDetailSection } from "./asset-detail";
 
 export interface OGMapProps {
   /** Array of assets to render on the map */
@@ -54,6 +57,26 @@ export interface OGMapProps {
   renderTooltip?: (asset: Asset) => React.ReactNode;
   /** Interactive mode. Default: true */
   interactive?: boolean;
+  /** Controls to display. Default: all controls enabled */
+  controls?: MapControlId[];
+  /** Toggleable map layers (for layer control panel) */
+  layers?: MapLayerId[];
+  /** Callback when a drawing selection is created */
+  onDrawCreate?: (features: Feature[]) => void;
+  /** Callback when a drawing selection is cleared */
+  onDrawDelete?: () => void;
+  /** Show map controls panel. Default: true */
+  showControls?: boolean;
+  /** Show asset detail card when an asset is selected. Default: true */
+  showDetailCard?: boolean;
+  /** Custom sections for the detail card */
+  detailSections?: AssetDetailSection[];
+  /** Custom header renderer for the detail card */
+  renderDetailHeader?: (asset: Asset) => React.ReactNode;
+  /** Custom body renderer for the detail card */
+  renderDetailBody?: (asset: Asset) => React.ReactNode;
+  /** Callback when the detail card is closed */
+  onDetailClose?: () => void;
 }
 
 export interface MapTooltipProps {

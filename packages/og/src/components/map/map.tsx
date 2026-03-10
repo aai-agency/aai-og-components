@@ -1,15 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import mapboxgl from "mapbox-gl";
 import MapGL, { Source, Layer, type MapRef, type MapLayerMouseEvent } from "react-map-gl";
 import { useMachine } from "@xstate/react";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
 import { wellToAsset } from "../../types";
-import { getAssetColor } from "../../utils";
+import { getAssetColor, computeBounds } from "../../utils";
 import { mapMachine } from "../../machines";
 import { useClusters } from "./use-clusters";
 import { MapTooltip } from "./tooltip";
+import { MapControls, type MapLayerId } from "./controls";
+import { AssetDetailCard } from "./asset-detail";
 import type { OGMapProps } from "./map.types";
+import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, PANEL_BG, PANEL_BG_LIGHT, BORDER, BORDER_SUBTLE, ACCENT, ACCENT_15, FONT_FAMILY, BLUR_SM, BLUR_LG, SHADOW_SM, HOVER_BG } from "./theme";
 
-const MAPBOX_DARK = "mapbox://styles/mapbox/dark-v11";
+const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
+const BASE_INTERACTIVE_LAYER_IDS = ["og-assets", "og-clusters", "og-lines"];
 
 const LEGEND_ITEMS: Record<string, { label: string; items: { color: string; label: string }[] }> = {
   status: {
@@ -62,6 +67,270 @@ const LEGEND_ITEMS: Record<string, { label: string; items: { color: string; labe
   },
 };
 
+// ── Collapsible Map Legend ────────────────────────────────────────────────────
+
+// ── Overlay Feature Detail (shown when clicking a shapefile/KMZ feature) ─────
+
+/** Properties to exclude from overlay feature detail display */
+const HIDDEN_PROPS = new Set(["_idx", "layer", "source", "sourceLayer"]);
+
+function OverlayFeatureDetail({
+  overlayName,
+  properties,
+  geometryType,
+  onClose,
+}: {
+  overlayName: string;
+  properties: Record<string, unknown>;
+  geometryType: string;
+  onClose: () => void;
+}) {
+  const entries = Object.entries(properties).filter(
+    ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k)
+  );
+  const featureName = (properties.name ?? properties.Name ?? properties.NAME ?? overlayName) as string;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        left: 12,
+        bottom: 12,
+        width: 340,
+        background: PANEL_BG,
+        backdropFilter: BLUR_LG,
+        border: BORDER,
+        borderRadius: 12,
+        fontFamily: FONT_FAMILY,
+        color: TEXT_PRIMARY,
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 15,
+        overflow: "hidden",
+        boxShadow: SHADOW_SM,
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, wordBreak: "break-word" }}>
+              {featureName}
+            </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  background: `${ACCENT}20`,
+                  color: ACCENT,
+                }}
+              >
+                {geometryType}
+              </span>
+              <span style={{ fontSize: 10, color: TEXT_FAINT }}>
+                {overlayName}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 28,
+              height: 28,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: HOVER_BG,
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              color: TEXT_MUTED,
+              flexShrink: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Properties */}
+      <div style={{ padding: "0 16px 16px", overflowY: "auto", flex: 1 }}>
+        {entries.length > 0 ? (
+          <div style={{ padding: "8px 0" }}>
+            {entries.map(([key, value]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+                <span style={{ fontSize: 12, color: TEXT_MUTED }}>{key}</span>
+                <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%", wordBreak: "break-word" }}>
+                  {String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: "24px 0", textAlign: "center", color: TEXT_FAINT, fontSize: 12 }}>
+            No properties available
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OverlayFeatureTooltip({
+  name,
+  properties,
+  x,
+  y,
+}: {
+  name: string;
+  properties: Record<string, unknown>;
+  x: number;
+  y: number;
+}) {
+  // Show up to 3 preview properties
+  const entries = Object.entries(properties).filter(
+    ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k) && k !== "name" && k !== "Name" && k !== "NAME"
+  );
+  const preview = entries.slice(0, 3);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x + 12,
+        top: y - 12,
+        zIndex: 10,
+        pointerEvents: "none",
+        background: PANEL_BG,
+        backdropFilter: BLUR_SM,
+        border: BORDER,
+        borderRadius: 8,
+        padding: "10px 14px",
+        minWidth: 180,
+        maxWidth: 300,
+        fontFamily: FONT_FAMILY,
+        color: TEXT_PRIMARY,
+        fontSize: 12,
+        lineHeight: 1.5,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+      }}
+    >
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: preview.length > 0 ? 4 : 0 }}>
+        {name}
+      </div>
+      {preview.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px" }}>
+          {preview.map(([key, value]) => (
+            <React.Fragment key={key}>
+              <span style={{ color: TEXT_MUTED, fontSize: 11 }}>{key}</span>
+              <span style={{ color: TEXT_PRIMARY, fontSize: 11, fontWeight: 500 }}>{String(value)}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+      {entries.length > 3 && (
+        <div style={{ color: TEXT_FAINT, fontSize: 10, marginTop: 2 }}>
+          +{entries.length - 3} more fields
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MapLegend({ label, items }: { label: string; items: { color: string; label: string }[] }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 12,
+        right: 12,
+        background: PANEL_BG_LIGHT,
+        backdropFilter: BLUR_SM,
+        borderRadius: 8,
+        padding: collapsed ? "6px 10px" : "10px 14px",
+        color: TEXT_SECONDARY,
+        fontSize: 11,
+        border: BORDER,
+        minWidth: collapsed ? undefined : 130,
+        transition: "padding 0.15s",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: collapsed ? 0 : 6,
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 11, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 20,
+            height: 20,
+            borderRadius: 4,
+            border: BORDER,
+            background: "rgba(255,255,255,0.8)",
+            cursor: "pointer",
+            padding: 0,
+            flexShrink: 0,
+            color: TEXT_MUTED,
+          }}
+          title={collapsed ? "Expand legend" : "Collapse legend"}
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            {collapsed ? (
+              <polyline points="6 9 12 15 18 9" />
+            ) : (
+              <line x1="5" y1="12" x2="19" y2="12" />
+            )}
+          </svg>
+        </button>
+      </div>
+      {!collapsed &&
+        items.map((item) => (
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
+            <span>{item.label}</span>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+// ── OGMap ─────────────────────────────────────────────────────────────────────
+
 export function OGMap({
   assets: assetsProp,
   wells: wellsProp,
@@ -89,9 +358,21 @@ export function OGMap({
   style,
   renderTooltip,
   interactive = true,
+  controls: controlIds,
+  layers: layerIds,
+  onDrawCreate,
+  onDrawDelete,
+  showControls = true,
+  showDetailCard = true,
+  detailSections,
+  renderDetailHeader,
+  renderDetailBody,
+  onDetailClose,
 }: OGMapProps) {
   const mapRef = useRef<MapRef>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+  const [visibleLayers, setVisibleLayers] = useState<Set<MapLayerId>>(() => new Set(layerIds ?? []));
 
   // Resolve assets: prefer `assets` prop, fall back to converting `wells`
   const resolvedAssets = useMemo(() => {
@@ -127,6 +408,16 @@ export function OGMap({
     }
   }, [resolvedAssets, send]);
 
+  // Auto-fit map bounds when assets load and map is ready
+  useEffect(() => {
+    if (!mapInstance || resolvedAssets.length === 0 || initialViewState) return;
+    const { minLat, maxLat, minLng, maxLng } = computeBounds(resolvedAssets, 0.2);
+    mapInstance.fitBounds(
+      [[minLng, minLat], [maxLng, maxLat]],
+      { padding: 60, duration: 0 },
+    );
+  }, [resolvedAssets, mapInstance, initialViewState]);
+
   // Sync colorBy prop
   useEffect(() => {
     send({ type: "SET_COLOR_SCHEME", scheme: colorBy });
@@ -135,7 +426,42 @@ export function OGMap({
   const assets = state.context.assets;
   const viewState = state.context.viewState;
   const hovered = state.context.hovered;
+  const hoveredRef = useRef(hovered);
+  hoveredRef.current = hovered;
   const overlays = state.context.overlays;
+  const selectedIds = state.context.selectedIds;
+
+  // O(1) lookup map: asset.id → array index (rebuilt only when assets change)
+  const assetIdToIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let i = 0; i < assets.length; i++) map.set(assets[i].id, i);
+    return map;
+  }, [assets]);
+
+  // Resolve selected asset for the detail card
+  const selectedAsset = useMemo(() => {
+    if (selectedIds.size === 0) return null;
+    const firstId = selectedIds.values().next().value;
+    return assets.find((a) => a.id === firstId) ?? null;
+  }, [selectedIds, assets]);
+
+  // Selected overlay feature
+  const [selectedOverlayFeature, setSelectedOverlayFeature] = useState<{
+    overlayName: string;
+    properties: Record<string, unknown>;
+    geometryType: string;
+  } | null>(null);
+
+  // Build interactive layer IDs including overlay layers
+  const interactiveLayerIds = useMemo(() => {
+    const ids = [...BASE_INTERACTIVE_LAYER_IDS];
+    for (const o of overlays) {
+      if (o.visible) {
+        ids.push(`overlay-fill-${o.id}`, `overlay-line-${o.id}`, `overlay-point-${o.id}`);
+      }
+    }
+    return ids;
+  }, [overlays]);
 
   const showCount = showAssetCount ?? showWellCount;
 
@@ -154,12 +480,16 @@ export function OGMap({
 
   const handleLoad = useCallback(() => {
     const map = mapRef.current?.getMap();
-    const b = map?.getBounds();
-    if (b) {
-      send({ type: "SET_BOUNDS", bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+    if (map) {
+      setMapInstance(map);
+      const b = map.getBounds();
+      if (b) {
+        send({ type: "SET_BOUNDS", bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+      }
     }
   }, [send]);
 
+  // Only run Supercluster when clustering is enabled
   const clusters = useClusters(assets, viewState.zoom, state.context.bounds, {
     radius: clusterRadius,
     maxZoom: clusterMaxZoom,
@@ -167,13 +497,36 @@ export function OGMap({
   });
 
   // ── GeoJSON for point assets ──
+  // Selection/hover styling uses map.setFeatureState() so we never rebuild
+  // GeoJSON when selection changes — only on data or color scheme changes.
   const assetPointsGeoJSON = useMemo(() => {
+    if (!clusterEnabled) {
+      // Fast path: direct from assets, only recomputes on data/color change
+      const features = [];
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        if (asset.lines?.length || asset.polygons?.length) continue;
+        features.push({
+          type: "Feature" as const,
+          id: i,
+          geometry: { type: "Point" as const, coordinates: [asset.coordinates.lng, asset.coordinates.lat] },
+          properties: {
+            assetIndex: i,
+            color: getAssetColor(asset, colorBy, typeConfigMap),
+            id: asset.id,
+          },
+        });
+      }
+      return { type: "FeatureCollection" as const, features };
+    }
+    // Clustered path: filter non-cluster results
     const features = clusters
       .filter((c) => !c.isCluster && c.assetIndex != null)
       .map((c) => {
         const asset = assets[c.assetIndex!];
         return {
           type: "Feature" as const,
+          id: c.assetIndex,
           geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
           properties: {
             assetIndex: c.assetIndex,
@@ -183,10 +536,11 @@ export function OGMap({
         };
       });
     return { type: "FeatureCollection" as const, features };
-  }, [clusters, assets, colorBy, typeConfigMap]);
+  }, [clusterEnabled, clusters, assets, colorBy, typeConfigMap]);
 
   // ── GeoJSON for clusters ──
   const clusterGeoJSON = useMemo(() => {
+    if (!clusterEnabled) return { type: "FeatureCollection" as const, features: [] as GeoJSON.Feature[] };
     const features = clusters
       .filter((c) => c.isCluster)
       .map((c) => ({
@@ -199,7 +553,7 @@ export function OGMap({
         },
       }));
     return { type: "FeatureCollection" as const, features };
-  }, [clusters, clusterMaxZoom]);
+  }, [clusterEnabled, clusters, clusterMaxZoom]);
 
   // ── GeoJSON for line assets (pipelines) ──
   const lineGeoJSON = useMemo(() => {
@@ -248,6 +602,7 @@ export function OGMap({
         const id = assetFeature.properties?.id;
         const asset = idx != null ? assets[idx] : assets.find((a) => a.id === id);
         if (asset) {
+          setSelectedOverlayFeature(null);
           send({ type: "SELECT", id: asset.id });
           onAssetClick?.(asset);
           // Legacy callback
@@ -255,15 +610,47 @@ export function OGMap({
             const wellIdx = wellsProp.findIndex((w) => w.id === asset.id);
             if (wellIdx >= 0) onWellClick(wellsProp[wellIdx]);
           }
+          return;
         }
       }
+
+      // Check overlay features
+      const overlayFeature = evt.features?.find(
+        (f) => f.layer?.id?.startsWith("overlay-")
+      );
+      if (overlayFeature) {
+        // Find the overlay name from the layer ID
+        const layerId = overlayFeature.layer?.id ?? "";
+        const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
+        const overlay = overlays.find((o) => o.id === overlayId);
+        // Deselect any asset
+        send({ type: "CLEAR_SELECTION" });
+        setSelectedOverlayFeature({
+          overlayName: overlay?.name ?? "Overlay Feature",
+          properties: overlayFeature.properties ?? {},
+          geometryType: overlayFeature.geometry?.type ?? "Unknown",
+        });
+        return;
+      }
+
+      // Clicked on empty space — deselect
+      setSelectedOverlayFeature(null);
     },
-    [assets, viewState.zoom, send, onAssetClick, onWellClick, wellsProp]
+    [assets, viewState.zoom, send, onAssetClick, onWellClick, wellsProp, overlays]
   );
 
   // ── Hover handling ──
+  const [overlayHover, setOverlayHover] = useState<{
+    name: string;
+    properties: Record<string, unknown>;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const handleMouseMove = useCallback(
     (evt: MapLayerMouseEvent) => {
+      const mapCanvas = mapRef.current?.getMap()?.getCanvas();
+
       const assetFeature = evt.features?.find(
         (f) => f.layer?.id === "og-assets" || f.layer?.id === "og-lines"
       );
@@ -272,19 +659,44 @@ export function OGMap({
         const id = assetFeature.properties?.id;
         const asset = idx != null ? assets[idx] : assets.find((a) => a.id === id);
         if (asset) {
+          if (mapCanvas) mapCanvas.style.cursor = "pointer";
+          setOverlayHover(null);
           send({ type: "HOVER", asset, x: evt.point.x, y: evt.point.y });
           onAssetHover?.(asset);
           onWellHover?.(asset as never);
           return;
         }
       }
-      if (hovered) {
+
+      // Check overlay features for hover
+      const overlayFeature = evt.features?.find(
+        (f) => f.layer?.id?.startsWith("overlay-")
+      );
+      if (overlayFeature) {
+        if (mapCanvas) mapCanvas.style.cursor = "pointer";
+        const layerId = overlayFeature.layer?.id ?? "";
+        const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
+        const overlay = overlays.find((o) => o.id === overlayId);
+        const props = overlayFeature.properties ?? {};
+        const featureName = (props.name ?? props.Name ?? props.NAME ?? overlay?.name ?? "Feature") as string;
+        setOverlayHover({ name: featureName, properties: props, x: evt.point.x, y: evt.point.y });
+        if (hoveredRef.current) {
+          send({ type: "UNHOVER" });
+          onAssetHover?.(null);
+          onWellHover?.(null);
+        }
+        return;
+      }
+
+      if (mapCanvas) mapCanvas.style.cursor = "";
+      setOverlayHover(null);
+      if (hoveredRef.current) {
         send({ type: "UNHOVER" });
         onAssetHover?.(null);
         onWellHover?.(null);
       }
     },
-    [assets, send, onAssetHover, onWellHover, hovered]
+    [assets, send, onAssetHover, onWellHover, overlays]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -318,9 +730,40 @@ export function OGMap({
     [enableOverlayUpload, send]
   );
 
-  const resolvedStyle = mapStyle ?? MAPBOX_DARK;
+  const handleFitToAssets = useCallback(() => {
+    send({ type: "FIT_TO_ASSETS" });
+  }, [send]);
+
+  const handleDetailClose = useCallback(() => {
+    send({ type: "CLEAR_SELECTION" });
+    onDetailClose?.();
+  }, [send, onDetailClose]);
+
+  const handleLayerToggle = useCallback((id: MapLayerId) => {
+    setVisibleLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // ── Feature-state for selection (avoids GeoJSON rebuild) ──
+  useEffect(() => {
+    if (!mapInstance) return;
+    const source = "og-assets-source";
+    // Bulk-clear all feature states, then set only the selected ones
+    try { mapInstance.removeFeatureState({ source }); } catch {}
+    for (const id of selectedIds) {
+      const idx = assetIdToIndex.get(id);
+      if (idx != null) {
+        try { mapInstance.setFeatureState({ source, id: idx }, { selected: true }); } catch {}
+      }
+    }
+  }, [mapInstance, selectedIds, assetIdToIndex]);
+
+  const resolvedStyle = mapStyle ?? MAPBOX_LIGHT;
   const legend = LEGEND_ITEMS[colorBy];
-  const interactiveLayerIds = ["og-assets", "og-clusters", "og-lines"];
 
   return (
     <div
@@ -335,8 +778,8 @@ export function OGMap({
         height,
         borderRadius: 12,
         overflow: "hidden",
-        border: "1px solid rgba(148, 163, 184, 0.15)",
-        fontFamily: "'Inter', system-ui, sans-serif",
+        border: BORDER,
+        fontFamily: FONT_FAMILY,
         ...style,
       }}
     >
@@ -355,16 +798,37 @@ export function OGMap({
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
       >
-        {/* Point assets */}
-        <Source id="og-assets-source" type="geojson" data={assetPointsGeoJSON}>
+        {/* Point assets — buffer:0 since circles fit in tiles, maxzoom:12 for speed */}
+        <Source id="og-assets-source" type="geojson" data={assetPointsGeoJSON} buffer={0} maxzoom={12}>
+          {/* Selection ring — uses feature-state so no GeoJSON rebuild on click */}
+          <Layer
+            id="og-assets-selection-ring"
+            type="circle"
+            filter={["==", ["feature-state", "selected"], true]}
+            paint={{
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 8, 12, 12, 16, 16, 22],
+              "circle-color": "transparent",
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-opacity": 0.8,
+            }}
+          />
           <Layer
             id="og-assets"
             type="circle"
             paint={{
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 8, 5, 12, 7, 16, 10],
               "circle-color": ["get", "color"],
-              "circle-stroke-width": 1.5,
-              "circle-stroke-color": "rgba(255, 255, 255, 0.6)",
+              "circle-stroke-width": [
+                "case",
+                ["boolean", ["feature-state", "selected"], false], 2.5,
+                1.5,
+              ],
+              "circle-stroke-color": [
+                "case",
+                ["boolean", ["feature-state", "selected"], false], "#ffffff",
+                "rgba(255, 255, 255, 0.6)",
+              ],
               "circle-opacity": 0.9,
             }}
           />
@@ -433,7 +897,7 @@ export function OGMap({
                 type="line"
                 filter={["any", ["==", "$type", "LineString"], ["==", "$type", "Polygon"]]}
                 paint={{
-                  "line-color": overlay.style?.strokeColor ?? "#6366f1",
+                  "line-color": overlay.style?.strokeColor ?? ACCENT,
                   "line-width": overlay.style?.strokeWidth ?? 2,
                   "line-opacity": 0.8,
                 }}
@@ -444,7 +908,7 @@ export function OGMap({
                 filter={["==", "$type", "Point"]}
                 paint={{
                   "circle-radius": 5,
-                  "circle-color": overlay.style?.fillColor ?? "#6366f1",
+                  "circle-color": overlay.style?.fillColor ?? ACCENT,
                   "circle-stroke-width": 1,
                   "circle-stroke-color": "#ffffff",
                 }}
@@ -452,6 +916,54 @@ export function OGMap({
             </Source>
           ))}
       </MapGL>
+
+      {/* Map Controls */}
+      {showControls && interactive && (
+        <MapControls
+          map={mapInstance}
+          controls={controlIds}
+          layers={layerIds}
+          visibleLayers={visibleLayers}
+          onLayerToggle={handleLayerToggle}
+          onDrawCreate={onDrawCreate}
+          onDrawDelete={onDrawDelete}
+          onFitToAssets={handleFitToAssets}
+          overlay={enableOverlayUpload ? {
+            overlays,
+            enableUpload: enableOverlayUpload,
+            onUpload: (file, files) => send({ type: "UPLOAD_FILE", file, files }),
+            onToggle: (id) => send({ type: "TOGGLE_OVERLAY", id }),
+            onRemove: (id) => send({ type: "REMOVE_OVERLAY", id }),
+            onRename: (id, name) => send({ type: "RENAME_OVERLAY", id, name }),
+            onUpdateStyle: (id, updateStyle) => send({ type: "UPDATE_OVERLAY_STYLE", id, style: updateStyle }),
+            onUpdateFeature: (id, featureIndex, visible, featureStyle) =>
+              send({ type: "UPDATE_FEATURE_OVERRIDE", id, featureIndex, visible, style: featureStyle }),
+            onReupload: (id, file) => send({ type: "REUPLOAD_OVERLAY", id, file }),
+          } : undefined}
+        />
+      )}
+
+      {/* Asset Detail Card */}
+      {showDetailCard && (
+        <AssetDetailCard
+          asset={selectedAsset}
+          typeConfigs={typeConfigMap}
+          sections={detailSections}
+          onClose={handleDetailClose}
+          renderHeader={renderDetailHeader}
+          renderBody={renderDetailBody}
+        />
+      )}
+
+      {/* Overlay Feature Detail Card */}
+      {selectedOverlayFeature && !selectedAsset && (
+        <OverlayFeatureDetail
+          overlayName={selectedOverlayFeature.overlayName}
+          properties={selectedOverlayFeature.properties}
+          geometryType={selectedOverlayFeature.geometryType}
+          onClose={() => setSelectedOverlayFeature(null)}
+        />
+      )}
 
       {/* Tooltip */}
       {hovered && (
@@ -464,6 +976,16 @@ export function OGMap({
         />
       )}
 
+      {/* Overlay Feature Tooltip */}
+      {overlayHover && !hovered && (
+        <OverlayFeatureTooltip
+          name={overlayHover.name}
+          properties={overlayHover.properties}
+          x={overlayHover.x}
+          y={overlayHover.y}
+        />
+      )}
+
       {/* Asset count badge */}
       {showCount && (
         <div
@@ -471,17 +993,17 @@ export function OGMap({
             position: "absolute",
             bottom: 12,
             left: 12,
-            background: "rgba(15, 23, 42, 0.85)",
-            backdropFilter: "blur(8px)",
+            background: PANEL_BG_LIGHT,
+            backdropFilter: BLUR_SM,
             borderRadius: 6,
             padding: "6px 12px",
-            color: "#e2e8f0",
+            color: TEXT_SECONDARY,
             fontSize: 12,
             fontWeight: 500,
             display: "flex",
             alignItems: "center",
             gap: 6,
-            border: "1px solid rgba(148, 163, 184, 0.15)",
+            border: BORDER,
           }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -494,31 +1016,7 @@ export function OGMap({
 
       {/* Legend */}
       {showLegend && legend && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: "rgba(15, 23, 42, 0.85)",
-            backdropFilter: "blur(8px)",
-            borderRadius: 8,
-            padding: "10px 14px",
-            color: "#e2e8f0",
-            fontSize: 11,
-            border: "1px solid rgba(148, 163, 184, 0.15)",
-            minWidth: 130,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {legend.label}
-          </div>
-          {legend.items.map((item) => (
-            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-              <span>{item.label}</span>
-            </div>
-          ))}
-        </div>
+        <MapLegend label={legend.label} items={legend.items} />
       )}
 
       {/* Drag-and-drop overlay indicator */}
@@ -527,7 +1025,7 @@ export function OGMap({
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(99, 102, 241, 0.15)",
+            background: ACCENT_15,
             border: "2px dashed rgba(99, 102, 241, 0.6)",
             borderRadius: 12,
             display: "flex",
@@ -537,7 +1035,7 @@ export function OGMap({
             pointerEvents: "none",
           }}
         >
-          <div style={{ color: "#e2e8f0", fontSize: 16, fontWeight: 600 }}>
+          <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>
             Drop KMZ, KML, or GeoJSON file
           </div>
         </div>

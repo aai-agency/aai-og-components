@@ -2,6 +2,7 @@ import React from "react";
 import type { MapTooltipProps } from "./map.types";
 import { formatNumber } from "../../utils";
 import type { FieldConfig } from "../../types";
+import { TEXT_PRIMARY, TEXT_MUTED, PANEL_BG, BORDER, SHADOW_MD, FONT_FAMILY, ACCENT, BLUR_SM } from "./theme";
 
 export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapTooltipProps) {
   if (renderTooltip) {
@@ -31,18 +32,18 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
         top: y - 12,
         zIndex: 10,
         pointerEvents: "none",
-        background: "rgba(15, 23, 42, 0.95)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid rgba(148, 163, 184, 0.2)",
+        background: PANEL_BG,
+        backdropFilter: BLUR_SM,
+        border: BORDER,
         borderRadius: 8,
         padding: "10px 14px",
         minWidth: 200,
         maxWidth: 320,
-        fontFamily: "'Inter', system-ui, sans-serif",
-        color: "#f8fafc",
+        fontFamily: FONT_FAMILY,
+        color: TEXT_PRIMARY,
         fontSize: 12,
         lineHeight: 1.5,
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+        boxShadow: SHADOW_MD,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -51,11 +52,11 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
             width: 8,
             height: 8,
             borderRadius: "50%",
-            background: config?.color ?? "#6366f1",
+            background: config?.color ?? ACCENT,
             flexShrink: 0,
           }}
         />
-        <div style={{ fontWeight: 600, fontSize: 13, color: "#e2e8f0" }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: TEXT_PRIMARY }}>
           {asset.name}
         </div>
       </div>
@@ -96,8 +97,8 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <span style={{ color: "#94a3b8", fontSize: 11 }}>{label}</span>
-      <span style={{ color: "#e2e8f0", fontSize: 11, fontWeight: 500, textTransform: "capitalize" }}>
+      <span style={{ color: TEXT_MUTED, fontSize: 11 }}>{label}</span>
+      <span style={{ color: TEXT_PRIMARY, fontSize: 11, fontWeight: 500, textTransform: "capitalize" }}>
         {value}
       </span>
     </>

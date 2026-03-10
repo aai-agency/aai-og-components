@@ -194,7 +194,23 @@ export interface AssetCluster {
 
 // ── Overlay / Layer Types ────────────────────────────────────────────────────
 
-export type OverlayType = "kmz" | "kml" | "geojson" | "custom";
+export type OverlayType = "kmz" | "kml" | "geojson" | "shapefile" | "image" | "custom";
+
+export interface OverlayStyle {
+  fillColor?: string;
+  fillOpacity?: number;
+  strokeColor?: string;
+  strokeWidth?: number;
+}
+
+export interface OverlayFeatureOverride {
+  /** Index of the feature in the FeatureCollection */
+  featureIndex: number;
+  /** Whether this feature is visible */
+  visible?: boolean;
+  /** Per-feature style overrides */
+  style?: OverlayStyle;
+}
 
 export interface MapOverlay {
   id: string;
@@ -205,13 +221,18 @@ export interface MapOverlay {
   geojson: GeoJSON.FeatureCollection;
   /** Original file name */
   fileName?: string;
-  /** Overlay-specific style overrides */
-  style?: {
-    fillColor?: string;
-    fillOpacity?: number;
-    strokeColor?: string;
-    strokeWidth?: number;
-  };
+  /** Overlay-level style defaults */
+  style?: OverlayStyle;
+  /** Per-feature overrides (visibility, color) */
+  featureOverrides?: OverlayFeatureOverride[];
+  /** Version number (increments on re-upload) */
+  version?: number;
+  /** Timestamp of last upload */
+  uploadedAt?: string;
+  /** For image overlays: URL or data URI of the image */
+  imageUrl?: string;
+  /** For image overlays: bounding box [west, south, east, north] */
+  imageBounds?: [number, number, number, number];
 }
 
 // ── Service Layer Types ──────────────────────────────────────────────────────

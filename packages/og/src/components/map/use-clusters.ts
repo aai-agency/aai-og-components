@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import Supercluster from "supercluster";
 import type { Asset } from "../../types";
 
@@ -26,40 +26,41 @@ export function useClusters(
 ): ClusterResult[] {
   const { radius = 50, maxZoom = 10, enabled = true } = options;
 
-  const indexRef = useRef<Supercluster<{ assetIndex: number }>>();
+  // When clustering is disabled, return empty array — the map component
+  // builds GeoJSON directly from assets for maximum performance.
 
-  // Only cluster point assets (not pipelines/polygons)
-  const pointAssets = useMemo(
-    () => assets.filter((a) => !a.lines?.length && !a.polygons?.length),
-    [assets]
-  );
-
-  const indexMap = useMemo(() => {
-    const map = new Map<number, number>();
-    let pointIdx = 0;
+  // Single pass: filter point assets and build index map together
+  const { pointAssets, indexMap } = useMemo(() => {
+    if (!enabled) return { pointAssets: [] as Asset[], indexMap: new Map<number, number>() };
+    const pointAssets: Asset[] = [];
+    const indexMap = new Map<number, number>();
     for (let i = 0; i < assets.length; i++) {
       if (!assets[i].lines?.length && !assets[i].polygons?.length) {
-        map.set(pointIdx, i);
-        pointIdx++;
+        indexMap.set(pointAssets.length, i);
+        pointAssets.push(assets[i]);
       }
     }
-    return map;
-  }, [assets]);
+    return { pointAssets, indexMap };
+  }, [assets, enabled]);
 
   const points = useMemo<ClusterPoint[]>(
-    () =>
-      pointAssets.map((asset, i) => ({
+    () => {
+      if (!enabled) return [];
+      return pointAssets.map((asset, i) => ({
         type: "Feature" as const,
         geometry: {
           type: "Point" as const,
           coordinates: [asset.coordinates.lng, asset.coordinates.lat],
         },
         properties: { assetIndex: indexMap.get(i) ?? i },
-      })),
-    [pointAssets, indexMap]
+      }));
+    },
+    [pointAssets, indexMap, enabled]
   );
 
-  useMemo(() => {
+  // Build Supercluster index — returned directly (no side-effect ref)
+  const scIndex = useMemo(() => {
+    if (!enabled || points.length === 0) return null;
     const index = new Supercluster<{ assetIndex: number }>({
       radius,
       maxZoom,
@@ -67,11 +68,14 @@ export function useClusters(
       reduce: () => {},
     });
     index.load(points);
-    indexRef.current = index;
-  }, [points, radius, maxZoom]);
+    return index;
+  }, [points, radius, maxZoom, enabled]);
 
   return useMemo(() => {
-    if (!enabled || !bounds || !indexRef.current) {
+    // When disabled, return empty — map.tsx handles rendering directly
+    if (!enabled) return [];
+
+    if (!bounds || !scIndex) {
       return pointAssets.map((asset, i) => ({
         id: asset.id,
         lng: asset.coordinates.lng,
@@ -82,7 +86,7 @@ export function useClusters(
       }));
     }
 
-    const clusters = indexRef.current.getClusters(bounds, Math.floor(zoom));
+    const clusters = scIndex.getClusters(bounds, Math.floor(zoom));
 
     return clusters.map((feature) => {
       const [lng, lat] = feature.geometry.coordinates;
@@ -96,7 +100,7 @@ export function useClusters(
           lat,
           isCluster: true,
           count: feature.properties.point_count ?? 0,
-          expansionZoom: indexRef.current!.getClusterExpansionZoom(clusterId),
+          expansionZoom: scIndex.getClusterExpansionZoom(clusterId),
         };
       }
 
@@ -110,5 +114,5 @@ export function useClusters(
         assetIndex,
       };
     });
-  }, [assets, pointAssets, indexMap, bounds, zoom, enabled]);
+  }, [assets, pointAssets, indexMap, bounds, zoom, enabled, scIndex]);
 }
