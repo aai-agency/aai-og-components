@@ -1,6 +1,6 @@
 // Components
-export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager } from "./components";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps } from "./components";
+export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager, SelectionSummaryCard } from "./components";
+export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps, SelectionSummaryCardProps, SelectedOverlayFeature } from "./components";
 
 // Core Types
 export type {

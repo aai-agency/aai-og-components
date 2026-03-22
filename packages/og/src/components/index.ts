@@ -6,3 +6,5 @@ export { AssetDetailCard, ProductionChart } from "./map";
 export type { AssetDetailCardProps, AssetDetailSection, ProductionChartProps } from "./map";
 export { OverlayManager } from "./map";
 export type { OverlayManagerProps } from "./map";
+export { SelectionSummaryCard } from "./map";
+export type { SelectionSummaryCardProps, SelectedOverlayFeature } from "./map";

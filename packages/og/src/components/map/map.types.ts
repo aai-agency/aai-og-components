@@ -3,6 +3,7 @@ import type { Feature } from "geojson";
 import type { Asset, AssetTypeConfig, ColorScheme, MapViewState, AssetStore, Well } from "../../types";
 import type { MapControlId, MapLayerId } from "./controls";
 import type { AssetDetailSection } from "./asset-detail";
+import type { SelectedOverlayFeature } from "./selection-summary";
 
 export interface OGMapProps {
   /** Array of assets to render on the map */
@@ -65,6 +66,8 @@ export interface OGMapProps {
   onDrawCreate?: (features: Feature[]) => void;
   /** Callback when a drawing selection is cleared */
   onDrawDelete?: () => void;
+  /** Callback when lasso selection completes with assets and overlay features */
+  onLassoSelect?: (assets: Asset[], overlayFeatures: SelectedOverlayFeature[]) => void;
   /** Show map controls panel. Default: true */
   showControls?: boolean;
   /** Show asset detail card when an asset is selected. Default: true */

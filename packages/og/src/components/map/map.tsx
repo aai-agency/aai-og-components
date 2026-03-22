@@ -3,6 +3,8 @@ import mapboxgl from "mapbox-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { useMachine } from "@xstate/react";
+import * as turf from "@turf/turf";
+import type { Feature, Polygon as GeoPolygon } from "geojson";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
 import { wellToAsset } from "../../types";
 import { getAssetColor, computeBounds } from "../../utils";
@@ -11,6 +13,7 @@ import { useClusters } from "./use-clusters";
 import { MapTooltip } from "./tooltip";
 import { MapControls, type MapLayerId } from "./controls";
 import { AssetDetailCard } from "./asset-detail";
+import { SelectionSummaryCard, type SelectedOverlayFeature } from "./selection-summary";
 import type { OGMapProps } from "./map.types";
 import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, PANEL_BG, PANEL_BG_LIGHT, BORDER, BORDER_SUBTLE, ACCENT, ACCENT_15, FONT_FAMILY, BLUR_SM, BLUR_LG, SHADOW_SM, HOVER_BG } from "./theme";
 
@@ -372,6 +375,7 @@ export function OGMap({
   layers: layerIds,
   onDrawCreate,
   onDrawDelete,
+  onLassoSelect,
   showControls = true,
   showDetailCard = true,
   detailSections,
@@ -439,12 +443,16 @@ export function OGMap({
     return assets.find((a) => a.id === firstId) ?? null;
   }, [selectedIds, assets]);
 
-  // Selected overlay feature
+  // Selected overlay feature (single click)
   const [selectedOverlayFeature, setSelectedOverlayFeature] = useState<{
     overlayName: string;
     properties: Record<string, unknown>;
     geometryType: string;
   } | null>(null);
+
+  // Lasso selection state
+  const [lassoSelectedOverlayFeatures, setLassoSelectedOverlayFeatures] = useState<SelectedOverlayFeature[]>([]);
+  const [showSelectionSummary, setShowSelectionSummary] = useState(false);
 
   const showCount = showAssetCount ?? showWellCount;
 
@@ -1015,6 +1023,120 @@ export function OGMap({
     });
   }, []);
 
+  // ── Lasso / draw selection handler ──
+  const handleDrawCreate = useCallback(
+    (features: Feature[]) => {
+      // Find the drawn polygon
+      const drawnFeature = features.find(
+        (f) => f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon"
+      );
+      if (!drawnFeature || drawnFeature.geometry.type !== "Polygon") {
+        onDrawCreate?.(features);
+        return;
+      }
+
+      const polygon = drawnFeature as Feature<GeoPolygon>;
+
+      // ── 1. Select assets within polygon ──
+      const selectedAssetIds: string[] = [];
+      for (const asset of assets) {
+        const pt = turf.point([asset.coordinates.lng, asset.coordinates.lat]);
+        if (turf.booleanPointInPolygon(pt, polygon)) {
+          selectedAssetIds.push(asset.id);
+        }
+      }
+
+      if (selectedAssetIds.length > 0) {
+        send({ type: "SELECT_MANY", ids: selectedAssetIds });
+      }
+
+      // ── 2. Find overlay features within polygon ──
+      const selectedOvFeatures: SelectedOverlayFeature[] = [];
+      for (const overlay of overlays) {
+        if (!overlay.visible) continue;
+        for (let i = 0; i < overlay.geojson.features.length; i++) {
+          const feature = overlay.geojson.features[i];
+          try {
+            if (feature.geometry.type === "Point") {
+              const coords = feature.geometry.coordinates as [number, number];
+              const pt = turf.point(coords);
+              if (turf.booleanPointInPolygon(pt, polygon)) {
+                selectedOvFeatures.push({
+                  overlayId: overlay.id,
+                  overlayName: overlay.name,
+                  featureIndex: i,
+                  properties: (feature.properties ?? {}) as Record<string, unknown>,
+                  geometryType: feature.geometry.type,
+                });
+              }
+            } else if (
+              feature.geometry.type === "LineString" ||
+              feature.geometry.type === "Polygon" ||
+              feature.geometry.type === "MultiPolygon"
+            ) {
+              // Check if any part of the feature intersects the drawn polygon
+              if (turf.booleanIntersects(feature, polygon)) {
+                selectedOvFeatures.push({
+                  overlayId: overlay.id,
+                  overlayName: overlay.name,
+                  featureIndex: i,
+                  properties: (feature.properties ?? {}) as Record<string, unknown>,
+                  geometryType: feature.geometry.type,
+                });
+              }
+            }
+          } catch {
+            // Skip features with invalid geometry
+          }
+        }
+      }
+
+      setLassoSelectedOverlayFeatures(selectedOvFeatures);
+
+      // Show summary if anything was selected
+      if (selectedAssetIds.length > 0 || selectedOvFeatures.length > 0) {
+        setShowSelectionSummary(true);
+        setSelectedOverlayFeature(null);
+
+        // Fire lasso callback with selected items
+        const selectedAssets = assets.filter((a) => selectedAssetIds.includes(a.id));
+        onLassoSelect?.(selectedAssets, selectedOvFeatures);
+      }
+
+      // Still fire the external callback
+      onDrawCreate?.(features);
+    },
+    [assets, overlays, send, onDrawCreate, onLassoSelect]
+  );
+
+  const handleDrawDelete = useCallback(() => {
+    send({ type: "CLEAR_SELECTION" });
+    setLassoSelectedOverlayFeatures([]);
+    setShowSelectionSummary(false);
+    onDrawDelete?.();
+  }, [send, onDrawDelete]);
+
+  const handleSelectionSummaryClose = useCallback(() => {
+    send({ type: "CLEAR_SELECTION" });
+    setLassoSelectedOverlayFeatures([]);
+    setShowSelectionSummary(false);
+  }, [send]);
+
+  const handleSelectAssetFromSummary = useCallback(
+    (asset: Asset) => {
+      send({ type: "SELECT", id: asset.id });
+      setShowSelectionSummary(false);
+      onAssetClick?.(asset);
+    },
+    [send, onAssetClick]
+  );
+
+  // Resolve selected assets for summary card
+  const lassoSelectedAssets = useMemo(() => {
+    if (!showSelectionSummary || selectedIds.size <= 1) return [];
+    return assets.filter((a) => selectedIds.has(a.id));
+  }, [showSelectionSummary, selectedIds, assets]);
+
   const mapInstance = mapReady ? mapRef.current : null;
   const legend = LEGEND_ITEMS[colorBy];
 
@@ -1049,8 +1171,8 @@ export function OGMap({
           layers={layerIds}
           visibleLayers={visibleLayers}
           onLayerToggle={handleLayerToggle}
-          onDrawCreate={onDrawCreate}
-          onDrawDelete={onDrawDelete}
+          onDrawCreate={handleDrawCreate}
+          onDrawDelete={handleDrawDelete}
           onFitToAssets={handleFitToAssets}
           overlay={enableOverlayUpload ? {
             overlays,
@@ -1067,8 +1189,19 @@ export function OGMap({
         />
       )}
 
-      {/* Asset Detail Card */}
-      {showDetailCard && (
+      {/* Lasso Selection Summary Card (multi-select) */}
+      {showSelectionSummary && (lassoSelectedAssets.length > 0 || lassoSelectedOverlayFeatures.length > 0) && (
+        <SelectionSummaryCard
+          assets={lassoSelectedAssets}
+          overlayFeatures={lassoSelectedOverlayFeatures}
+          typeConfigs={typeConfigMap}
+          onClose={handleSelectionSummaryClose}
+          onSelectAsset={handleSelectAssetFromSummary}
+        />
+      )}
+
+      {/* Asset Detail Card (single select — hidden when summary is showing) */}
+      {showDetailCard && !showSelectionSummary && (
         <AssetDetailCard
           asset={selectedAsset}
           typeConfigs={typeConfigMap}
@@ -1080,7 +1213,7 @@ export function OGMap({
       )}
 
       {/* Overlay Feature Detail Card */}
-      {selectedOverlayFeature && !selectedAsset && (
+      {selectedOverlayFeature && !selectedAsset && !showSelectionSummary && (
         <OverlayFeatureDetail
           overlayName={selectedOverlayFeature.overlayName}
           properties={selectedOverlayFeature.properties}
