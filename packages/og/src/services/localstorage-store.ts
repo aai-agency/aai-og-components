@@ -1,4 +1,4 @@
-import type { Asset, AssetQuery, AssetStore, MapOverlay } from "../types";
+import type { Asset, AssetQuery, AssetStore, MapOverlay, SavedMapView, StoreExport } from "../types";
 
 const DEFAULT_PREFIX = "og-map";
 
@@ -16,12 +16,8 @@ export class LocalStorageStore implements AssetStore {
 
   // ── Keys ──
 
-  private get assetsKey() {
-    return `${this.prefix}:assets`;
-  }
-
-  private get overlaysKey() {
-    return `${this.prefix}:overlays`;
+  private key(name: string) {
+    return `${this.prefix}:${name}`;
   }
 
   // ── Helpers ──
@@ -39,7 +35,6 @@ export class LocalStorageStore implements AssetStore {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (e) {
-      // localStorage might be full — warn but don't crash
       console.warn(`[LocalStorageStore] Failed to write "${key}":`, e);
     }
   }
@@ -47,11 +42,11 @@ export class LocalStorageStore implements AssetStore {
   // ── Asset methods ──
 
   private loadAssets(): Asset[] {
-    return this.readJSON<Asset[]>(this.assetsKey, []);
+    return this.readJSON<Asset[]>(this.key("assets"), []);
   }
 
   private saveAssets(assets: Asset[]): void {
-    this.writeJSON(this.assetsKey, assets);
+    this.writeJSON(this.key("assets"), assets);
   }
 
   async getAssets(query?: AssetQuery): Promise<Asset[]> {
@@ -128,11 +123,11 @@ export class LocalStorageStore implements AssetStore {
   // ── Overlay methods ──
 
   private loadOverlays(): MapOverlay[] {
-    return this.readJSON<MapOverlay[]>(this.overlaysKey, []);
+    return this.readJSON<MapOverlay[]>(this.key("overlays"), []);
   }
 
   private saveOverlays(overlays: MapOverlay[]): void {
-    this.writeJSON(this.overlaysKey, overlays);
+    this.writeJSON(this.key("overlays"), overlays);
   }
 
   async getOverlays(): Promise<MapOverlay[]> {
@@ -156,13 +151,93 @@ export class LocalStorageStore implements AssetStore {
     this.saveOverlays(overlays);
   }
 
+  // ── Map Views ──
+
+  private loadMapViews(): SavedMapView[] {
+    return this.readJSON<SavedMapView[]>(this.key("map-views"), []);
+  }
+
+  private saveMapViews(views: SavedMapView[]): void {
+    this.writeJSON(this.key("map-views"), views);
+  }
+
+  async getMapViews(): Promise<SavedMapView[]> {
+    return this.loadMapViews();
+  }
+
+  async saveMapView(view: SavedMapView): Promise<SavedMapView> {
+    const views = this.loadMapViews();
+    const idx = views.findIndex((v) => v.id === view.id);
+    if (idx >= 0) {
+      views[idx] = view;
+    } else {
+      views.push(view);
+    }
+    this.saveMapViews(views);
+    return view;
+  }
+
+  async deleteMapView(id: string): Promise<void> {
+    const views = this.loadMapViews().filter((v) => v.id !== id);
+    this.saveMapViews(views);
+  }
+
+  // ── Preferences ──
+
+  async getPreference<T = unknown>(key: string): Promise<T | null> {
+    return this.readJSON<T | null>(this.key(`pref:${key}`), null);
+  }
+
+  async savePreference(key: string, value: unknown): Promise<void> {
+    this.writeJSON(this.key(`pref:${key}`), value);
+  }
+
+  // ── Migration ──
+
+  async exportAll(): Promise<StoreExport> {
+    // Collect all preferences by scanning localStorage keys
+    const preferences: Record<string, unknown> = {};
+    const prefPrefix = this.key("pref:");
+    for (let i = 0; i < localStorage.length; i++) {
+      const lsKey = localStorage.key(i);
+      if (lsKey?.startsWith(prefPrefix)) {
+        const prefKey = lsKey.slice(prefPrefix.length);
+        preferences[prefKey] = this.readJSON(lsKey, null);
+      }
+    }
+
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      assets: this.loadAssets(),
+      overlays: this.loadOverlays(),
+      mapViews: this.loadMapViews(),
+      preferences,
+    };
+  }
+
+  async importAll(data: StoreExport): Promise<void> {
+    this.clear();
+    this.saveAssets(data.assets);
+    this.saveOverlays(data.overlays);
+    this.saveMapViews(data.mapViews);
+    for (const [key, value] of Object.entries(data.preferences)) {
+      await this.savePreference(key, value);
+    }
+  }
+
   // ── Utility ──
 
   /** Clear all data for this store prefix */
   clear(): void {
     try {
-      localStorage.removeItem(this.assetsKey);
-      localStorage.removeItem(this.overlaysKey);
+      // Remove all keys with our prefix
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(this.prefix + ":")) keysToRemove.push(key);
+      }
+      for (const key of keysToRemove) localStorage.removeItem(key);
     } catch {
       // noop
     }

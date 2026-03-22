@@ -1,4 +1,4 @@
-import type { Asset, AssetQuery, AssetStore, MapOverlay } from "../types";
+import type { Asset, AssetQuery, AssetStore, MapOverlay, SavedMapView, StoreExport } from "../types";
 
 /**
  * In-memory asset store — no persistence, zero dependencies.
@@ -7,12 +7,16 @@ import type { Asset, AssetQuery, AssetStore, MapOverlay } from "../types";
 export class InMemoryStore implements AssetStore {
   private assets = new Map<string, Asset>();
   private overlays = new Map<string, MapOverlay>();
+  private mapViews = new Map<string, SavedMapView>();
+  private prefs = new Map<string, unknown>();
 
   constructor(initialAssets?: Asset[]) {
     if (initialAssets) {
       for (const a of initialAssets) this.assets.set(a.id, a);
     }
   }
+
+  // ── Assets ──
 
   async getAssets(query?: AssetQuery): Promise<Asset[]> {
     let results = Array.from(this.assets.values());
@@ -77,6 +81,8 @@ export class InMemoryStore implements AssetStore {
     this.assets.delete(id);
   }
 
+  // ── Overlays ──
+
   async getOverlays(): Promise<MapOverlay[]> {
     return Array.from(this.overlays.values());
   }
@@ -88,5 +94,58 @@ export class InMemoryStore implements AssetStore {
 
   async deleteOverlay(id: string): Promise<void> {
     this.overlays.delete(id);
+  }
+
+  // ── Map Views ──
+
+  async getMapViews(): Promise<SavedMapView[]> {
+    return Array.from(this.mapViews.values());
+  }
+
+  async saveMapView(view: SavedMapView): Promise<SavedMapView> {
+    this.mapViews.set(view.id, view);
+    return view;
+  }
+
+  async deleteMapView(id: string): Promise<void> {
+    this.mapViews.delete(id);
+  }
+
+  // ── Preferences ──
+
+  async getPreference<T = unknown>(key: string): Promise<T | null> {
+    return (this.prefs.get(key) as T) ?? null;
+  }
+
+  async savePreference(key: string, value: unknown): Promise<void> {
+    this.prefs.set(key, value);
+  }
+
+  // ── Migration ──
+
+  async exportAll(): Promise<StoreExport> {
+    const preferences: Record<string, unknown> = {};
+    for (const [k, v] of this.prefs) preferences[k] = v;
+
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      assets: Array.from(this.assets.values()),
+      overlays: Array.from(this.overlays.values()),
+      mapViews: Array.from(this.mapViews.values()),
+      preferences,
+    };
+  }
+
+  async importAll(data: StoreExport): Promise<void> {
+    this.assets.clear();
+    this.overlays.clear();
+    this.mapViews.clear();
+    this.prefs.clear();
+
+    for (const a of data.assets) this.assets.set(a.id, a);
+    for (const o of data.overlays) this.overlays.set(o.id, o);
+    for (const v of data.mapViews) this.mapViews.set(v.id, v);
+    for (const [k, v] of Object.entries(data.preferences)) this.prefs.set(k, v);
   }
 }

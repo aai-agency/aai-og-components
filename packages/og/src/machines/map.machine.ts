@@ -115,11 +115,23 @@ function fitBoundsFromAssets(assets: Asset[]): MapViewState {
   return { longitude: centerLng, latitude: centerLat, zoom };
 }
 
+// ── Side-effect helpers ──────────────────────────────────────────────────────
+
+/** Fire-and-forget delete overlay from store */
+function removeOverlayFromStore(store: AssetStore | null, id: string) {
+  if (!store) return;
+  store.deleteOverlay(id).catch(() => {});
+}
+
 // ── Actors (async services) ──────────────────────────────────────────────────
 
-const loadFromStore = fromPromise<Asset[], { store: AssetStore }>(
+const loadFromStore = fromPromise<{ assets: Asset[]; overlays: MapOverlay[] }, { store: AssetStore }>(
   async ({ input }) => {
-    return input.store.getAssets();
+    const [assets, overlays] = await Promise.all([
+      input.store.getAssets(),
+      input.store.getOverlays(),
+    ]);
+    return { assets, overlays };
   }
 );
 
@@ -157,11 +169,8 @@ const parseOverlayFile = fromPromise<MapOverlay, { file: File; files?: File[]; e
   }
 );
 
-const persistOverlay = fromPromise<MapOverlay, { store: AssetStore; overlay: MapOverlay }>(
-  async ({ input }) => {
-    return input.store.saveOverlay(input.overlay);
-  }
-);
+// persistOverlay, loadOverlaysFromStore, deleteOverlayFromStore are now handled
+// inline in assign actions via fire-and-forget calls to context.store.
 
 // ── Machine ──────────────────────────────────────────────────────────────────
 
@@ -182,7 +191,6 @@ export const mapMachine = setup({
   actors: {
     loadFromStore,
     parseOverlayFile,
-    persistOverlay,
   },
 }).createMachine({
   id: "ogMap",
@@ -267,9 +275,10 @@ export const mapMachine = setup({
         onDone: {
           target: "ready",
           actions: assign(({ event }) => {
-            const assets = event.output;
+            const { assets, overlays } = event.output;
             return {
               assets,
+              overlays,
               visibleIndices: Array.from({ length: assets.length }, (_, i) => i),
               viewState: fitBoundsFromAssets(assets),
               error: null,
@@ -409,41 +418,53 @@ export const mapMachine = setup({
           }),
         },
 
-        // ── Overlays ──
+        // ── Overlays (auto-persist to store) ──
         ADD_OVERLAY: {
-          actions: assign(({ context, event }) => ({
-            overlays: [...context.overlays, event.overlay],
-          })),
+          actions: assign(({ context, event }) => {
+            const overlays = [...context.overlays, event.overlay];
+            if (context.store) context.store.saveOverlay(event.overlay).catch(() => {});
+            return { overlays };
+          }),
         },
         REMOVE_OVERLAY: {
-          actions: assign(({ context, event }) => ({
-            overlays: context.overlays.filter((o) => o.id !== event.id),
-          })),
+          actions: assign(({ context, event }) => {
+            removeOverlayFromStore(context.store, event.id);
+            return { overlays: context.overlays.filter((o) => o.id !== event.id) };
+          }),
         },
         TOGGLE_OVERLAY: {
-          actions: assign(({ context, event }) => ({
-            overlays: context.overlays.map((o) =>
+          actions: assign(({ context, event }) => {
+            const overlays = context.overlays.map((o) =>
               o.id === event.id ? { ...o, visible: !o.visible } : o
-            ),
-          })),
+            );
+            const updated = overlays.find((o) => o.id === event.id);
+            if (updated && context.store) context.store.saveOverlay(updated).catch(() => {});
+            return { overlays };
+          }),
         },
         RENAME_OVERLAY: {
-          actions: assign(({ context, event }) => ({
-            overlays: context.overlays.map((o) =>
+          actions: assign(({ context, event }) => {
+            const overlays = context.overlays.map((o) =>
               o.id === event.id ? { ...o, name: event.name } : o
-            ),
-          })),
+            );
+            const updated = overlays.find((o) => o.id === event.id);
+            if (updated && context.store) context.store.saveOverlay(updated).catch(() => {});
+            return { overlays };
+          }),
         },
         UPDATE_OVERLAY_STYLE: {
-          actions: assign(({ context, event }) => ({
-            overlays: context.overlays.map((o) =>
+          actions: assign(({ context, event }) => {
+            const overlays = context.overlays.map((o) =>
               o.id === event.id ? { ...o, style: { ...o.style, ...event.style } } : o
-            ),
-          })),
+            );
+            const updated = overlays.find((o) => o.id === event.id);
+            if (updated && context.store) context.store.saveOverlay(updated).catch(() => {});
+            return { overlays };
+          }),
         },
         UPDATE_FEATURE_OVERRIDE: {
-          actions: assign(({ context, event }) => ({
-            overlays: context.overlays.map((o) => {
+          actions: assign(({ context, event }) => {
+            const overlays = context.overlays.map((o) => {
               if (o.id !== event.id) return o;
               const overrides = [...(o.featureOverrides ?? [])];
               const idx = overrides.findIndex((f) => f.featureIndex === event.featureIndex);
@@ -458,8 +479,11 @@ export const mapMachine = setup({
                 overrides.push(update);
               }
               return { ...o, featureOverrides: overrides };
-            }),
-          })),
+            });
+            const updated = overlays.find((o) => o.id === event.id);
+            if (updated && context.store) context.store.saveOverlay(updated).catch(() => {});
+            return { overlays };
+          }),
         },
         REUPLOAD_OVERLAY: {
           target: ".reuploading",
@@ -498,16 +522,22 @@ export const mapMachine = setup({
               actions: assign(({ context, event }) => {
                 // Check if an overlay with the same fileName already exists (versioning)
                 const existing = context.overlays.find((o) => o.fileName === event.output.fileName);
+                let overlays: MapOverlay[];
                 if (existing) {
-                  return {
-                    overlays: context.overlays.map((o) =>
-                      o.id === existing.id
-                        ? { ...event.output, id: existing.id, name: existing.name, style: existing.style, featureOverrides: existing.featureOverrides, version: (existing.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
-                        : o
-                    ),
-                  };
+                  overlays = context.overlays.map((o) =>
+                    o.id === existing.id
+                      ? { ...event.output, id: existing.id, name: existing.name, style: existing.style, featureOverrides: existing.featureOverrides, version: (existing.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
+                      : o
+                  );
+                } else {
+                  overlays = [...context.overlays, event.output];
                 }
-                return { overlays: [...context.overlays, event.output] };
+                // Auto-persist new/updated overlay
+                const savedOverlay = existing
+                  ? overlays.find((o) => o.id === existing.id)!
+                  : event.output;
+                if (context.store) context.store.saveOverlay(savedOverlay).catch(() => {});
+                return { overlays };
               }),
             },
             onError: {
@@ -530,13 +560,14 @@ export const mapMachine = setup({
               actions: assign(({ context, event }) => {
                 const newOverlay = event.output;
                 const existing = context.overlays.find((o) => o.id === newOverlay.id);
-                return {
-                  overlays: context.overlays.map((o) =>
-                    o.id === newOverlay.id
-                      ? { ...newOverlay, name: existing?.name ?? newOverlay.name, style: existing?.style, version: (existing?.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
-                      : o
-                  ),
-                };
+                const overlays = context.overlays.map((o) =>
+                  o.id === newOverlay.id
+                    ? { ...newOverlay, name: existing?.name ?? newOverlay.name, style: existing?.style, version: (existing?.version ?? 1) + 1, uploadedAt: new Date().toISOString() }
+                    : o
+                );
+                const savedOverlay = overlays.find((o) => o.id === newOverlay.id);
+                if (savedOverlay && context.store) context.store.saveOverlay(savedOverlay).catch(() => {});
+                return { overlays };
               }),
             },
             onError: {

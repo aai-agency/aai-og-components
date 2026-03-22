@@ -12,6 +12,8 @@ export type {
   AssetCluster,
   AssetQuery,
   AssetStore,
+  StoreExport,
+  SavedMapView,
   Coordinates,
   LineGeometry,
   PolygonGeometry,
@@ -69,4 +71,5 @@ export { mapMachine } from "./machines";
 export type { MapContext, MapEvent, MapInput, MapMachine } from "./machines";
 
 // Services
-export { InMemoryStore, LocalStorageStore, SqliteStore } from "./services";
+export { InMemoryStore, LocalStorageStore, SqliteStore, createSqliteStore, migrateStore } from "./services";
+export type { SqlJsDatabase } from "./services";

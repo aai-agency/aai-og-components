@@ -235,6 +235,19 @@ export interface MapOverlay {
   imageBounds?: [number, number, number, number];
 }
 
+// ── Saved Map Views ──────────────────────────────────────────────────────────
+
+export interface SavedMapView {
+  id: string;
+  name: string;
+  viewState: MapViewState;
+  colorBy?: ColorScheme;
+  /** IDs of visible overlays at time of save */
+  visibleOverlayIds?: string[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // ── Service Layer Types ──────────────────────────────────────────────────────
 
 export interface AssetQuery {
@@ -252,7 +265,18 @@ export interface AssetQuery {
   offset?: number;
 }
 
+/** Portable snapshot of all store data — used for migration between adapters */
+export interface StoreExport {
+  version: 1;
+  exportedAt: string;
+  assets: Asset[];
+  overlays: MapOverlay[];
+  mapViews: SavedMapView[];
+  preferences: Record<string, unknown>;
+}
+
 export interface AssetStore {
+  // ── Assets ──
   getAssets(query?: AssetQuery): Promise<Asset[]>;
   getAsset(id: string): Promise<Asset | null>;
   createAsset(asset: Asset): Promise<Asset>;
@@ -260,10 +284,23 @@ export interface AssetStore {
   updateAsset(id: string, data: Partial<Asset>): Promise<Asset>;
   deleteAsset(id: string): Promise<void>;
 
-  /** Overlay/layer persistence */
+  // ── Overlays ──
   getOverlays(): Promise<MapOverlay[]>;
   saveOverlay(overlay: MapOverlay): Promise<MapOverlay>;
   deleteOverlay(id: string): Promise<void>;
+
+  // ── Map Views (bookmarks) ──
+  getMapViews(): Promise<SavedMapView[]>;
+  saveMapView(view: SavedMapView): Promise<SavedMapView>;
+  deleteMapView(id: string): Promise<void>;
+
+  // ── Preferences (key-value) ──
+  getPreference<T = unknown>(key: string): Promise<T | null>;
+  savePreference(key: string, value: unknown): Promise<void>;
+
+  // ── Migration ──
+  exportAll(): Promise<StoreExport>;
+  importAll(data: StoreExport): Promise<void>;
 }
 
 // ── Backward Compatibility ───────────────────────────────────────────────────
