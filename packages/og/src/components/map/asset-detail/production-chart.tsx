@@ -396,24 +396,100 @@ function drawVarianceSegment(
 //
 // This gives us pure 60fps canvas updates with zero GC pressure.
 
-function forecastDragPlugin(
-  forecastSeriesIndices: number[],
-  scale: string,
-  offsetRef: { current: number },
-  baseForecastRef: { current: Map<number, Float64Array> },
-  _onOffsetChange: (offset: number) => void,
-  onDragEnd: (offset: number) => void,
-): uPlot.Plugin {
+interface ForecastDragOpts {
+  forecastSeriesIndices: number[];
+  scale: string;
+  offsetRef: { current: number };
+  baseForecastRef: { current: Map<number, Float64Array> };
+  onDragEnd: (offset: number) => void;
+  // DCA-specific (optional — enables keyboard-modified parameter drag)
+  dcaConfigRef?: { current: DCAForecastConfig | undefined };
+  dcaOutputRef?: { current: Float64Array | null };
+  onDCAConfigChange?: (config: DCAForecastConfig) => void;
+  timestamps?: ArrayLike<number>;
+}
+
+function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
+  const {
+    forecastSeriesIndices, scale, offsetRef, baseForecastRef,
+    onDragEnd, dcaConfigRef, dcaOutputRef, onDCAConfigChange, timestamps,
+  } = opts;
+
   let isDragging = false;
   let dragStartY = 0;
   let dragStartOffset = 0;
   let rafId = 0;
   let pendingOffset: number | null = null;
 
+  // Keyboard state for DCA parameter modifiers
+  const keys = { d: false, b: false, q: false };
+  let paramIndicator: HTMLDivElement | null = null;
+  let dragStartConfig: DCAForecastConfig | null = null;
+
+  function getActiveParam(): string {
+    if (keys.d) return "D";
+    if (keys.b) return "b";
+    if (keys.q) return "qi";
+    return "qi"; // default: shift entire curve
+  }
+
+  function updateIndicator(param: string) {
+    if (!paramIndicator) return;
+    if (!isDragging || !dcaConfigRef?.current) {
+      paramIndicator.style.display = "none";
+      return;
+    }
+    const label = getParamLabel(param);
+    paramIndicator.textContent = `Adjusting: ${label}`;
+    paramIndicator.style.display = "block";
+  }
+
   return {
     hooks: {
       init: (u: uPlot) => {
         const over = u.over;
+
+        // Create parameter indicator overlay
+        paramIndicator = document.createElement("div");
+        Object.assign(paramIndicator.style, {
+          position: "absolute",
+          top: "4px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          padding: "2px 10px",
+          borderRadius: "4px",
+          background: "rgba(99, 102, 241, 0.9)",
+          color: "#ffffff",
+          fontSize: "10px",
+          fontWeight: "600",
+          fontFamily: FONT_FAMILY,
+          pointerEvents: "none",
+          zIndex: "10",
+          display: "none",
+          whiteSpace: "nowrap",
+        });
+        over.parentElement?.appendChild(paramIndicator);
+
+        // Keyboard listeners for DCA parameter modifiers
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (!isDragging) return;
+          const key = e.key.toLowerCase();
+          if (key === "d") keys.d = true;
+          else if (key === "b") keys.b = true;
+          else if (key === "q") keys.q = true;
+          updateIndicator(getActiveParam());
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+          const key = e.key.toLowerCase();
+          if (key === "d") keys.d = false;
+          else if (key === "b") keys.b = false;
+          else if (key === "q") keys.q = false;
+          if (isDragging) updateIndicator(getActiveParam());
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
 
         over.addEventListener("mousedown", (e: MouseEvent) => {
           const rect = over.getBoundingClientRect();
@@ -421,7 +497,6 @@ function forecastDragPlugin(
           const idx = u.cursor.idx;
           if (idx == null || idx < 0) return;
 
-          // Check proximity to any forecast line
           let nearForecast = false;
           for (const fIdx of forecastSeriesIndices) {
             const forecastVal = u.data[fIdx]?.[idx];
@@ -441,8 +516,12 @@ function forecastDragPlugin(
             e.preventDefault();
             e.stopPropagation();
 
-            // Snapshot base forecast values (without current offset) on drag start
-            // so we can apply offset as pure addition during drag
+            // Snapshot DCA config at drag start for parameter adjustment
+            if (dcaConfigRef?.current) {
+              dragStartConfig = JSON.parse(JSON.stringify(dcaConfigRef.current));
+            }
+
+            // Snapshot base forecast values
             for (const fIdx of forecastSeriesIndices) {
               const data = u.data[fIdx];
               if (!data) continue;
@@ -454,12 +533,56 @@ function forecastDragPlugin(
                 baseForecastRef.current.set(fIdx, base);
               }
             }
+
+            updateIndicator(getActiveParam());
           }
         });
 
         const applyOffset = (u: uPlot, newOffset: number) => {
+          // DCA mode: adjust parameter instead of simple offset
+          if (dcaConfigRef?.current && dragStartConfig && dcaOutputRef && timestamps) {
+            const dy = newOffset - dragStartOffset;
+            const param = getActiveParam();
+
+            // Scale the delta appropriately for each parameter
+            let paramDelta = dy;
+            if (param === "D") paramDelta = dy * 0.000001; // D is small (0.001 range)
+            else if (param === "b") paramDelta = dy * 0.0005; // b is 0-2 range
+
+            // Adjust all segments
+            const newSegments = dragStartConfig.segments.map((seg) => ({
+              ...seg,
+              model: adjustParam(seg.model, param, paramDelta),
+            }));
+
+            const newConfig: DCAForecastConfig = {
+              ...dragStartConfig,
+              segments: dragStartConfig.enforceContinuity ? enforceContinuity(newSegments) : newSegments,
+            };
+            dcaConfigRef.current = newConfig;
+
+            // Regenerate forecast into pre-allocated array
+            const n = timestamps.length;
+            if (!dcaOutputRef.current || dcaOutputRef.current.length !== n) {
+              dcaOutputRef.current = new Float64Array(n);
+            }
+            generateSegmentedForecast(newConfig, timestamps, dcaOutputRef.current);
+
+            // Copy into uPlot data arrays
+            for (const fIdx of forecastSeriesIndices) {
+              const data = u.data[fIdx] as number[];
+              if (!data || !dcaOutputRef.current) continue;
+              for (let i = 0; i < data.length; i++) {
+                data[i] = dcaOutputRef.current[i];
+              }
+            }
+
+            u.redraw(false);
+            return;
+          }
+
+          // Legacy mode: simple offset addition
           const delta = newOffset - dragStartOffset;
-          // Mutate data arrays in-place — zero allocations
           for (const fIdx of forecastSeriesIndices) {
             const base = baseForecastRef.current.get(fIdx);
             const data = u.data[fIdx] as number[];
@@ -468,7 +591,6 @@ function forecastDragPlugin(
               data[i] = Math.max(0, base[i] + delta);
             }
           }
-          // Direct canvas redraw — no React, no state, no useMemo
           u.redraw(false);
         };
 
@@ -486,7 +608,6 @@ function forecastDragPlugin(
           offsetRef.current = newOffset;
           pendingOffset = newOffset;
 
-          // Batch to rAF — never render more than once per frame
           if (!rafId) {
             rafId = requestAnimationFrame(() => {
               if (pendingOffset != null) {
@@ -502,19 +623,27 @@ function forecastDragPlugin(
           if (isDragging) {
             isDragging = false;
             over.style.cursor = "";
+            if (paramIndicator) paramIndicator.style.display = "none";
+            keys.d = false;
+            keys.b = false;
+            keys.q = false;
+
             if (rafId) {
               cancelAnimationFrame(rafId);
               rafId = 0;
             }
-            // Apply any pending offset
             if (pendingOffset != null) {
               applyOffset(u, pendingOffset);
               pendingOffset = null;
             }
-            // Clear base snapshots
             baseForecastRef.current.clear();
-            // Sync final offset to React (single state update)
+
+            // Sync DCA config to React if in DCA mode
+            if (dcaConfigRef?.current && onDCAConfigChange) {
+              onDCAConfigChange(dcaConfigRef.current);
+            }
             onDragEnd(offsetRef.current);
+            dragStartConfig = null;
           }
         };
 
@@ -1135,14 +1264,17 @@ export const ProductionChart = memo(({
       if (forecastIndices.length > 0) {
         const firstActual = forecastSeriesMap.current.keys().next().value;
         const scaleKey = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
-        plugins.push(forecastDragPlugin(
-          forecastIndices,
-          scaleKey,
-          forecastOffsetRef,
+        plugins.push(forecastDragPlugin({
+          forecastSeriesIndices: forecastIndices,
+          scale: scaleKey,
+          offsetRef: forecastOffsetRef,
           baseForecastRef,
-          handleForecastOffsetChange,
-          handleDragEnd,
-        ));
+          onDragEnd: handleDragEnd,
+          dcaConfigRef: controlledDCAConfig ? dcaConfigRef as { current: DCAForecastConfig | undefined } : undefined,
+          dcaOutputRef: controlledDCAConfig ? dcaOutputRef : undefined,
+          onDCAConfigChange,
+          timestamps: aligned.data[0] as number[],
+        }));
       }
 
       // Add segment boundary plugin when DCA config is present
