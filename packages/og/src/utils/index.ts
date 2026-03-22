@@ -1,5 +1,38 @@
 import type { Asset, AssetTypeConfig, Well, Coordinates, ColorScheme, MapViewState } from "../types";
 
+// DCA (Decline Curve Analysis) utilities
+export {
+  evaluateDCA,
+  evaluateSegmented,
+  generateSegmentedForecast,
+  enforceContinuity,
+  fitExponential,
+  adjustParam,
+  getModelParamNames,
+  getParamLabel,
+  parseCustomEquation,
+  clearEquationCache,
+  genSegmentId,
+  createDefaultConfig,
+  splitSegment,
+  removeSegment,
+  changeSegmentModel,
+  DCA_MODEL_LABELS,
+} from "./dca";
+export type {
+  DCAModelType,
+  DCAModel,
+  DCASegment,
+  DCAForecastConfig,
+  ExponentialParams,
+  HyperbolicParams,
+  HarmonicParams,
+  ModifiedHyperbolicParams,
+  LinearParams,
+  CustomParams,
+  ParsedCustomEquation,
+} from "./dca";
+
 // ── Asset Type Color Defaults ────────────────────────────────────────────────
 
 const ASSET_TYPE_COLORS: Record<string, string> = {

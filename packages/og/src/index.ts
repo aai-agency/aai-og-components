@@ -66,6 +66,20 @@ export {
 // Utilities
 export { isValidCoordinates, filterPlottable, computeBounds, fitBounds, getAssetColor, getWellColor, formatNumber, csvRowToAsset, csvRowToWell } from "./utils";
 
+// DCA (Decline Curve Analysis)
+export {
+  evaluateDCA, evaluateSegmented, generateSegmentedForecast, enforceContinuity,
+  fitExponential, adjustParam, getModelParamNames, getParamLabel,
+  parseCustomEquation, clearEquationCache, genSegmentId,
+  createDefaultConfig, splitSegment, removeSegment, changeSegmentModel,
+  DCA_MODEL_LABELS,
+} from "./utils";
+export type {
+  DCAModelType, DCAModel, DCASegment, DCAForecastConfig,
+  ExponentialParams, HyperbolicParams, HarmonicParams,
+  ModifiedHyperbolicParams, LinearParams, CustomParams, ParsedCustomEquation,
+} from "./utils";
+
 // Machines (XState)
 export { mapMachine } from "./machines";
 export type { MapContext, MapEvent, MapInput, MapMachine } from "./machines";
