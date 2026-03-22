@@ -81,6 +81,8 @@ function ChartDemo() {
   const [pointCount, setPointCount] = useState(0);
   const [annotations, setAnnotations] = useState<ChartAnnotation[]>([]);
   const [genTime, setGenTime] = useState<number | null>(null);
+  const [showVariance, setShowVariance] = useState(true);
+  const [forecastOffset, setForecastOffset] = useState(0);
 
   // Load real data
   useEffect(() => {
@@ -146,6 +148,20 @@ function ChartDemo() {
                 </button>
               ))}
             </div>
+
+            {/* Variance toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowVariance(!showVariance); setForecastOffset(0); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  showVariance
+                    ? "bg-emerald-500 text-white"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                Variance Fill
+              </button>
+            </div>
           </div>
         </div>
 
@@ -159,6 +175,9 @@ function ChartDemo() {
               enableAnnotations={true}
               annotations={annotations}
               onAnnotationsChange={setAnnotations}
+              showVarianceFill={showVariance}
+              forecastOffset={forecastOffset}
+              onForecastOffsetChange={setForecastOffset}
             />
           ) : (
             <div className="h-[450px] flex items-center justify-center text-slate-400">

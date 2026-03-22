@@ -52,6 +52,20 @@ export interface ProductionChartProps {
    * Shown in the x-axis and used for annotation range labels.
    */
   xAxisLabel?: string;
+  /**
+   * Show variance fill between actual and forecast data.
+   * Green = actual > forecast (outperforming), Red = actual < forecast (underperforming).
+   * Default: false
+   */
+  showVarianceFill?: boolean;
+  /**
+   * Vertical offset applied to the forecast line (for drag adjustment).
+   * Positive = shift forecast up, negative = shift forecast down.
+   * If provided, component is controlled for drag.
+   */
+  forecastOffset?: number;
+  /** Called when the user drags the forecast line up/down */
+  onForecastOffsetChange?: (offset: number) => void;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -177,6 +191,256 @@ function buildAlignedData(
   }
 
   return { data: [timestamps, ...aligned] as uPlot.AlignedData, meta };
+}
+
+// ── Forecast Generation ──────────────────────────────────────────────────────
+
+/**
+ * Generate a synthetic forecast decline curve for a single fluid series.
+ * Uses exponential decline from the series' average of last N points,
+ * extending forward in time. Returns aligned values matching the timestamp array.
+ */
+function generateForecastValues(
+  timestamps: ArrayLike<number>,
+  actualValues: ArrayLike<number | null>,
+  offset: number,
+): (number | null)[] {
+  // Find the last N actual values to anchor the forecast
+  const lastN = 12;
+  const actuals: number[] = [];
+  for (let i = actualValues.length - 1; i >= 0 && actuals.length < lastN; i--) {
+    const v = actualValues[i];
+    if (v != null && v > 0) actuals.push(v);
+  }
+  if (actuals.length === 0) return Array(timestamps.length).fill(null);
+
+  actuals.reverse();
+  const anchor = actuals.reduce((s, v) => s + v, 0) / actuals.length;
+
+  // Compute a decline rate from the actual data (fit exponential)
+  let declineRate = 0.0005; // default: ~0.05% per time step
+  if (actuals.length >= 3) {
+    const first = actuals[0];
+    const last = actuals[actuals.length - 1];
+    if (first > 0 && last > 0 && first !== last) {
+      declineRate = Math.abs(Math.log(last / first)) / actuals.length;
+      declineRate = Math.max(0.0001, Math.min(0.005, declineRate));
+    }
+  }
+
+  // Generate forecast: for all timestamps, compute the expected value
+  // using exponential decline from the midpoint of the data
+  const midIdx = Math.floor(timestamps.length / 2);
+  const midTs = timestamps[midIdx];
+
+  const result: (number | null)[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const dt = i - midIdx;
+    const forecast = anchor * Math.exp(-declineRate * dt) + offset;
+    result.push(Math.max(0, forecast));
+  }
+  return result;
+}
+
+// ── Variance Fill Plugin ─────────────────────────────────────────────────────
+
+/**
+ * Draws filled areas between actual and forecast series.
+ * Green where actual > forecast (outperforming), red where actual < forecast.
+ */
+function varianceFillPlugin(
+  actualSeriesIdx: number,
+  forecastSeriesIdx: number,
+  scale: "y" | "y2",
+): uPlot.Plugin {
+  return {
+    hooks: {
+      draw: (u: uPlot) => {
+        const ctx = u.ctx;
+        const actualData = u.data[actualSeriesIdx] as (number | null)[];
+        const forecastData = u.data[forecastSeriesIdx] as (number | null)[];
+        if (!actualData || !forecastData) return;
+
+        // Check if both series are visible
+        if (!u.series[actualSeriesIdx]?.show || !u.series[forecastSeriesIdx]?.show) return;
+
+        const xData = u.data[0];
+        const dpr = devicePixelRatio;
+        const plotLeft = u.bbox.left / dpr;
+        const plotTop = u.bbox.top / dpr;
+        const plotWidth = u.bbox.width / dpr;
+        const plotHeight = u.bbox.height / dpr;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(plotLeft, plotTop, plotWidth, plotHeight);
+        ctx.clip();
+
+        // Build segments of continuous data
+        let segStart = -1;
+        for (let i = 0; i <= xData.length; i++) {
+          const aVal = i < xData.length ? actualData[i] : null;
+          const fVal = i < xData.length ? forecastData[i] : null;
+          const hasData = aVal != null && fVal != null;
+
+          if (hasData && segStart === -1) {
+            segStart = i;
+          } else if (!hasData && segStart !== -1) {
+            // Draw segment from segStart to i-1
+            drawVarianceSegment(ctx, u, xData, actualData, forecastData, scale, segStart, i - 1);
+            segStart = -1;
+          }
+        }
+
+        ctx.restore();
+      },
+    },
+  };
+}
+
+function drawVarianceSegment(
+  ctx: CanvasRenderingContext2D,
+  u: uPlot,
+  xData: ArrayLike<number>,
+  actualData: ArrayLike<number | null>,
+  forecastData: ArrayLike<number | null>,
+  scale: string,
+  from: number,
+  to: number,
+) {
+  if (to - from < 1) return;
+
+  // Collect points
+  const aPoints: [number, number][] = [];
+  const fPoints: [number, number][] = [];
+
+  for (let i = from; i <= to; i++) {
+    const x = u.valToPos(xData[i], "x", true);
+    const aY = u.valToPos(actualData[i] as number, scale, true);
+    const fY = u.valToPos(forecastData[i] as number, scale, true);
+    aPoints.push([x, aY]);
+    fPoints.push([x, fY]);
+  }
+
+  // Draw green fill where actual > forecast (actual Y is ABOVE = lower pixel value)
+  // Draw red fill where actual < forecast
+  // We do this by drawing sub-segments between crossover points
+
+  for (let i = 0; i < aPoints.length - 1; i++) {
+    const x0 = aPoints[i][0];
+    const x1 = aPoints[i + 1][0];
+    const aY0 = aPoints[i][1];
+    const aY1 = aPoints[i + 1][1];
+    const fY0 = fPoints[i][1];
+    const fY1 = fPoints[i + 1][1];
+
+    // In canvas, lower Y = higher value. actual above forecast means aY < fY
+    const outperforming0 = aY0 < fY0;
+    const outperforming1 = aY1 < fY1;
+
+    if (outperforming0 === outperforming1) {
+      // No crossover — fill solid
+      ctx.fillStyle = outperforming0 ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)";
+      ctx.beginPath();
+      ctx.moveTo(x0, aY0);
+      ctx.lineTo(x1, aY1);
+      ctx.lineTo(x1, fY1);
+      ctx.lineTo(x0, fY0);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Crossover — find intersection point
+      const t = (fY0 - aY0) / ((aY1 - aY0) - (fY1 - fY0));
+      const crossX = x0 + t * (x1 - x0);
+      const crossY = aY0 + t * (aY1 - aY0);
+
+      // First half
+      ctx.fillStyle = outperforming0 ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)";
+      ctx.beginPath();
+      ctx.moveTo(x0, aY0);
+      ctx.lineTo(crossX, crossY);
+      ctx.lineTo(x0, fY0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Second half
+      ctx.fillStyle = outperforming1 ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)";
+      ctx.beginPath();
+      ctx.moveTo(crossX, crossY);
+      ctx.lineTo(x1, aY1);
+      ctx.lineTo(x1, fY1);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+}
+
+// ── Forecast Drag Plugin ─────────────────────────────────────────────────────
+
+function forecastDragPlugin(
+  forecastSeriesIdx: number,
+  scale: string,
+  offsetRef: { current: number },
+  onOffsetChange: (offset: number) => void,
+): uPlot.Plugin {
+  let isDragging = false;
+  let dragStartY = 0;
+  let dragStartOffset = 0;
+
+  return {
+    hooks: {
+      init: (u: uPlot) => {
+        const over = u.over;
+
+        over.addEventListener("mousedown", (e: MouseEvent) => {
+          // Check if cursor is near the forecast line
+          const rect = over.getBoundingClientRect();
+          const mouseY = e.clientY - rect.top;
+          const idx = u.cursor.idx;
+          if (idx == null || idx < 0) return;
+
+          const forecastVal = u.data[forecastSeriesIdx]?.[idx];
+          if (forecastVal == null) return;
+
+          const forecastY = u.valToPos(forecastVal, scale, false);
+          const dist = Math.abs(mouseY - forecastY);
+
+          if (dist < 15) {
+            isDragging = true;
+            dragStartY = e.clientY;
+            dragStartOffset = offsetRef.current;
+            over.style.cursor = "ns-resize";
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        });
+
+        const handleMove = (e: MouseEvent) => {
+          if (!isDragging) return;
+          const dy = dragStartY - e.clientY;
+          // Convert pixel delta to value delta
+          const scaleMin = u.scales[scale]?.min ?? 0;
+          const scaleMax = u.scales[scale]?.max ?? 1000;
+          const plotHeight = u.bbox.height / devicePixelRatio;
+          const valuePerPx = (scaleMax - scaleMin) / plotHeight;
+          const newOffset = dragStartOffset + dy * valuePerPx;
+          offsetRef.current = newOffset;
+          onOffsetChange(newOffset);
+        };
+
+        const handleUp = () => {
+          if (isDragging) {
+            isDragging = false;
+            over.style.cursor = "";
+          }
+        };
+
+        over.addEventListener("mousemove", handleMove);
+        over.addEventListener("mouseup", handleUp);
+        over.addEventListener("mouseleave", handleUp);
+      },
+    },
+  };
 }
 
 // ── Tooltip Plugin ───────────────────────────────────────────────────────────
@@ -499,11 +763,33 @@ export const ProductionChart = memo(({
   onAnnotationsChange,
   formatXValue: formatXValueProp,
   xAxisLabel,
+  showVarianceFill = false,
+  forecastOffset: controlledForecastOffset,
+  onForecastOffsetChange,
 }: ProductionChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const brushContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
   const brushRef = useRef<uPlot | null>(null);
+
+  // Forecast offset state (for draggable forecast line)
+  const [internalOffset, setInternalOffset] = useState(0);
+  const forecastOffset = controlledForecastOffset ?? internalOffset;
+  const forecastOffsetRef = useRef(forecastOffset);
+  forecastOffsetRef.current = forecastOffset;
+
+  const handleForecastOffsetChange = useCallback(
+    (offset: number) => {
+      if (onForecastOffsetChange) {
+        onForecastOffsetChange(offset);
+      } else {
+        setInternalOffset(offset);
+      }
+      // Rebuild chart data with new offset for instant update
+      if (chartRef.current) chartRef.current.redraw();
+    },
+    [onForecastOffsetChange],
+  );
 
   // Annotation state
   const [internalAnnotations, setInternalAnnotations] = useState<ChartAnnotation[]>([]);
@@ -547,10 +833,55 @@ export const ProductionChart = memo(({
     [series, showForecast],
   );
 
-  const aligned = useMemo(
+  const baseAligned = useMemo(
     () => (filteredSeries.length > 0 ? buildAlignedData(filteredSeries, rightAxisFluids, colorMap) : null),
     [filteredSeries, rightAxisFluids, colorMap],
   );
+
+  // Augment with forecast series for variance fill (one forecast per actual series)
+  const forecastSeriesMap = useRef(new Map<number, number>()); // actualIdx → forecastIdx (1-based in data)
+  const aligned = useMemo(() => {
+    if (!baseAligned || !showVarianceFill) {
+      forecastSeriesMap.current.clear();
+      return baseAligned;
+    }
+
+    const newData = [...baseAligned.data] as (number | null | number)[][];
+    const newMeta = [...baseAligned.meta];
+    forecastSeriesMap.current.clear();
+
+    // Generate a forecast for each actual (non-forecast) series
+    const actualIndices: number[] = [];
+    for (let i = 0; i < baseAligned.meta.length; i++) {
+      if (!baseAligned.meta[i].isForecast) actualIndices.push(i);
+    }
+
+    for (const actualIdx of actualIndices) {
+      const actualData = baseAligned.data[actualIdx + 1] as (number | null)[]; // +1 because data[0] is timestamps
+      const forecastValues = generateForecastValues(
+        baseAligned.data[0] as number[],
+        actualData,
+        forecastOffset,
+      );
+
+      const forecastDataIdx = newData.length; // index in the data array
+      newData.push(forecastValues);
+
+      const meta = baseAligned.meta[actualIdx];
+      newMeta.push({
+        label: `${meta.label} (Forecast)`,
+        color: meta.color,
+        isForecast: true,
+        unit: meta.unit,
+        scale: meta.scale,
+      });
+
+      // Map: actualIdx (1-based data) → forecastIdx (1-based data)
+      forecastSeriesMap.current.set(actualIdx + 1, forecastDataIdx);
+    }
+
+    return { data: newData as uPlot.AlignedData, meta: newMeta };
+  }, [baseAligned, showVarianceFill, forecastOffset]);
 
   useEffect(() => {
     if (aligned) setVisibility(aligned.meta.map(() => true));
@@ -677,6 +1008,27 @@ export const ProductionChart = memo(({
       annotationsPlugin(annotationsRef),
     ];
 
+    // Add variance fill plugins for each actual/forecast pair
+    if (showVarianceFill) {
+      for (const [actualIdx, forecastIdx] of forecastSeriesMap.current) {
+        const meta = aligned.meta[actualIdx - 1];
+        plugins.push(varianceFillPlugin(actualIdx, forecastIdx, meta?.scale ?? "y"));
+      }
+
+      // Add drag plugin for the first forecast series
+      const firstForecast = forecastSeriesMap.current.values().next().value;
+      if (firstForecast != null) {
+        const firstActual = forecastSeriesMap.current.keys().next().value;
+        const scale = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
+        plugins.push(forecastDragPlugin(
+          firstForecast,
+          scale,
+          forecastOffsetRef,
+          handleForecastOffsetChange,
+        ));
+      }
+    }
+
     const opts: uPlot.Options = {
       width: chartWidth,
       height,
@@ -774,7 +1126,7 @@ export const ProductionChart = memo(({
         chartRef.current = null;
       }
     };
-  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode]);
+  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset]);
 
   // ── Create brush/overview chart ──
   useEffect(() => {
@@ -934,6 +1286,35 @@ export const ProductionChart = memo(({
 
         {/* Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {/* Forecast offset indicator */}
+          {showVarianceFill && forecastOffset !== 0 && (
+            <button
+              type="button"
+              onClick={() => handleForecastOffsetChange(0)}
+              title="Reset forecast offset"
+              style={{
+                fontSize: 9,
+                color: forecastOffset > 0 ? "#22c55e" : "#ef4444",
+                padding: "2px 6px",
+                background: forecastOffset > 0 ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                border: `1px solid ${forecastOffset > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                fontFamily: FONT_FAMILY,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              {forecastOffset > 0 ? "+" : ""}{formatNumber(forecastOffset, 0)}
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+
           {/* Point count badge */}
           {pointCount > 1000 && (
             <span style={{ fontSize: 9, color: TEXT_FAINT, padding: "2px 5px", background: "rgba(148,163,184,0.08)", borderRadius: 4 }}>
