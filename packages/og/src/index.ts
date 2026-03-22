@@ -1,6 +1,6 @@
 // Components
-export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager, SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./components";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps, SelectionSummaryCardProps, SelectionPanelProps, SelectedOverlayFeature, FilterChipsProps, FilterChip, MiniCardProps, MiniCardItem } from "./components";
+export { OGMap, MapControls, AssetDetailCard, ProductionChart, SegmentEditor, OverlayManager, SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./components";
+export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, SegmentEditorProps, OverlayManagerProps, SelectionSummaryCardProps, SelectionPanelProps, SelectedOverlayFeature, FilterChipsProps, FilterChip, MiniCardProps, MiniCardItem } from "./components";
 
 // Core Types
 export type {
