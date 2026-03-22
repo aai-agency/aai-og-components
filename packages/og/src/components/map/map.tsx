@@ -13,7 +13,7 @@ import { useClusters } from "./use-clusters";
 import { MapTooltip } from "./tooltip";
 import { MapControls, type MapLayerId } from "./controls";
 import { AssetDetailCard } from "./asset-detail";
-import { SelectionSummaryCard, type SelectedOverlayFeature } from "./selection-summary";
+import { SelectionPanel, type SelectedOverlayFeature } from "./selection-summary";
 import type { OGMapProps } from "./map.types";
 import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, PANEL_BG, PANEL_BG_LIGHT, BORDER, BORDER_SUBTLE, ACCENT, ACCENT_15, FONT_FAMILY, BLUR_SM, BLUR_LG, SHADOW_SM, HOVER_BG } from "./theme";
 
@@ -1189,9 +1189,9 @@ export function OGMap({
         />
       )}
 
-      {/* Lasso Selection Summary Card (multi-select) */}
+      {/* Lasso Selection Panel (multi-select) */}
       {showSelectionSummary && (lassoSelectedAssets.length > 0 || lassoSelectedOverlayFeatures.length > 0) && (
-        <SelectionSummaryCard
+        <SelectionPanel
           assets={lassoSelectedAssets}
           overlayFeatures={lassoSelectedOverlayFeatures}
           typeConfigs={typeConfigMap}
