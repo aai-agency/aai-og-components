@@ -41,6 +41,17 @@ export interface ProductionChartProps {
   annotations?: ChartAnnotation[];
   /** Called when annotations change */
   onAnnotationsChange?: (annotations: ChartAnnotation[]) => void;
+  /**
+   * Custom formatter for x-axis values (used in annotations, tooltips, labels).
+   * Receives the raw x value (epoch seconds for time series, or raw number).
+   * If omitted, auto-detects: time scale → date format, numeric → raw number.
+   */
+  formatXValue?: (value: number) => string;
+  /**
+   * X-axis label (e.g., "Days on Production", "Date", "Cum BOE").
+   * Shown in the x-axis and used for annotation range labels.
+   */
+  xAxisLabel?: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -83,6 +94,27 @@ const AXIS_STYLE = {
 
 const DATE_FMT = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 const DATE_FMT_FULL = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/**
+ * Auto-detect whether x values are epoch timestamps or raw numbers.
+ * Epoch seconds for dates are typically > 946684800 (Jan 1, 2000).
+ * Returns a formatter appropriate for the data.
+ */
+function autoFormatX(value: number, isTime: boolean): string {
+  if (isTime) {
+    return DATE_FMT_FULL.format(new Date(value * 1000));
+  }
+  return formatNumber(value, 1);
+}
+
+/** Detect if x-axis data represents time (epoch seconds) */
+function detectTimeScale(timestamps: ArrayLike<number>): boolean {
+  if (timestamps.length === 0) return true;
+  const first = timestamps[0];
+  // Epoch seconds for year 2000+ are > 946684800
+  // Raw day counts, cumulative values, etc. would be much smaller
+  return first > 946684800;
+}
 
 const DEFAULT_RIGHT_AXIS_FLUIDS = ["gas"];
 const BRUSH_HEIGHT = 40;
@@ -149,7 +181,7 @@ function buildAlignedData(
 
 // ── Tooltip Plugin ───────────────────────────────────────────────────────────
 
-function tooltipPlugin(meta: SeriesMeta[]): uPlot.Plugin {
+function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): uPlot.Plugin {
   let tooltip: HTMLDivElement;
 
   function init(_u: uPlot) {
@@ -186,7 +218,7 @@ function tooltipPlugin(meta: SeriesMeta[]): uPlot.Plugin {
       return;
     }
 
-    let html = `<div style="font-weight:600;margin-bottom:2px;color:#94a3b8">${DATE_FMT_FULL.format(new Date(ts * 1000))}</div>`;
+    let html = `<div style="font-weight:600;margin-bottom:2px;color:#94a3b8">${formatX(ts)}</div>`;
     let hasValue = false;
 
     for (let i = 0; i < meta.length; i++) {
@@ -313,11 +345,15 @@ function AnnotationList({
   onUpdate,
   onRemove,
   onToggleExpand,
+  formatX,
+  xLabel,
 }: {
   annotations: ChartAnnotation[];
   onUpdate: (id: string, text: string) => void;
   onRemove: (id: string) => void;
   onToggleExpand: (id: string) => void;
+  formatX: (value: number) => string;
+  xLabel?: string;
 }) {
   if (annotations.length === 0) return null;
 
@@ -349,9 +385,10 @@ function AnnotationList({
           />
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Date range */}
+            {/* Range label — uses dynamic formatter matching the x-axis */}
             <div style={{ fontSize: 9, color: TEXT_FAINT, marginBottom: 2 }}>
-              {DATE_FMT_FULL.format(new Date(ann.from * 1000))} — {DATE_FMT_FULL.format(new Date(ann.to * 1000))}
+              {xLabel ? <span style={{ fontWeight: 500 }}>{xLabel}: </span> : null}
+              {formatX(ann.from)} — {formatX(ann.to)}
             </div>
 
             {/* Editable text */}
@@ -460,6 +497,8 @@ export const ProductionChart = memo(({
   enableAnnotations = true,
   annotations: controlledAnnotations,
   onAnnotationsChange,
+  formatXValue: formatXValueProp,
+  xAxisLabel,
 }: ProductionChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const brushContainerRef = useRef<HTMLDivElement>(null);
@@ -535,6 +574,14 @@ export const ProductionChart = memo(({
   );
 
   const hasRightAxis = aligned ? aligned.meta.some((m) => m.scale === "y2") : false;
+
+  // ── Resolved x-axis formatter ──
+  // If user provides formatXValue, use that. Otherwise auto-detect from data.
+  const isTimeScale = aligned ? detectTimeScale(aligned.data[0]) : true;
+  const resolvedFormatX = useMemo(() => {
+    if (formatXValueProp) return formatXValueProp;
+    return (value: number) => autoFormatX(value, isTimeScale);
+  }, [formatXValueProp, isTimeScale]);
 
   // ── Reset zoom ──
   const handleResetZoom = useCallback(() => {
@@ -626,7 +673,7 @@ export const ProductionChart = memo(({
     }
 
     const plugins: uPlot.Plugin[] = [
-      tooltipPlugin(aligned.meta),
+      tooltipPlugin(aligned.meta, resolvedFormatX),
       annotationsPlugin(annotationsRef),
     ];
 
@@ -657,7 +704,7 @@ export const ProductionChart = memo(({
       legend: { show: false },
       axes,
       scales: {
-        x: { time: true },
+        x: { time: isTimeScale },
         y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
         ...(hasRightAxis ? { y2: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] } } : {}),
       },
@@ -771,7 +818,7 @@ export const ProductionChart = memo(({
         { show: false },
       ],
       scales: {
-        x: { time: true },
+        x: { time: isTimeScale },
         y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
       },
       series: [
@@ -1026,6 +1073,8 @@ export const ProductionChart = memo(({
             onUpdate={handleUpdateAnnotation}
             onRemove={handleRemoveAnnotation}
             onToggleExpand={handleToggleExpandAnnotation}
+            formatX={resolvedFormatX}
+            xLabel={xAxisLabel}
           />
         </div>
       )}
