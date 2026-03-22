@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as ChartDragRouteImport } from './routes/chart-drag'
 import { Route as ChartRouteImport } from './routes/chart'
 import { Route as IndexRouteImport } from './routes/index'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
   path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChartDragRoute = ChartDragRouteImport.update({
+  id: '/chart-drag',
+  path: '/chart-drag',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChartRoute = ChartRouteImport.update({
@@ -32,30 +38,34 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
+  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
+  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
+  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chart' | '/playground'
+  fullPaths: '/' | '/chart' | '/chart-drag' | '/playground'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chart' | '/playground'
-  id: '__root__' | '/' | '/chart' | '/playground'
+  to: '/' | '/chart' | '/chart-drag' | '/playground'
+  id: '__root__' | '/' | '/chart' | '/chart-drag' | '/playground'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChartRoute: typeof ChartRoute
+  ChartDragRoute: typeof ChartDragRoute
   PlaygroundRoute: typeof PlaygroundRoute
 }
 
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/playground'
       fullPath: '/playground'
       preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chart-drag': {
+      id: '/chart-drag'
+      path: '/chart-drag'
+      fullPath: '/chart-drag'
+      preLoaderRoute: typeof ChartDragRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chart': {
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChartRoute: ChartRoute,
+  ChartDragRoute: ChartDragRoute,
   PlaygroundRoute: PlaygroundRoute,
 }
 export const routeTree = rootRouteImport

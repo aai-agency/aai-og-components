@@ -375,17 +375,29 @@ function drawVarianceSegment(
   }
 }
 
-// ── Forecast Drag Plugin ─────────────────────────────────────────────────────
+// ── Forecast Drag Plugin (zero-allocation, rAF-batched) ──────────────────────
+//
+// During drag, we bypass React entirely:
+// 1. Compute new offset from pixel delta
+// 2. Mutate the forecast data array in-place (add offset delta to base values)
+// 3. Call u.redraw() inside rAF — one canvas repaint per frame, no React
+// 4. Only sync final offset to React on mouseup
+//
+// This gives us pure 60fps canvas updates with zero GC pressure.
 
 function forecastDragPlugin(
-  forecastSeriesIdx: number,
+  forecastSeriesIndices: number[],
   scale: string,
   offsetRef: { current: number },
-  onOffsetChange: (offset: number) => void,
+  baseForecastRef: { current: Map<number, Float64Array> },
+  _onOffsetChange: (offset: number) => void,
+  onDragEnd: (offset: number) => void,
 ): uPlot.Plugin {
   let isDragging = false;
   let dragStartY = 0;
   let dragStartOffset = 0;
+  let rafId = 0;
+  let pendingOffset: number | null = null;
 
   return {
     hooks: {
@@ -393,45 +405,105 @@ function forecastDragPlugin(
         const over = u.over;
 
         over.addEventListener("mousedown", (e: MouseEvent) => {
-          // Check if cursor is near the forecast line
           const rect = over.getBoundingClientRect();
           const mouseY = e.clientY - rect.top;
           const idx = u.cursor.idx;
           if (idx == null || idx < 0) return;
 
-          const forecastVal = u.data[forecastSeriesIdx]?.[idx];
-          if (forecastVal == null) return;
+          // Check proximity to any forecast line
+          let nearForecast = false;
+          for (const fIdx of forecastSeriesIndices) {
+            const forecastVal = u.data[fIdx]?.[idx];
+            if (forecastVal == null) continue;
+            const forecastY = u.valToPos(forecastVal as number, scale, false);
+            if (Math.abs(mouseY - forecastY) < 20) {
+              nearForecast = true;
+              break;
+            }
+          }
 
-          const forecastY = u.valToPos(forecastVal, scale, false);
-          const dist = Math.abs(mouseY - forecastY);
-
-          if (dist < 15) {
+          if (nearForecast) {
             isDragging = true;
             dragStartY = e.clientY;
             dragStartOffset = offsetRef.current;
             over.style.cursor = "ns-resize";
             e.preventDefault();
             e.stopPropagation();
+
+            // Snapshot base forecast values (without current offset) on drag start
+            // so we can apply offset as pure addition during drag
+            for (const fIdx of forecastSeriesIndices) {
+              const data = u.data[fIdx];
+              if (!data) continue;
+              if (!baseForecastRef.current.has(fIdx)) {
+                const base = new Float64Array(data.length);
+                for (let i = 0; i < data.length; i++) {
+                  base[i] = (data[i] as number) ?? 0;
+                }
+                baseForecastRef.current.set(fIdx, base);
+              }
+            }
           }
         });
 
+        const applyOffset = (u: uPlot, newOffset: number) => {
+          const delta = newOffset - dragStartOffset;
+          // Mutate data arrays in-place — zero allocations
+          for (const fIdx of forecastSeriesIndices) {
+            const base = baseForecastRef.current.get(fIdx);
+            const data = u.data[fIdx] as number[];
+            if (!base || !data) continue;
+            for (let i = 0; i < data.length; i++) {
+              data[i] = Math.max(0, base[i] + delta);
+            }
+          }
+          // Direct canvas redraw — no React, no state, no useMemo
+          u.redraw(false);
+        };
+
         const handleMove = (e: MouseEvent) => {
           if (!isDragging) return;
+          e.preventDefault();
+
           const dy = dragStartY - e.clientY;
-          // Convert pixel delta to value delta
           const scaleMin = u.scales[scale]?.min ?? 0;
           const scaleMax = u.scales[scale]?.max ?? 1000;
           const plotHeight = u.bbox.height / devicePixelRatio;
           const valuePerPx = (scaleMax - scaleMin) / plotHeight;
           const newOffset = dragStartOffset + dy * valuePerPx;
+
           offsetRef.current = newOffset;
-          onOffsetChange(newOffset);
+          pendingOffset = newOffset;
+
+          // Batch to rAF — never render more than once per frame
+          if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+              if (pendingOffset != null) {
+                applyOffset(u, pendingOffset);
+                pendingOffset = null;
+              }
+              rafId = 0;
+            });
+          }
         };
 
         const handleUp = () => {
           if (isDragging) {
             isDragging = false;
             over.style.cursor = "";
+            if (rafId) {
+              cancelAnimationFrame(rafId);
+              rafId = 0;
+            }
+            // Apply any pending offset
+            if (pendingOffset != null) {
+              applyOffset(u, pendingOffset);
+              pendingOffset = null;
+            }
+            // Clear base snapshots
+            baseForecastRef.current.clear();
+            // Sync final offset to React (single state update)
+            onDragEnd(offsetRef.current);
           }
         };
 
@@ -778,6 +850,9 @@ export const ProductionChart = memo(({
   const forecastOffsetRef = useRef(forecastOffset);
   forecastOffsetRef.current = forecastOffset;
 
+  // Base forecast values for zero-allocation drag (Float64Array snapshots)
+  const baseForecastRef = useRef(new Map<number, Float64Array>());
+
   const handleForecastOffsetChange = useCallback(
     (offset: number) => {
       if (onForecastOffsetChange) {
@@ -785,10 +860,16 @@ export const ProductionChart = memo(({
       } else {
         setInternalOffset(offset);
       }
-      // Rebuild chart data with new offset for instant update
-      if (chartRef.current) chartRef.current.redraw();
     },
     [onForecastOffsetChange],
+  );
+
+  // Called only on drag END — single React state sync after continuous canvas updates
+  const handleDragEnd = useCallback(
+    (offset: number) => {
+      handleForecastOffsetChange(offset);
+    },
+    [handleForecastOffsetChange],
   );
 
   // Annotation state
@@ -1015,16 +1096,18 @@ export const ProductionChart = memo(({
         plugins.push(varianceFillPlugin(actualIdx, forecastIdx, meta?.scale ?? "y"));
       }
 
-      // Add drag plugin for the first forecast series
-      const firstForecast = forecastSeriesMap.current.values().next().value;
-      if (firstForecast != null) {
+      // Add drag plugin for all forecast series (zero-allocation, rAF-batched)
+      const forecastIndices = Array.from(forecastSeriesMap.current.values());
+      if (forecastIndices.length > 0) {
         const firstActual = forecastSeriesMap.current.keys().next().value;
-        const scale = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
+        const scaleKey = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
         plugins.push(forecastDragPlugin(
-          firstForecast,
-          scale,
+          forecastIndices,
+          scaleKey,
           forecastOffsetRef,
+          baseForecastRef,
           handleForecastOffsetChange,
+          handleDragEnd,
         ));
       }
     }
