@@ -2,6 +2,9 @@ import { memo, useMemo, useRef, useEffect, useState, useCallback } from "react";
 import uPlot from "uplot";
 import type { TimeSeries } from "../../../types";
 import { formatNumber } from "../../../utils";
+import type { DCAForecastConfig } from "../../../utils/dca";
+import { generateSegmentedForecast, adjustParam, getModelParamNames, getParamLabel, enforceContinuity } from "../../../utils/dca";
+import { segmentBoundaryPlugin } from "./segment-boundary-plugin";
 import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, ACCENT, ACCENT_15, BORDER, BORDER_SUBTLE, FONT_FAMILY, HOVER_BG, PANEL_BG } from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +69,14 @@ export interface ProductionChartProps {
   forecastOffset?: number;
   /** Called when the user drags the forecast line up/down */
   onForecastOffsetChange?: (offset: number) => void;
+  /**
+   * DCA forecast configuration. When provided, replaces the auto-generated
+   * exponential forecast with a multi-segment DCA forecast.
+   * Supports all standard decline models + custom equations.
+   */
+  dcaConfig?: import("../../../utils/dca").DCAForecastConfig;
+  /** Called when DCA config changes (segment boundaries dragged, parameters adjusted) */
+  onDCAConfigChange?: (config: import("../../../utils/dca").DCAForecastConfig) => void;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -838,6 +849,8 @@ export const ProductionChart = memo(({
   showVarianceFill = false,
   forecastOffset: controlledForecastOffset,
   onForecastOffsetChange,
+  dcaConfig: controlledDCAConfig,
+  onDCAConfigChange,
 }: ProductionChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const brushContainerRef = useRef<HTMLDivElement>(null);
@@ -852,6 +865,13 @@ export const ProductionChart = memo(({
 
   // Base forecast values for zero-allocation drag (Float64Array snapshots)
   const baseForecastRef = useRef(new Map<number, Float64Array>());
+
+  // DCA config ref (mutable for drag interactions)
+  const dcaConfigRef = useRef<DCAForecastConfig | undefined>(controlledDCAConfig);
+  dcaConfigRef.current = controlledDCAConfig;
+
+  // Pre-allocated Float64Array for DCA forecast output
+  const dcaOutputRef = useRef<Float64Array | null>(null);
 
   const handleForecastOffsetChange = useCallback(
     (offset: number) => {
@@ -937,15 +957,30 @@ export const ProductionChart = memo(({
       if (!baseAligned.meta[i].isForecast) actualIndices.push(i);
     }
 
-    for (const actualIdx of actualIndices) {
-      const actualData = baseAligned.data[actualIdx + 1] as (number | null)[]; // +1 because data[0] is timestamps
-      const forecastValues = generateForecastValues(
-        baseAligned.data[0] as number[],
-        actualData,
-        forecastOffset,
-      );
+    const timestamps = baseAligned.data[0] as number[];
 
-      const forecastDataIdx = newData.length; // index in the data array
+    for (const actualIdx of actualIndices) {
+      let forecastValues: (number | null)[];
+
+      if (controlledDCAConfig && controlledDCAConfig.segments.length > 0) {
+        // ── DCA mode: use segmented forecast ──
+        const n = timestamps.length;
+        if (!dcaOutputRef.current || dcaOutputRef.current.length !== n) {
+          dcaOutputRef.current = new Float64Array(n);
+        }
+        generateSegmentedForecast(controlledDCAConfig, timestamps, dcaOutputRef.current);
+        forecastValues = Array.from(dcaOutputRef.current);
+      } else {
+        // ── Legacy mode: simple exponential forecast ──
+        const actualData = baseAligned.data[actualIdx + 1] as (number | null)[];
+        forecastValues = generateForecastValues(
+          timestamps,
+          actualData,
+          forecastOffset,
+        );
+      }
+
+      const forecastDataIdx = newData.length;
       newData.push(forecastValues);
 
       const meta = baseAligned.meta[actualIdx];
@@ -957,12 +992,11 @@ export const ProductionChart = memo(({
         scale: meta.scale,
       });
 
-      // Map: actualIdx (1-based data) → forecastIdx (1-based data)
       forecastSeriesMap.current.set(actualIdx + 1, forecastDataIdx);
     }
 
     return { data: newData as uPlot.AlignedData, meta: newMeta };
-  }, [baseAligned, showVarianceFill, forecastOffset]);
+  }, [baseAligned, showVarianceFill, forecastOffset, controlledDCAConfig]);
 
   useEffect(() => {
     if (aligned) setVisibility(aligned.meta.map(() => true));
@@ -1110,6 +1144,26 @@ export const ProductionChart = memo(({
           handleDragEnd,
         ));
       }
+
+      // Add segment boundary plugin when DCA config is present
+      if (controlledDCAConfig && controlledDCAConfig.segments.length > 1) {
+        plugins.push(segmentBoundaryPlugin({
+          configRef: dcaConfigRef as { current: DCAForecastConfig },
+          onConfigChange: (config) => {
+            dcaConfigRef.current = config;
+            onDCAConfigChange?.(config);
+          },
+        }));
+      } else if (controlledDCAConfig && controlledDCAConfig.segments.length === 1) {
+        // Still render segment label for single segment
+        plugins.push(segmentBoundaryPlugin({
+          configRef: dcaConfigRef as { current: DCAForecastConfig },
+          onConfigChange: (config) => {
+            dcaConfigRef.current = config;
+            onDCAConfigChange?.(config);
+          },
+        }));
+      }
     }
 
     const opts: uPlot.Options = {
@@ -1209,7 +1263,7 @@ export const ProductionChart = memo(({
         chartRef.current = null;
       }
     };
-  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset]);
+  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset, controlledDCAConfig]);
 
   // ── Create brush/overview chart ──
   useEffect(() => {
