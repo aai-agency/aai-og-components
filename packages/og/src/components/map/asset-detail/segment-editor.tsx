@@ -16,6 +16,15 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export interface SeriesInfo {
+  /** Unique key: "fluidType:curveType" */
+  key: string;
+  fluidType: string;
+  curveType: string;
+  label: string;
+  color: string;
+}
+
 export interface SegmentEditorProps {
   config: DCAForecastConfig;
   onConfigChange: (config: DCAForecastConfig) => void;
@@ -24,6 +33,12 @@ export interface SegmentEditorProps {
   onShowBoundariesChange?: (show: boolean) => void;
   /** Format x-axis values for display */
   formatX?: (value: number) => string;
+  /** Available series for per-fluid-type DCA (if provided, shows series selector tabs) */
+  availableSeries?: SeriesInfo[];
+  /** Currently active series key */
+  activeSeriesKey?: string;
+  /** Called when user switches the active series */
+  onActiveSeriesChange?: (key: string) => void;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -58,13 +73,16 @@ function ParamRow({
   name,
   value,
   accentColor,
+  onChange,
 }: {
   name: string;
   value: number;
   accentColor: string;
+  onChange: (name: string, value: number) => void;
 }) {
   const label = getParamLabel(name);
   const shortKey = name === "qi" ? "Q" : name === "Dmin" ? "Shift" : name.toUpperCase();
+  const step = getParamStep(name);
 
   return (
     <div
@@ -72,11 +90,11 @@ function ParamRow({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "5px 0",
+        padding: "4px 0",
         gap: 8,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
         <span
           style={{
             fontSize: 9,
@@ -93,22 +111,58 @@ function ParamRow({
         >
           {shortKey}
         </span>
-        <span style={{ fontSize: 12, color: TEXT_MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 11, color: TEXT_MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </span>
       </div>
-      <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_PRIMARY, fontFamily: "monospace", flexShrink: 0 }}>
-        {formatParamValue(name, value)}
-      </span>
+      <input
+        type="number"
+        value={formatParamForInput(name, value)}
+        step={step}
+        onChange={(e) => {
+          const parsed = parseFloat(e.target.value);
+          if (!isNaN(parsed)) onChange(name, parsed);
+        }}
+        style={{
+          width: 90,
+          fontSize: 11,
+          fontWeight: 500,
+          color: TEXT_PRIMARY,
+          fontFamily: "monospace",
+          padding: "3px 6px",
+          borderRadius: 5,
+          border: "1px solid rgba(148, 163, 184, 0.2)",
+          background: "rgba(255, 255, 255, 0.8)",
+          outline: "none",
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+        onFocus={(e) => {
+          (e.target as HTMLInputElement).style.borderColor = `${accentColor}60`;
+          (e.target as HTMLInputElement).style.boxShadow = `0 0 0 2px ${accentColor}15`;
+        }}
+        onBlur={(e) => {
+          (e.target as HTMLInputElement).style.borderColor = "rgba(148, 163, 184, 0.2)";
+          (e.target as HTMLInputElement).style.boxShadow = "none";
+        }}
+      />
     </div>
   );
 }
 
-function formatParamValue(name: string, value: number): string {
+function getParamStep(name: string): string {
+  if (name === "D" || name === "Dmin") return "0.0001";
+  if (name === "b") return "0.1";
+  if (name === "m") return "0.01";
+  if (name === "qi") return "10";
+  return "0.01";
+}
+
+function formatParamForInput(name: string, value: number): string {
   if (name === "D" || name === "Dmin") return value.toFixed(6);
   if (name === "b") return value.toFixed(2);
   if (name === "m") return value.toFixed(4);
-  if (name === "qi") return Math.round(value).toLocaleString();
+  if (name === "qi") return Math.round(value).toString();
   return value.toFixed(4);
 }
 
@@ -139,6 +193,15 @@ function SegmentCard({
 
   const handleModelChange = (newType: DCAModelType) => {
     onConfigChange(changeSegmentModel(config, segment.id, newType));
+  };
+
+  const handleParamChange = (paramName: string, newValue: number) => {
+    const newSegments = config.segments.map((s) => {
+      if (s.id !== segment.id) return s;
+      const newParams = { ...(s.model.params as Record<string, number>), [paramName]: newValue };
+      return { ...s, model: { ...s.model, params: newParams } as DCAModel };
+    });
+    onConfigChange({ ...config, segments: newSegments });
   };
 
   const handleSplit = () => {
@@ -287,6 +350,7 @@ function SegmentCard({
                     name={name}
                     value={value ?? 0}
                     accentColor={colors.accent}
+                    onChange={handleParamChange}
                   />
                 );
               })}
@@ -363,6 +427,9 @@ export const SegmentEditor = memo(function SegmentEditor({
   showBoundaries = true,
   onShowBoundariesChange,
   formatX = defaultFormatX,
+  availableSeries,
+  activeSeriesKey,
+  onActiveSeriesChange,
 }: SegmentEditorProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     return new Set(config.segments.length > 0 ? [config.segments[0].id] : []);
@@ -476,6 +543,51 @@ export const SegmentEditor = memo(function SegmentEditor({
           </button>
         </div>
       </div>
+
+      {/* Series selector tabs (per fluid type + curve type) */}
+      {availableSeries && availableSeries.length > 1 && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
+          {availableSeries.map((s) => {
+            const isActive = activeSeriesKey === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => onActiveSeriesChange?.(s.key)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "5px 12px",
+                  borderRadius: 8,
+                  border: isActive ? `1px solid ${s.color}50` : "1px solid rgba(148, 163, 184, 0.12)",
+                  background: isActive ? `${s.color}10` : "transparent",
+                  color: isActive ? s.color : TEXT_MUTED,
+                  fontSize: 11,
+                  fontWeight: isActive ? 600 : 400,
+                  cursor: "pointer",
+                  fontFamily: FONT_FAMILY,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  transition: "all 0.12s",
+                }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: s.color,
+                    opacity: isActive ? 1 : 0.5,
+                    flexShrink: 0,
+                  }}
+                />
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Segment cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

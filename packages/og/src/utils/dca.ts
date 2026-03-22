@@ -68,7 +68,15 @@ export interface DCAForecastConfig {
   segments: DCASegment[];
   /** When true, auto-adjusts qi of each segment to match the end value of the previous segment */
   enforceContinuity: boolean;
+  /** Which series this config applies to. Format: "fluidType:curveType" e.g. "oil:forecast" */
+  seriesKey?: string;
 }
+
+/**
+ * Multi-series DCA config — one DCAForecastConfig per series.
+ * Keyed by "fluidType:curveType" (e.g., "oil:forecast", "gas:forecast", "water:forecast").
+ */
+export type DCAMultiSeriesConfig = Record<string, DCAForecastConfig>;
 
 /** Result of parsing a custom equation */
 export interface ParsedCustomEquation {

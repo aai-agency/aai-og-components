@@ -24,6 +24,7 @@ export type {
   DCAModel,
   DCASegment,
   DCAForecastConfig,
+  DCAMultiSeriesConfig,
   ExponentialParams,
   HyperbolicParams,
   HarmonicParams,
