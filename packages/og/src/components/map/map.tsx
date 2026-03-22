@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import MapGL, { Source, Layer, type MapRef, type MapLayerMouseEvent } from "react-map-gl";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { ScatterplotLayer } from "@deck.gl/layers";
 import { useMachine } from "@xstate/react";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
 import { wellToAsset } from "../../types";
@@ -14,7 +15,6 @@ import type { OGMapProps } from "./map.types";
 import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, PANEL_BG, PANEL_BG_LIGHT, BORDER, BORDER_SUBTLE, ACCENT, ACCENT_15, FONT_FAMILY, BLUR_SM, BLUR_LG, SHADOW_SM, HOVER_BG } from "./theme";
 
 const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
-const BASE_INTERACTIVE_LAYER_IDS = ["og-assets", "og-clusters", "og-lines"];
 
 const LEGEND_ITEMS: Record<string, { label: string; items: { color: string; label: string }[] }> = {
   status: {
@@ -200,7 +200,6 @@ function OverlayFeatureTooltip({
   x: number;
   y: number;
 }) {
-  // Show up to 3 preview properties
   const entries = Object.entries(properties).filter(
     ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k) && k !== "name" && k !== "Name" && k !== "NAME"
   );
@@ -329,6 +328,17 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
   );
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Parse hex color string to [r, g, b, a] tuple for deck.gl */
+function hexToRgba(hex: string, alpha = 230): [number, number, number, number] {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return [r, g, b, alpha];
+}
+
 // ── OGMap ─────────────────────────────────────────────────────────────────────
 
 export function OGMap({
@@ -369,9 +379,10 @@ export function OGMap({
   renderDetailBody,
   onDetailClose,
 }: OGMapProps) {
-  const mapRef = useRef<MapRef>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const deckOverlayRef = useRef<MapboxOverlay | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Set<MapLayerId>>(() => new Set(layerIds ?? []));
 
   // Resolve assets: prefer `assets` prop, fall back to converting `wells`
@@ -408,16 +419,6 @@ export function OGMap({
     }
   }, [resolvedAssets, send]);
 
-  // Auto-fit map bounds when assets load and map is ready
-  useEffect(() => {
-    if (!mapInstance || resolvedAssets.length === 0 || initialViewState) return;
-    const { minLat, maxLat, minLng, maxLng } = computeBounds(resolvedAssets, 0.2);
-    mapInstance.fitBounds(
-      [[minLng, minLat], [maxLng, maxLat]],
-      { padding: 60, duration: 0 },
-    );
-  }, [resolvedAssets, mapInstance, initialViewState]);
-
   // Sync colorBy prop
   useEffect(() => {
     send({ type: "SET_COLOR_SCHEME", scheme: colorBy });
@@ -430,13 +431,6 @@ export function OGMap({
   hoveredRef.current = hovered;
   const overlays = state.context.overlays;
   const selectedIds = state.context.selectedIds;
-
-  // O(1) lookup map: asset.id → array index (rebuilt only when assets change)
-  const assetIdToIndex = useMemo(() => {
-    const map = new Map<string, number>();
-    for (let i = 0; i < assets.length; i++) map.set(assets[i].id, i);
-    return map;
-  }, [assets]);
 
   // Resolve selected asset for the detail card
   const selectedAsset = useMemo(() => {
@@ -452,42 +446,7 @@ export function OGMap({
     geometryType: string;
   } | null>(null);
 
-  // Build interactive layer IDs including overlay layers
-  const interactiveLayerIds = useMemo(() => {
-    const ids = [...BASE_INTERACTIVE_LAYER_IDS];
-    for (const o of overlays) {
-      if (o.visible) {
-        ids.push(`overlay-fill-${o.id}`, `overlay-line-${o.id}`, `overlay-point-${o.id}`);
-      }
-    }
-    return ids;
-  }, [overlays]);
-
   const showCount = showAssetCount ?? showWellCount;
-
-  const handleMove = useCallback(
-    (evt: { viewState: MapViewState }) => {
-      send({ type: "PAN_ZOOM", viewState: evt.viewState });
-      onViewStateChange?.(evt.viewState);
-      const map = mapRef.current?.getMap();
-      const b = map?.getBounds();
-      if (b) {
-        send({ type: "SET_BOUNDS", bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
-      }
-    },
-    [send, onViewStateChange]
-  );
-
-  const handleLoad = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (map) {
-      setMapInstance(map);
-      const b = map.getBounds();
-      if (b) {
-        send({ type: "SET_BOUNDS", bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
-      }
-    }
-  }, [send]);
 
   // Only run Supercluster when clustering is enabled
   const clusters = useClusters(assets, viewState.zoom, state.context.bounds, {
@@ -496,49 +455,39 @@ export function OGMap({
     enabled: clusterEnabled,
   });
 
-  // ── GeoJSON for point assets ──
-  // Selection/hover styling uses map.setFeatureState() so we never rebuild
-  // GeoJSON when selection changes — only on data or color scheme changes.
-  const assetPointsGeoJSON = useMemo(() => {
-    if (!clusterEnabled) {
-      // Fast path: direct from assets, only recomputes on data/color change
-      const features = [];
-      for (let i = 0; i < assets.length; i++) {
-        const asset = assets[i];
-        if (asset.lines?.length || asset.polygons?.length) continue;
-        features.push({
-          type: "Feature" as const,
-          id: i,
-          geometry: { type: "Point" as const, coordinates: [asset.coordinates.lng, asset.coordinates.lat] },
-          properties: {
-            assetIndex: i,
-            color: getAssetColor(asset, colorBy, typeConfigMap),
-            id: asset.id,
-          },
+  // ── Pre-compute asset point data for deck.gl ──
+  // Separate point assets from line/polygon assets. Pre-compute colors.
+  const pointAssetData = useMemo(() => {
+    if (clusterEnabled) {
+      // When clustering: use non-cluster results from supercluster
+      return clusters
+        .filter((c) => !c.isCluster && c.assetIndex != null)
+        .map((c) => {
+          const asset = assets[c.assetIndex!];
+          return {
+            asset,
+            index: c.assetIndex!,
+            position: [c.lng, c.lat] as [number, number],
+            color: hexToRgba(getAssetColor(asset, colorBy, typeConfigMap)),
+          };
         });
-      }
-      return { type: "FeatureCollection" as const, features };
     }
-    // Clustered path: filter non-cluster results
-    const features = clusters
-      .filter((c) => !c.isCluster && c.assetIndex != null)
-      .map((c) => {
-        const asset = assets[c.assetIndex!];
-        return {
-          type: "Feature" as const,
-          id: c.assetIndex,
-          geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
-          properties: {
-            assetIndex: c.assetIndex,
-            color: getAssetColor(asset, colorBy, typeConfigMap),
-            id: asset.id,
-          },
-        };
+    // Non-clustered: all point assets directly
+    const result: { asset: Asset; index: number; position: [number, number]; color: [number, number, number, number] }[] = [];
+    for (let i = 0; i < assets.length; i++) {
+      const asset = assets[i];
+      if (asset.lines?.length || asset.polygons?.length) continue;
+      result.push({
+        asset,
+        index: i,
+        position: [asset.coordinates.lng, asset.coordinates.lat],
+        color: hexToRgba(getAssetColor(asset, colorBy, typeConfigMap)),
       });
-    return { type: "FeatureCollection" as const, features };
+    }
+    return result;
   }, [clusterEnabled, clusters, assets, colorBy, typeConfigMap]);
 
-  // ── GeoJSON for clusters ──
+  // ── Cluster GeoJSON (for native Mapbox circle/symbol layers) ──
   const clusterGeoJSON = useMemo(() => {
     if (!clusterEnabled) return { type: "FeatureCollection" as const, features: [] as GeoJSON.Feature[] };
     const features = clusters
@@ -555,7 +504,7 @@ export function OGMap({
     return { type: "FeatureCollection" as const, features };
   }, [clusterEnabled, clusters, clusterMaxZoom]);
 
-  // ── GeoJSON for line assets (pipelines) ──
+  // ── Line GeoJSON for pipelines (native Mapbox layer) ──
   const lineGeoJSON = useMemo(() => {
     const features: GeoJSON.Feature[] = [];
     for (const asset of assets) {
@@ -578,13 +527,308 @@ export function OGMap({
     return { type: "FeatureCollection" as const, features };
   }, [assets, colorBy, typeConfigMap]);
 
-  // ── Click handling ──
-  const handleClick = useCallback(
-    (evt: MapLayerMouseEvent) => {
-      const clusterFeature = evt.features?.find((f) => f.layer?.id === "og-clusters");
-      if (clusterFeature) {
-        const expansionZoom = clusterFeature.properties?.expansionZoom ?? viewState.zoom + 2;
-        const coords = (clusterFeature.geometry as GeoJSON.Point).coordinates;
+  // ── Initialize Mapbox GL map (pure, no wrapper) ──
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    mapboxgl.accessToken = mapboxAccessToken;
+
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: mapStyle ?? MAPBOX_LIGHT,
+      center: [initialViewState?.longitude ?? -98.5, initialViewState?.latitude ?? 39.8],
+      zoom: initialViewState?.zoom ?? 4,
+      pitch: initialViewState?.pitch ?? 0,
+      bearing: initialViewState?.bearing ?? 0,
+      interactive,
+      attributionControl: false,
+    });
+
+    mapRef.current = map;
+
+    // Initialize deck.gl overlay — use overlaid mode (separate canvas on top)
+    // for maximum compatibility. Interleaved mode requires WebGL2 + specific
+    // Mapbox versions and can silently fail.
+    const deckOverlay = new MapboxOverlay({
+      interleaved: false,
+      layers: [],
+    });
+    map.addControl(deckOverlay);
+    deckOverlayRef.current = deckOverlay;
+
+    const syncViewState = () => {
+      const center = map.getCenter();
+      const newViewState: MapViewState = {
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      };
+      send({ type: "PAN_ZOOM", viewState: newViewState });
+      onViewStateChange?.(newViewState);
+      const b = map.getBounds();
+      if (b) {
+        send({ type: "SET_BOUNDS", bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+      }
+    };
+
+    map.on("load", () => {
+      setMapReady(true);
+      syncViewState();
+    });
+
+    // Track view state on every move (not just moveend) for fluid deck.gl sync
+    map.on("moveend", syncViewState);
+
+    return () => {
+      if (deckOverlayRef.current) {
+        try { map.removeControl(deckOverlayRef.current); } catch {}
+        deckOverlayRef.current = null;
+      }
+      map.remove();
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [mapboxAccessToken, mapStyle, interactive]);
+
+  // ── Auto-fit bounds on first data load ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || resolvedAssets.length === 0 || initialViewState) return;
+    const { minLat, maxLat, minLng, maxLng } = computeBounds(resolvedAssets, 0.2);
+    map.fitBounds(
+      [[minLng, minLat], [maxLng, maxLat]],
+      { padding: 60, duration: 0 },
+    );
+  }, [resolvedAssets, mapReady, initialViewState]);
+
+  // ── Update deck.gl layers (ScatterplotLayer for points) ──
+  useEffect(() => {
+    if (!deckOverlayRef.current || !mapReady) return;
+
+    const selectedIdSet = selectedIds;
+
+    const scatterLayer = new ScatterplotLayer({
+      id: "og-assets-scatter",
+      data: pointAssetData,
+      getPosition: (d) => d.position,
+      getFillColor: (d) => {
+        if (selectedIdSet.has(d.asset.id)) return [255, 255, 255, 255];
+        return d.color;
+      },
+      getLineColor: (d) => {
+        if (selectedIdSet.has(d.asset.id)) return [255, 255, 255, 230];
+        return [255, 255, 255, 150];
+      },
+      getRadius: (d) => {
+        if (selectedIdSet.has(d.asset.id)) return 8;
+        return 5;
+      },
+      radiusMinPixels: 3,
+      radiusMaxPixels: 16,
+      radiusUnits: "pixels",
+      lineWidthMinPixels: 1,
+      lineWidthMaxPixels: 2,
+      stroked: true,
+      filled: true,
+      pickable: true,
+      autoHighlight: true,
+      highlightColor: [255, 255, 0, 80],
+      updateTriggers: {
+        getFillColor: [colorBy, selectedIds],
+        getLineColor: [selectedIds],
+        getRadius: [selectedIds],
+      },
+    });
+
+    deckOverlayRef.current.setProps({ layers: [scatterLayer] });
+  }, [pointAssetData, colorBy, selectedIds, mapReady]);
+
+  // ── Add/update native Mapbox sources & layers for clusters, lines, overlays ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    // ── Cluster source + layers ──
+    if (map.getSource("og-clusters-source")) {
+      (map.getSource("og-clusters-source") as mapboxgl.GeoJSONSource).setData(clusterGeoJSON as GeoJSON.FeatureCollection);
+    } else {
+      map.addSource("og-clusters-source", { type: "geojson", data: clusterGeoJSON as GeoJSON.FeatureCollection });
+      map.addLayer({
+        id: "og-clusters",
+        type: "circle",
+        source: "og-clusters-source",
+        paint: {
+          "circle-radius": ["get", "size"],
+          "circle-color": "rgba(99, 102, 241, 0.6)",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "rgba(99, 102, 241, 0.9)",
+        },
+      });
+      map.addLayer({
+        id: "og-cluster-labels",
+        type: "symbol",
+        source: "og-clusters-source",
+        layout: {
+          "text-field": ["get", "count"],
+          "text-size": 12,
+          "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
+    }
+  }, [clusterGeoJSON, mapReady]);
+
+  // ── Line source + layer ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    if (map.getSource("og-lines-source")) {
+      (map.getSource("og-lines-source") as mapboxgl.GeoJSONSource).setData(lineGeoJSON as GeoJSON.FeatureCollection);
+    } else if (lineGeoJSON.features.length > 0) {
+      map.addSource("og-lines-source", { type: "geojson", data: lineGeoJSON as GeoJSON.FeatureCollection });
+      map.addLayer({
+        id: "og-lines",
+        type: "line",
+        source: "og-lines-source",
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["get", "width"],
+          "line-opacity": 0.8,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+  }, [lineGeoJSON, mapReady]);
+
+  // ── Overlay layers (native Mapbox — these are small datasets) ──
+  const prevOverlayIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const currentOverlayIds = new Set(overlays.map((o) => o.id));
+
+    // Remove layers/sources for overlays that no longer exist
+    for (const prevId of prevOverlayIdsRef.current) {
+      if (!currentOverlayIds.has(prevId)) {
+        for (const layerType of ["fill", "line", "point"]) {
+          const layerId = `overlay-${layerType}-${prevId}`;
+          if (map.getLayer(layerId)) map.removeLayer(layerId);
+        }
+        const sourceId = `overlay-${prevId}`;
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+      }
+    }
+
+    // Add or update current overlays
+    for (const overlay of overlays) {
+      const sourceId = `overlay-${overlay.id}`;
+      if (map.getSource(sourceId)) {
+        (map.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(overlay.geojson);
+      } else {
+        map.addSource(sourceId, { type: "geojson", data: overlay.geojson });
+        map.addLayer({
+          id: `overlay-fill-${overlay.id}`,
+          type: "fill",
+          source: sourceId,
+          filter: ["==", "$type", "Polygon"],
+          paint: {
+            "fill-color": overlay.style?.fillColor ?? "rgba(99, 102, 241, 0.2)",
+            "fill-opacity": overlay.style?.fillOpacity ?? 0.3,
+          },
+        });
+        map.addLayer({
+          id: `overlay-line-${overlay.id}`,
+          type: "line",
+          source: sourceId,
+          filter: ["any", ["==", "$type", "LineString"], ["==", "$type", "Polygon"]],
+          paint: {
+            "line-color": overlay.style?.strokeColor ?? ACCENT,
+            "line-width": overlay.style?.strokeWidth ?? 2,
+            "line-opacity": 0.8,
+          },
+        });
+        map.addLayer({
+          id: `overlay-point-${overlay.id}`,
+          type: "circle",
+          source: sourceId,
+          filter: ["==", "$type", "Point"],
+          paint: {
+            "circle-radius": 5,
+            "circle-color": overlay.style?.fillColor ?? ACCENT,
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
+
+      // Update visibility
+      for (const layerType of ["fill", "line", "point"]) {
+        const layerId = `overlay-${layerType}-${overlay.id}`;
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, "visibility", overlay.visible ? "visible" : "none");
+        }
+      }
+
+      // Update paint properties for style changes
+      const fillLayerId = `overlay-fill-${overlay.id}`;
+      if (map.getLayer(fillLayerId)) {
+        map.setPaintProperty(fillLayerId, "fill-color", overlay.style?.fillColor ?? "rgba(99, 102, 241, 0.2)");
+        map.setPaintProperty(fillLayerId, "fill-opacity", overlay.style?.fillOpacity ?? 0.3);
+      }
+      const lineLayerId = `overlay-line-${overlay.id}`;
+      if (map.getLayer(lineLayerId)) {
+        map.setPaintProperty(lineLayerId, "line-color", overlay.style?.strokeColor ?? ACCENT);
+        map.setPaintProperty(lineLayerId, "line-width", overlay.style?.strokeWidth ?? 2);
+      }
+      const pointLayerId = `overlay-point-${overlay.id}`;
+      if (map.getLayer(pointLayerId)) {
+        map.setPaintProperty(pointLayerId, "circle-color", overlay.style?.fillColor ?? ACCENT);
+      }
+    }
+
+    prevOverlayIdsRef.current = currentOverlayIds;
+  }, [overlays, mapReady]);
+
+  // ── Click handling (deck.gl picking + native Mapbox layers) ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const handleClick = (evt: mapboxgl.MapMouseEvent) => {
+      // First: check deck.gl picking (asset points)
+      if (deckOverlayRef.current) {
+        const pickInfo = deckOverlayRef.current.pickObject({
+          x: evt.point.x,
+          y: evt.point.y,
+          radius: 5,
+        });
+        if (pickInfo?.object) {
+          const d = pickInfo.object as { asset: Asset; index: number };
+          setSelectedOverlayFeature(null);
+          send({ type: "SELECT", id: d.asset.id });
+          onAssetClick?.(d.asset);
+          if (onWellClick && wellsProp) {
+            const wellIdx = wellsProp.findIndex((w) => w.id === d.asset.id);
+            if (wellIdx >= 0) onWellClick(wellsProp[wellIdx]);
+          }
+          return;
+        }
+      }
+
+      // Then: check native Mapbox layers (clusters, lines, overlays)
+      const clusterFeatures = map.queryRenderedFeatures(evt.point, { layers: map.getLayer("og-clusters") ? ["og-clusters"] : [] });
+      if (clusterFeatures.length > 0) {
+        const cf = clusterFeatures[0];
+        const expansionZoom = cf.properties?.expansionZoom ?? viewState.zoom + 2;
+        const coords = (cf.geometry as GeoJSON.Point).coordinates;
         send({
           type: "CLICK_CLUSTER",
           longitude: coords[0],
@@ -594,52 +838,56 @@ export function OGMap({
         return;
       }
 
-      const assetFeature = evt.features?.find(
-        (f) => f.layer?.id === "og-assets" || f.layer?.id === "og-lines"
-      );
-      if (assetFeature) {
-        const idx = assetFeature.properties?.assetIndex;
-        const id = assetFeature.properties?.id;
-        const asset = idx != null ? assets[idx] : assets.find((a) => a.id === id);
+      // Check lines
+      const lineFeatures = map.queryRenderedFeatures(evt.point, { layers: map.getLayer("og-lines") ? ["og-lines"] : [] });
+      if (lineFeatures.length > 0) {
+        const lf = lineFeatures[0];
+        const id = lf.properties?.id;
+        const asset = assets.find((a) => a.id === id);
         if (asset) {
           setSelectedOverlayFeature(null);
           send({ type: "SELECT", id: asset.id });
           onAssetClick?.(asset);
-          // Legacy callback
-          if (onWellClick && wellsProp) {
-            const wellIdx = wellsProp.findIndex((w) => w.id === asset.id);
-            if (wellIdx >= 0) onWellClick(wellsProp[wellIdx]);
-          }
           return;
         }
       }
 
       // Check overlay features
-      const overlayFeature = evt.features?.find(
-        (f) => f.layer?.id?.startsWith("overlay-")
-      );
-      if (overlayFeature) {
-        // Find the overlay name from the layer ID
-        const layerId = overlayFeature.layer?.id ?? "";
-        const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
-        const overlay = overlays.find((o) => o.id === overlayId);
-        // Deselect any asset
-        send({ type: "CLEAR_SELECTION" });
-        setSelectedOverlayFeature({
-          overlayName: overlay?.name ?? "Overlay Feature",
-          properties: overlayFeature.properties ?? {},
-          geometryType: overlayFeature.geometry?.type ?? "Unknown",
-        });
-        return;
+      const overlayLayerIds: string[] = [];
+      for (const o of overlays) {
+        if (o.visible) {
+          for (const layerType of ["fill", "line", "point"]) {
+            const layerId = `overlay-${layerType}-${o.id}`;
+            if (map.getLayer(layerId)) overlayLayerIds.push(layerId);
+          }
+        }
+      }
+      if (overlayLayerIds.length > 0) {
+        const overlayFeatures = map.queryRenderedFeatures(evt.point, { layers: overlayLayerIds });
+        if (overlayFeatures.length > 0) {
+          const of_ = overlayFeatures[0];
+          const layerId = of_.layer?.id ?? "";
+          const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
+          const overlay = overlays.find((o) => o.id === overlayId);
+          send({ type: "CLEAR_SELECTION" });
+          setSelectedOverlayFeature({
+            overlayName: overlay?.name ?? "Overlay Feature",
+            properties: (of_.properties ?? {}) as Record<string, unknown>,
+            geometryType: of_.geometry?.type ?? "Unknown",
+          });
+          return;
+        }
       }
 
       // Clicked on empty space — deselect
       setSelectedOverlayFeature(null);
-    },
-    [assets, viewState.zoom, send, onAssetClick, onWellClick, wellsProp, overlays]
-  );
+    };
 
-  // ── Hover handling ──
+    map.on("click", handleClick);
+    return () => { map.off("click", handleClick); };
+  }, [mapReady, assets, overlays, viewState.zoom, send, onAssetClick, onWellClick, wellsProp]);
+
+  // ── Hover handling (deck.gl + native) ──
   const [overlayHover, setOverlayHover] = useState<{
     name: string;
     properties: Record<string, unknown>;
@@ -647,63 +895,82 @@ export function OGMap({
     y: number;
   } | null>(null);
 
-  const handleMouseMove = useCallback(
-    (evt: MapLayerMouseEvent) => {
-      const mapCanvas = mapRef.current?.getMap()?.getCanvas();
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
 
-      const assetFeature = evt.features?.find(
-        (f) => f.layer?.id === "og-assets" || f.layer?.id === "og-lines"
-      );
-      if (assetFeature) {
-        const idx = assetFeature.properties?.assetIndex;
-        const id = assetFeature.properties?.id;
-        const asset = idx != null ? assets[idx] : assets.find((a) => a.id === id);
-        if (asset) {
-          if (mapCanvas) mapCanvas.style.cursor = "pointer";
+    const handleMouseMove = (evt: mapboxgl.MapMouseEvent) => {
+      // deck.gl picking for asset hover
+      if (deckOverlayRef.current) {
+        const pickInfo = deckOverlayRef.current.pickObject({
+          x: evt.point.x,
+          y: evt.point.y,
+          radius: 5,
+        });
+        if (pickInfo?.object) {
+          const d = pickInfo.object as { asset: Asset; index: number };
+          map.getCanvas().style.cursor = "pointer";
           setOverlayHover(null);
-          send({ type: "HOVER", asset, x: evt.point.x, y: evt.point.y });
-          onAssetHover?.(asset);
-          onWellHover?.(asset as never);
+          send({ type: "HOVER", asset: d.asset, x: evt.point.x, y: evt.point.y });
+          onAssetHover?.(d.asset);
+          onWellHover?.(d.asset as never);
           return;
         }
       }
 
       // Check overlay features for hover
-      const overlayFeature = evt.features?.find(
-        (f) => f.layer?.id?.startsWith("overlay-")
-      );
-      if (overlayFeature) {
-        if (mapCanvas) mapCanvas.style.cursor = "pointer";
-        const layerId = overlayFeature.layer?.id ?? "";
-        const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
-        const overlay = overlays.find((o) => o.id === overlayId);
-        const props = overlayFeature.properties ?? {};
-        const featureName = (props.name ?? props.Name ?? props.NAME ?? overlay?.name ?? "Feature") as string;
-        setOverlayHover({ name: featureName, properties: props, x: evt.point.x, y: evt.point.y });
-        if (hoveredRef.current) {
-          send({ type: "UNHOVER" });
-          onAssetHover?.(null);
-          onWellHover?.(null);
+      const overlayLayerIds: string[] = [];
+      for (const o of overlays) {
+        if (o.visible) {
+          for (const layerType of ["fill", "line", "point"]) {
+            const layerId = `overlay-${layerType}-${o.id}`;
+            if (map.getLayer(layerId)) overlayLayerIds.push(layerId);
+          }
         }
-        return;
+      }
+      if (overlayLayerIds.length > 0) {
+        const overlayFeatures = map.queryRenderedFeatures(evt.point, { layers: overlayLayerIds });
+        if (overlayFeatures.length > 0) {
+          map.getCanvas().style.cursor = "pointer";
+          const of_ = overlayFeatures[0];
+          const layerId = of_.layer?.id ?? "";
+          const overlayId = layerId.replace(/^overlay-(fill|line|point)-/, "");
+          const overlay = overlays.find((o) => o.id === overlayId);
+          const props = (of_.properties ?? {}) as Record<string, unknown>;
+          const featureName = (props.name ?? props.Name ?? props.NAME ?? overlay?.name ?? "Feature") as string;
+          setOverlayHover({ name: featureName, properties: props, x: evt.point.x, y: evt.point.y });
+          if (hoveredRef.current) {
+            send({ type: "UNHOVER" });
+            onAssetHover?.(null);
+            onWellHover?.(null);
+          }
+          return;
+        }
       }
 
-      if (mapCanvas) mapCanvas.style.cursor = "";
+      // Nothing hovered
+      map.getCanvas().style.cursor = "";
       setOverlayHover(null);
       if (hoveredRef.current) {
         send({ type: "UNHOVER" });
         onAssetHover?.(null);
         onWellHover?.(null);
       }
-    },
-    [assets, send, onAssetHover, onWellHover, overlays]
-  );
+    };
 
-  const handleMouseLeave = useCallback(() => {
-    send({ type: "UNHOVER" });
-    onAssetHover?.(null);
-    onWellHover?.(null);
-  }, [send, onAssetHover, onWellHover]);
+    const handleMouseLeave = () => {
+      send({ type: "UNHOVER" });
+      onAssetHover?.(null);
+      onWellHover?.(null);
+    };
+
+    map.on("mousemove", handleMouseMove);
+    map.on("mouseout", handleMouseLeave);
+    return () => {
+      map.off("mousemove", handleMouseMove);
+      map.off("mouseout", handleMouseLeave);
+    };
+  }, [mapReady, assets, overlays, send, onAssetHover, onWellHover]);
 
   // ── Drag-and-drop overlay upload ──
   const [isDragging, setIsDragging] = useState(false);
@@ -748,26 +1015,11 @@ export function OGMap({
     });
   }, []);
 
-  // ── Feature-state for selection (avoids GeoJSON rebuild) ──
-  useEffect(() => {
-    if (!mapInstance) return;
-    const source = "og-assets-source";
-    // Bulk-clear all feature states, then set only the selected ones
-    try { mapInstance.removeFeatureState({ source }); } catch {}
-    for (const id of selectedIds) {
-      const idx = assetIdToIndex.get(id);
-      if (idx != null) {
-        try { mapInstance.setFeatureState({ source, id: idx }, { selected: true }); } catch {}
-      }
-    }
-  }, [mapInstance, selectedIds, assetIdToIndex]);
-
-  const resolvedStyle = mapStyle ?? MAPBOX_LIGHT;
+  const mapInstance = mapReady ? mapRef.current : null;
   const legend = LEGEND_ITEMS[colorBy];
 
   return (
     <div
-      ref={dropRef}
       className={className}
       onDragOver={enableOverlayUpload ? handleDragOver : undefined}
       onDragLeave={enableOverlayUpload ? handleDragLeave : undefined}
@@ -783,139 +1035,11 @@ export function OGMap({
         ...style,
       }}
     >
-      <MapGL
-        ref={mapRef}
-        {...viewState}
-        onMove={handleMove}
-        onLoad={handleLoad}
-        onClick={handleClick}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        mapStyle={resolvedStyle}
-        mapboxAccessToken={mapboxAccessToken}
-        interactive={interactive}
-        interactiveLayerIds={interactiveLayerIds}
+      {/* Pure Mapbox GL container */}
+      <div
+        ref={containerRef}
         style={{ width: "100%", height: "100%" }}
-        attributionControl={false}
-      >
-        {/* Point assets — buffer:0 since circles fit in tiles, maxzoom:12 for speed */}
-        <Source id="og-assets-source" type="geojson" data={assetPointsGeoJSON} buffer={0} maxzoom={12}>
-          {/* Selection ring — uses feature-state so no GeoJSON rebuild on click */}
-          <Layer
-            id="og-assets-selection-ring"
-            type="circle"
-            filter={["==", ["feature-state", "selected"], true]}
-            paint={{
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 8, 12, 12, 16, 16, 22],
-              "circle-color": "transparent",
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-opacity": 0.8,
-            }}
-          />
-          <Layer
-            id="og-assets"
-            type="circle"
-            paint={{
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 8, 5, 12, 7, 16, 10],
-              "circle-color": ["get", "color"],
-              "circle-stroke-width": [
-                "case",
-                ["boolean", ["feature-state", "selected"], false], 2.5,
-                1.5,
-              ],
-              "circle-stroke-color": [
-                "case",
-                ["boolean", ["feature-state", "selected"], false], "#ffffff",
-                "rgba(255, 255, 255, 0.6)",
-              ],
-              "circle-opacity": 0.9,
-            }}
-          />
-        </Source>
-
-        {/* Clusters */}
-        <Source id="og-clusters-source" type="geojson" data={clusterGeoJSON}>
-          <Layer
-            id="og-clusters"
-            type="circle"
-            paint={{
-              "circle-radius": ["get", "size"],
-              "circle-color": "rgba(99, 102, 241, 0.6)",
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "rgba(99, 102, 241, 0.9)",
-            }}
-          />
-          <Layer
-            id="og-cluster-labels"
-            type="symbol"
-            layout={{
-              "text-field": ["get", "count"],
-              "text-size": 12,
-              "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
-              "text-allow-overlap": true,
-            }}
-            paint={{ "text-color": "#ffffff" }}
-          />
-        </Source>
-
-        {/* Line assets (pipelines) */}
-        {lineGeoJSON.features.length > 0 && (
-          <Source id="og-lines-source" type="geojson" data={lineGeoJSON}>
-            <Layer
-              id="og-lines"
-              type="line"
-              paint={{
-                "line-color": ["get", "color"],
-                "line-width": ["get", "width"],
-                "line-opacity": 0.8,
-              }}
-              layout={{
-                "line-cap": "round",
-                "line-join": "round",
-              }}
-            />
-          </Source>
-        )}
-
-        {/* Overlay layers (KMZ/KML/GeoJSON) */}
-        {overlays
-          .filter((o) => o.visible)
-          .map((overlay) => (
-            <Source key={overlay.id} id={`overlay-${overlay.id}`} type="geojson" data={overlay.geojson}>
-              <Layer
-                id={`overlay-fill-${overlay.id}`}
-                type="fill"
-                filter={["==", "$type", "Polygon"]}
-                paint={{
-                  "fill-color": overlay.style?.fillColor ?? "rgba(99, 102, 241, 0.2)",
-                  "fill-opacity": overlay.style?.fillOpacity ?? 0.3,
-                }}
-              />
-              <Layer
-                id={`overlay-line-${overlay.id}`}
-                type="line"
-                filter={["any", ["==", "$type", "LineString"], ["==", "$type", "Polygon"]]}
-                paint={{
-                  "line-color": overlay.style?.strokeColor ?? ACCENT,
-                  "line-width": overlay.style?.strokeWidth ?? 2,
-                  "line-opacity": 0.8,
-                }}
-              />
-              <Layer
-                id={`overlay-point-${overlay.id}`}
-                type="circle"
-                filter={["==", "$type", "Point"]}
-                paint={{
-                  "circle-radius": 5,
-                  "circle-color": overlay.style?.fillColor ?? ACCENT,
-                  "circle-stroke-width": 1,
-                  "circle-stroke-color": "#ffffff",
-                }}
-              />
-            </Source>
-          ))}
-      </MapGL>
+      />
 
       {/* Map Controls */}
       {showControls && interactive && (
