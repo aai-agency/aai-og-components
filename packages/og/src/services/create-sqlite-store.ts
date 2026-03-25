@@ -21,7 +21,7 @@ interface CreateSqliteStoreOptions {
  * Data survives page refreshes — no server required.
  *
  * ```ts
- * import { createSqliteStore } from "@aai-og/components";
+ * import { createSqliteStore } from "@aai/og-components";
  *
  * const store = await createSqliteStore();
  * <OGMap store={store} />

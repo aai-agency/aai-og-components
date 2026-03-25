@@ -7,7 +7,7 @@ import type { Asset, AssetQuery, AssetStore, MapOverlay, SavedMapView, StoreExpo
  * Usage:
  * ```ts
  * import initSqlJs from "sql.js";
- * import { SqliteStore } from "@aai-og/components/services";
+ * import { SqliteStore } from "@aai/og-components/services";
  *
  * const SQL = await initSqlJs();
  * const store = new SqliteStore(new SQL.Database());

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
-import { ProductionChart, type ChartAnnotation } from "@aai-og/components";
-import type { TimeSeries } from "@aai-og/components";
+import { ProductionChart, type ChartAnnotation } from "@aai/og-components";
+import type { TimeSeries } from "@aai/og-components";
 import "uplot/dist/uPlot.min.css";
 
 export const Route = createFileRoute("/chart")({

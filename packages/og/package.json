@@ -1,5 +1,5 @@
 {
-  "name": "@aai-og/components",
+  "name": "@aai/og-components",
   "version": "0.1.0",
   "description": "Production-grade UI components for oil & gas applications",
   "type": "module",

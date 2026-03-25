@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { OGMap, type Asset, type ColorScheme } from "@aai-og/components";
+import { OGMap, type Asset, type ColorScheme } from "@aai/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
@@ -62,7 +62,7 @@ function HomePage() {
               OG
             </div>
             <span className="text-lg font-bold text-white tracking-tight">
-              @aai-og/components
+              @aai/og-components
             </span>
             <span className="text-xs font-mono text-og-slate-400 bg-og-slate-800 px-2 py-0.5 rounded">
               v0.2.0
@@ -91,7 +91,7 @@ function HomePage() {
           </p>
           <div className="flex items-center justify-center gap-4">
             <code className="bg-og-slate-800 border border-og-slate-700 text-og-green font-mono text-sm px-4 py-2 rounded-lg">
-              pnpm add @aai-og/components
+              pnpm add @aai/og-components
             </code>
           </div>
         </section>
@@ -175,7 +175,7 @@ function HomePage() {
               app.tsx
             </div>
             <pre className="p-6 text-sm font-mono text-og-slate-200 overflow-x-auto leading-relaxed">
-{`import { OGMap, type Asset } from "@aai-og/components";
+{`import { OGMap, type Asset } from "@aai/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [

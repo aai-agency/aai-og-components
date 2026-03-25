@@ -1,0 +1,44 @@
+# @aai/og-components
+
+> Oil & Gas asset map components for React. By AAI Agency.
+
+## What this is
+
+A React component library for visualizing O&G assets (wells, pipelines, facilities) on interactive Mapbox maps with production charts, overlay uploads, drawing tools, and detail cards.
+
+## Install
+
+pnpm add @aai/og-components
+
+## Key import
+
+import { OGMap, type Asset } from "@aai/og-components";
+import "mapbox-gl/dist/mapbox-gl.css";
+
+## Minimal usage
+
+<OGMap assets={assets} mapboxAccessToken="pk.xxx" />
+
+## Data model
+
+Every entity is an Asset: { id, name, type, status, coordinates: { lat, lng }, properties: {} }
+
+## Docs for agents
+
+See AGENTS.md in this repo for full API reference, all props, type definitions, and usage recipes.
+
+## Exports
+
+- @aai/og-components — OGMap, ProductionChart, AssetDetailCard, types
+- @aai/og-components/schemas — Zod validation schemas
+- @aai/og-components/utils — filterPlottable, computeBounds, formatNumber, csvRowToAsset
+- @aai/og-components/services — InMemoryStore, LocalStorageStore, SqliteStore
+- @aai/og-components/machines — XState map state machine
+
+## Requirements
+
+React 18+, Mapbox access token
+
+## License
+
+MIT

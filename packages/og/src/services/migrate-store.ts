@@ -5,7 +5,7 @@ import type { AssetStore } from "../types";
  * Exports everything from `source`, then imports into `target`.
  *
  * ```ts
- * import { migrateStore, createSqliteStore } from "@aai-og/components";
+ * import { migrateStore, createSqliteStore } from "@aai/og-components";
  *
  * // Migrate from SQLite → Postgres
  * const sqliteStore = await createSqliteStore();

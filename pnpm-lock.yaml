@@ -21,7 +21,7 @@ importers:
 
   apps/docs:
     dependencies:
-      '@aai-og/components':
+      '@aai/og-components':
         specifier: workspace:*
         version: link:../../packages/og
       '@tanstack/react-router':
