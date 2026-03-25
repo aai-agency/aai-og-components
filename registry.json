@@ -169,7 +169,7 @@
       "name": "sqlite-storage",
       "type": "registry:component",
       "title": "SQLite Storage",
-      "description": "Save assets, overlays, and map views to an in-browser SQLite database. Better for large datasets (10K+ assets). Uses sql.js (WebAssembly SQLite).",
+      "description": "Save assets, overlays, and map views to an in-browser SQLite database. Better for large datasets (10,000+ assets). Uses sql.js (WebAssembly SQLite).",
       "files": [
         { "path": "services/sqlite-store.ts", "type": "registry:component" },
         { "path": "services/create-sqlite-store.ts", "type": "registry:component" },

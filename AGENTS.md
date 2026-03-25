@@ -44,7 +44,7 @@ function App() {
   return (
     <OGMap
       assets={assets}
-      mapboxAccessToken="pk.xxx"
+      mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
       colorBy="status"
       enableOverlayUpload
       showDetailCard
@@ -62,10 +62,20 @@ function App() {
 import { OGMap, ProductionChart, AssetDetailCard } from "@aai/og-components";
 
 // Additional components
-import { OverlayManager, SelectionPanel, MapControls } from "@aai/og-components";
+import { OverlayManager, SelectionPanel } from "@aai/og-components";
 
 // Helpers for working with data
-import { formatNumber, computeBounds, fitBounds, csvRowToAsset, filterPlottable, isValidCoordinates } from "@aai/og-components/utils";
+import {
+  formatNumber,
+  computeBounds,
+  fitBounds,
+  csvRowToAsset,
+  csvRowToWell,
+  filterPlottable,
+  isValidCoordinates,
+  getAssetColor,
+  getWellColor,
+} from "@aai/og-components/utils";
 
 // Data validation
 import { parseAssets, safeParseAssets } from "@aai/og-components/schemas";
@@ -73,8 +83,11 @@ import { parseAssets, safeParseAssets } from "@aai/og-components/schemas";
 // Save data to browser storage
 import { LocalStorageStore } from "@aai/og-components/services";
 
-// For large datasets (10K+ assets), use SQLite instead
+// For large datasets (10,000+ assets), use SQLite instead
 import { createSqliteStore, SqliteStore } from "@aai/og-components/services";
+
+// In-memory store (useful for testing or temporary data)
+import { InMemoryStore } from "@aai/og-components/services";
 ```
 
 ---
@@ -244,7 +257,7 @@ Users can upload map overlays in these formats:
 Enable with `enableOverlayUpload`:
 
 ```tsx
-<OGMap enableOverlayUpload assets={assets} mapboxAccessToken="pk.xxx" />
+<OGMap enableOverlayUpload assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />
 ```
 
 Users can drag-and-drop files onto the map, change overlay colors, and toggle feature visibility.
@@ -262,11 +275,11 @@ import { LocalStorageStore } from "@aai/og-components/services";
 const store = new LocalStorageStore("my-app");
 
 function App() {
-  return <OGMap store={store} assets={assets} mapboxAccessToken="pk.xxx" />;
+  return <OGMap store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
 }
 ```
 
-For large datasets (10K+ assets), use the SQLite store instead:
+For large datasets (10,000+ assets), use the SQLite store instead:
 
 ```tsx
 import { OGMap } from "@aai/og-components";
@@ -275,7 +288,7 @@ import { createSqliteStore } from "@aai/og-components/services";
 const store = await createSqliteStore("my-app");
 
 function App() {
-  return <OGMap store={store} assets={assets} mapboxAccessToken="pk.xxx" />;
+  return <OGMap store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
 }
 ```
 
@@ -331,7 +344,7 @@ Add custom sections to show specific data when users click an asset:
     },
   ]}
   assets={assets}
-  mapboxAccessToken="pk.xxx"
+  mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
 />
 ```
 
@@ -345,8 +358,11 @@ import {
   isValidCoordinates,
   formatNumber,
   csvRowToAsset,
+  csvRowToWell,
   computeBounds,
   fitBounds,
+  getAssetColor,
+  getWellColor,
 } from "@aai/og-components/utils";
 
 // Remove assets with bad coordinates
@@ -362,6 +378,12 @@ formatNumber(45000);    // "45.0K"
 
 // Convert CSV rows to assets (for Enverus/IHS-style data)
 const assets = csvRows.map(csvRowToAsset);
+
+// Convert CSV rows to well-typed assets
+const wells = csvRows.map(csvRowToWell);
+
+// Get the color for an asset based on the current color scheme
+const color = getAssetColor(asset, "status");
 
 // Get the bounding box for a set of assets
 const bounds = computeBounds(assets);

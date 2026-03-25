@@ -20,7 +20,8 @@ This skill activates when a project uses `@aai/og-components`. It helps you guid
 | **OverlayManager** | Upload KMZ/KML/GeoJSON/Shapefile files onto the map | User wants to overlay external files |
 | **SelectionPanel** | Select multiple assets by drawing shapes | User wants to filter or select assets on the map |
 | **LocalStorageStore** | Save data to browser so it persists between refreshes | User wants data to stick around |
-| **SqliteStore** | Save data to in-browser SQLite for large datasets (10K+ assets) | User has lots of data or needs better query performance |
+| **InMemoryStore** | Temporary in-memory storage (no persistence) | User is testing or does not need data saved |
+| **SqliteStore** | Save data to in-browser SQLite for large datasets (10,000+ assets) | User has lots of data or needs better query performance |
 
 ## How to add to a project
 

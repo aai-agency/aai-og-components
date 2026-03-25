@@ -56,7 +56,7 @@ Uses tsup with these entry points:
 - **Pure mapbox-gl** - no React wrappers. Direct GL manipulation for control and performance.
 - **XState** - single state machine manages all map interactions (selection, overlays, drawing, view).
 - **Inline styles** - no CSS framework dependency. Theme tokens in `theme.ts`.
-- **uPlot** - canvas-based charts for 10K+ data point performance.
+- **uPlot** - canvas-based charts for 10,000+ data point performance.
 - **Zod** - runtime validation at data boundaries.
 - **ESM only** - no CJS build. Modern bundlers only.
 
