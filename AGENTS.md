@@ -190,7 +190,7 @@ const pipeline: Asset = {
 | `width` | Map width | `"100%"` |
 | `controls` | Which toolbar buttons to show | All |
 | `layers` | Which map layers to show (see Available layers below) | All |
-| `mapStyle` | Mapbox style URL (e.g., `"mapbox://styles/mapbox/satellite-v9"`) | Dark |
+| `mapStyle` | Mapbox style URL (e.g., `"mapbox://styles/mapbox/satellite-v9"`) | Light |
 | `className` | CSS class to add to the map container | - |
 | `style` | Inline styles for the map container | - |
 | `store` | Storage backend for persistence (see Saving Data below) | None |

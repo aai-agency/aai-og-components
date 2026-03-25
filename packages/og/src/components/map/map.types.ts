@@ -44,7 +44,7 @@ export interface OGMapProps {
   showLegend?: boolean;
   /** Enable file upload overlay (KMZ/KML/GeoJSON). Default: false */
   enableOverlayUpload?: boolean;
-  /** Mapbox style URL. Default: "mapbox://styles/mapbox/dark-v11" */
+  /** Mapbox style URL. Default: "mapbox://styles/mapbox/light-v11" */
   mapStyle?: string;
   /** Map container height. Default: "500px" */
   height?: string | number;
