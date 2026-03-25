@@ -23,21 +23,31 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 Every entity is an Asset: { id, name, type, status, coordinates: { lat, lng }, properties: {} }
 
-## Docs for agents
+## Agent docs
 
-See AGENTS.md in this repo for full API reference, all props, type definitions, and usage recipes.
+- [AGENTS.md](./AGENTS.md) - Full usage guide with examples, options, and data formats
+- [registry.json](./registry.json) - Component catalog with descriptions, dependencies, and metadata
+- [.claude/SKILL.md](./.claude/SKILL.md) - Claude Code auto-discovery skill
+- [llms.txt](./llms.txt) - This file
 
-## Exports
+## Available components
 
-- @aai/og-components - OGMap, ProductionChart, AssetDetailCard, types
-- @aai/og-components/schemas - Zod validation schemas
-- @aai/og-components/utils - filterPlottable, computeBounds, formatNumber, csvRowToAsset
-- @aai/og-components/services - InMemoryStore, LocalStorageStore, SqliteStore
-- @aai/og-components/machines - XState map state machine
+- OGMap - Interactive asset map with clustering, color schemes, overlays, drawing tools
+- ProductionChart - Oil/gas/water time series chart with dual Y-axis and zoom
+- AssetDetailCard - Detail panel showing asset info on click
+- OverlayManager - Upload and manage KMZ/KML/GeoJSON/Shapefile overlays
+- SelectionPanel - Multi-select assets by drawing shapes
+- DrawingTools - Polygon, rectangle, circle drawing on the map
+- LocalStorageStore - Save data to browser storage
+- SqliteStore - Save data to in-browser SQLite for large datasets
 
 ## Requirements
 
 React 18+, Mapbox access token
+
+## Support
+
+Husam Rahman - husam@aai.agency - linkedin.com/in/husam-rahman
 
 ## License
 
