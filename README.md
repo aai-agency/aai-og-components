@@ -1,6 +1,6 @@
 # @aai/og-components
 
-Production-grade React components for Oil & Gas asset visualization. One component, one import — get an interactive map with production charts, overlay uploads, drawing tools, and detail cards.
+Interactive map components for Oil & Gas assets. One component gets you an interactive map with wells, pipelines, production charts, overlay uploads, drawing tools, and detail cards.
 
 Built by [AAI Agency](https://aai.agency) in Dallas, TX.
 
@@ -44,19 +44,16 @@ function App() {
 }
 ```
 
-## Features
+## What You Get
 
-- **Interactive Asset Map** — Plot wells, meters, pipelines, facilities, and custom asset types on a Mapbox GL map with deck.gl rendering
-- **Smart Clustering** — Automatic point clustering at low zoom levels with expansion on click
-- **Color Schemes** — Color by status, type, production, water cut, well type, operator, or basin
-- **Production Charts** — uPlot-based time series charts with dual Y-axis, brush zoom, annotations, and forecast overlay
-- **Drawing Tools** — Polygon, rectangle, and circle selection with lasso asset filtering
-- **Overlay Upload** — Drag-and-drop KMZ, KML, GeoJSON, and Shapefile overlays with style editing
-- **Detail Cards** — Click any asset to see properties, production data, and custom sections
-- **Selection Panel** — Multi-select assets with filter chips and summary cards
-- **Storage Backends** — In-memory, localStorage, and SQLite adapters with migration support
-- **Type-Safe** — Full TypeScript types with Zod schemas for runtime validation
-- **Agent-Ready** — Comprehensive [AGENTS.md](./AGENTS.md) for AI coding assistants
+- **Interactive Asset Map** - Plot wells, meters, pipelines, facilities on a map
+- **Smart Clustering** - Nearby dots group together at low zoom, expand on click
+- **Color Schemes** - Color by status, type, production volume, water cut, operator, or basin
+- **Production Charts** - Time series charts with dual Y-axis and zoom
+- **Drawing Tools** - Draw polygons, rectangles, and circles to select assets
+- **Overlay Upload** - Drag and drop KMZ, KML, GeoJSON, and Shapefile files onto the map
+- **Detail Cards** - Click any asset to see its data, production chart, and custom fields
+- **Data Persistence** - Save to browser storage so data survives page refreshes
 
 ## Requirements
 
@@ -65,47 +62,14 @@ function App() {
 
 ## Documentation
 
-| Doc | Audience | Description |
-|-----|----------|-------------|
-| [AGENTS.md](./AGENTS.md) | AI agents | Complete API reference, data model, props, recipes |
-| [README.md](./README.md) | Humans | This file — overview, install, quick start |
-| [llms.txt](./llms.txt) | LLMs | Compact machine-readable summary |
+For complete usage guides, data model reference, and all available options, see [AGENTS.md](./AGENTS.md). This file is designed to work with AI coding assistants (Claude, Cursor, Copilot) so they can help you set everything up.
 
-## Module Exports
+## Support
 
-```ts
-import { OGMap, ProductionChart, AssetDetailCard } from "@aai/og-components";
-import { AssetSchema, parseAssets } from "@aai/og-components/schemas";
-import { formatNumber, computeBounds } from "@aai/og-components/utils";
-import { InMemoryStore, LocalStorageStore } from "@aai/og-components/services";
-import { mapMachine } from "@aai/og-components/machines";
-```
+If you have any questions or need additional support, reach out to Husam Rahman:
 
-## Data Model
-
-Everything on the map is an `Asset` — a universal model for wells, meters, pipelines, facilities, or any custom type:
-
-```ts
-interface Asset {
-  id: string;
-  name: string;
-  type: string;        // "well", "pipeline", "facility", or any custom string
-  status: string;      // "producing", "shut-in", "active", etc.
-  coordinates: { lat: number; lng: number };
-  properties: Record<string, unknown>; // All domain data goes here
-}
-```
-
-See [AGENTS.md](./AGENTS.md) for the full type reference, prop tables, and usage recipes.
-
-## Tech Stack
-
-- [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/) — Map rendering (pure GL, no React wrapper)
-- [deck.gl](https://deck.gl/) — High-performance asset layer rendering
-- [XState](https://xstate.js.org/) — State machine for all map interactions
-- [uPlot](https://github.com/leeoniya/uPlot) — Canvas-based production charts (handles 10K+ points)
-- [Zod](https://zod.dev/) — Runtime schema validation
-- [Turf.js](https://turfjs.org/) — Geospatial calculations
+- Email: husam@aai.agency
+- LinkedIn: [linkedin.com/in/husam-rahman](https://www.linkedin.com/in/husam-rahman)
 
 ## License
 

@@ -29,11 +29,11 @@ See AGENTS.md in this repo for full API reference, all props, type definitions, 
 
 ## Exports
 
-- @aai/og-components — OGMap, ProductionChart, AssetDetailCard, types
-- @aai/og-components/schemas — Zod validation schemas
-- @aai/og-components/utils — filterPlottable, computeBounds, formatNumber, csvRowToAsset
-- @aai/og-components/services — InMemoryStore, LocalStorageStore, SqliteStore
-- @aai/og-components/machines — XState map state machine
+- @aai/og-components - OGMap, ProductionChart, AssetDetailCard, types
+- @aai/og-components/schemas - Zod validation schemas
+- @aai/og-components/utils - filterPlottable, computeBounds, formatNumber, csvRowToAsset
+- @aai/og-components/services - InMemoryStore, LocalStorageStore, SqliteStore
+- @aai/og-components/machines - XState map state machine
 
 ## Requirements
 
