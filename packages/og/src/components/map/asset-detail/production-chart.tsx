@@ -2,9 +2,7 @@ import { memo, useMemo, useRef, useEffect, useState, useCallback } from "react";
 import uPlot from "uplot";
 import type { TimeSeries } from "../../../types";
 import { formatNumber } from "../../../utils";
-import type { DCAForecastConfig } from "../../../utils/dca";
-import { generateSegmentedForecast, adjustParam, getModelParamNames, getParamLabel, enforceContinuity } from "../../../utils/dca";
-import { segmentBoundaryPlugin } from "./segment-boundary-plugin";
+
 import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, ACCENT, ACCENT_15, BORDER, BORDER_SUBTLE, FONT_FAMILY, HOVER_BG, PANEL_BG } from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -69,14 +67,6 @@ export interface ProductionChartProps {
   forecastOffset?: number;
   /** Called when the user drags the forecast line up/down */
   onForecastOffsetChange?: (offset: number) => void;
-  /**
-   * DCA forecast configuration. When provided, replaces the auto-generated
-   * exponential forecast with a multi-segment DCA forecast.
-   * Supports all standard decline models + custom equations.
-   */
-  dcaConfig?: import("../../../utils/dca").DCAForecastConfig;
-  /** Called when DCA config changes (segment boundaries dragged, parameters adjusted) */
-  onDCAConfigChange?: (config: import("../../../utils/dca").DCAForecastConfig) => void;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -402,17 +392,12 @@ interface ForecastDragOpts {
   offsetRef: { current: number };
   baseForecastRef: { current: Map<number, Float64Array> };
   onDragEnd: (offset: number) => void;
-  // DCA-specific (optional — enables keyboard-modified parameter drag)
-  dcaConfigRef?: { current: DCAForecastConfig | undefined };
-  dcaOutputRef?: { current: Float64Array | null };
-  onDCAConfigChange?: (config: DCAForecastConfig) => void;
-  timestamps?: ArrayLike<number>;
 }
 
 function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
   const {
     forecastSeriesIndices, scale, offsetRef, baseForecastRef,
-    onDragEnd, dcaConfigRef, dcaOutputRef, onDCAConfigChange, timestamps,
+    onDragEnd,
   } = opts;
 
   let isDragging = false;
@@ -421,75 +406,10 @@ function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
   let rafId = 0;
   let pendingOffset: number | null = null;
 
-  // Keyboard state for DCA parameter modifiers
-  const keys = { d: false, b: false, q: false };
-  let paramIndicator: HTMLDivElement | null = null;
-  let dragStartConfig: DCAForecastConfig | null = null;
-
-  function getActiveParam(): string {
-    if (keys.d) return "D";
-    if (keys.b) return "b";
-    if (keys.q) return "qi";
-    return "qi"; // default: shift entire curve
-  }
-
-  function updateIndicator(param: string) {
-    if (!paramIndicator) return;
-    if (!isDragging || !dcaConfigRef?.current) {
-      paramIndicator.style.display = "none";
-      return;
-    }
-    const label = getParamLabel(param);
-    paramIndicator.textContent = `Adjusting: ${label}`;
-    paramIndicator.style.display = "block";
-  }
-
   return {
     hooks: {
       init: (u: uPlot) => {
         const over = u.over;
-
-        // Create parameter indicator overlay
-        paramIndicator = document.createElement("div");
-        Object.assign(paramIndicator.style, {
-          position: "absolute",
-          top: "4px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          padding: "2px 10px",
-          borderRadius: "4px",
-          background: "rgba(99, 102, 241, 0.9)",
-          color: "#ffffff",
-          fontSize: "10px",
-          fontWeight: "600",
-          fontFamily: FONT_FAMILY,
-          pointerEvents: "none",
-          zIndex: "10",
-          display: "none",
-          whiteSpace: "nowrap",
-        });
-        over.parentElement?.appendChild(paramIndicator);
-
-        // Keyboard listeners for DCA parameter modifiers
-        const handleKeyDown = (e: KeyboardEvent) => {
-          if (!isDragging) return;
-          const key = e.key.toLowerCase();
-          if (key === "d") keys.d = true;
-          else if (key === "b") keys.b = true;
-          else if (key === "q") keys.q = true;
-          updateIndicator(getActiveParam());
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-          const key = e.key.toLowerCase();
-          if (key === "d") keys.d = false;
-          else if (key === "b") keys.b = false;
-          else if (key === "q") keys.q = false;
-          if (isDragging) updateIndicator(getActiveParam());
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        window.addEventListener("keyup", handleKeyUp);
 
         over.addEventListener("mousedown", (e: MouseEvent) => {
           const rect = over.getBoundingClientRect();
@@ -516,11 +436,6 @@ function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
             e.preventDefault();
             e.stopPropagation();
 
-            // Snapshot DCA config at drag start for parameter adjustment
-            if (dcaConfigRef?.current) {
-              dragStartConfig = JSON.parse(JSON.stringify(dcaConfigRef.current));
-            }
-
             // Snapshot base forecast values
             for (const fIdx of forecastSeriesIndices) {
               const data = u.data[fIdx];
@@ -533,55 +448,10 @@ function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
                 baseForecastRef.current.set(fIdx, base);
               }
             }
-
-            updateIndicator(getActiveParam());
           }
         });
 
         const applyOffset = (u: uPlot, newOffset: number) => {
-          // DCA mode: adjust parameter instead of simple offset
-          if (dcaConfigRef?.current && dragStartConfig && dcaOutputRef && timestamps) {
-            const dy = newOffset - dragStartOffset;
-            const param = getActiveParam();
-
-            // Scale the delta appropriately for each parameter
-            let paramDelta = dy;
-            if (param === "D") paramDelta = dy * 0.000001; // D is small (0.001 range)
-            else if (param === "b") paramDelta = dy * 0.0005; // b is 0-2 range
-
-            // Adjust all segments
-            const newSegments = dragStartConfig.segments.map((seg) => ({
-              ...seg,
-              model: adjustParam(seg.model, param, paramDelta),
-            }));
-
-            const newConfig: DCAForecastConfig = {
-              ...dragStartConfig,
-              segments: dragStartConfig.enforceContinuity ? enforceContinuity(newSegments) : newSegments,
-            };
-            dcaConfigRef.current = newConfig;
-
-            // Regenerate forecast into pre-allocated array
-            const n = timestamps.length;
-            if (!dcaOutputRef.current || dcaOutputRef.current.length !== n) {
-              dcaOutputRef.current = new Float64Array(n);
-            }
-            generateSegmentedForecast(newConfig, timestamps, dcaOutputRef.current);
-
-            // Copy into uPlot data arrays
-            for (const fIdx of forecastSeriesIndices) {
-              const data = u.data[fIdx] as number[];
-              if (!data || !dcaOutputRef.current) continue;
-              for (let i = 0; i < data.length; i++) {
-                data[i] = dcaOutputRef.current[i];
-              }
-            }
-
-            u.redraw(false);
-            return;
-          }
-
-          // Legacy mode: simple offset addition
           const delta = newOffset - dragStartOffset;
           for (const fIdx of forecastSeriesIndices) {
             const base = baseForecastRef.current.get(fIdx);
@@ -623,10 +493,6 @@ function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
           if (isDragging) {
             isDragging = false;
             over.style.cursor = "";
-            if (paramIndicator) paramIndicator.style.display = "none";
-            keys.d = false;
-            keys.b = false;
-            keys.q = false;
 
             if (rafId) {
               cancelAnimationFrame(rafId);
@@ -638,12 +504,7 @@ function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
             }
             baseForecastRef.current.clear();
 
-            // Sync DCA config to React if in DCA mode
-            if (dcaConfigRef?.current && onDCAConfigChange) {
-              onDCAConfigChange(dcaConfigRef.current);
-            }
             onDragEnd(offsetRef.current);
-            dragStartConfig = null;
           }
         };
 
@@ -978,8 +839,6 @@ export const ProductionChart = memo(({
   showVarianceFill = false,
   forecastOffset: controlledForecastOffset,
   onForecastOffsetChange,
-  dcaConfig: controlledDCAConfig,
-  onDCAConfigChange,
 }: ProductionChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const brushContainerRef = useRef<HTMLDivElement>(null);
@@ -994,13 +853,6 @@ export const ProductionChart = memo(({
 
   // Base forecast values for zero-allocation drag (Float64Array snapshots)
   const baseForecastRef = useRef(new Map<number, Float64Array>());
-
-  // DCA config ref (mutable for drag interactions)
-  const dcaConfigRef = useRef<DCAForecastConfig | undefined>(controlledDCAConfig);
-  dcaConfigRef.current = controlledDCAConfig;
-
-  // Pre-allocated Float64Array for DCA forecast output
-  const dcaOutputRef = useRef<Float64Array | null>(null);
 
   const handleForecastOffsetChange = useCallback(
     (offset: number) => {
@@ -1089,25 +941,12 @@ export const ProductionChart = memo(({
     const timestamps = baseAligned.data[0] as number[];
 
     for (const actualIdx of actualIndices) {
-      let forecastValues: (number | null)[];
-
-      if (controlledDCAConfig && controlledDCAConfig.segments.length > 0) {
-        // ── DCA mode: use segmented forecast ──
-        const n = timestamps.length;
-        if (!dcaOutputRef.current || dcaOutputRef.current.length !== n) {
-          dcaOutputRef.current = new Float64Array(n);
-        }
-        generateSegmentedForecast(controlledDCAConfig, timestamps, dcaOutputRef.current);
-        forecastValues = Array.from(dcaOutputRef.current);
-      } else {
-        // ── Legacy mode: simple exponential forecast ──
-        const actualData = baseAligned.data[actualIdx + 1] as (number | null)[];
-        forecastValues = generateForecastValues(
-          timestamps,
-          actualData,
-          forecastOffset,
-        );
-      }
+      const actualData = baseAligned.data[actualIdx + 1] as (number | null)[];
+      const forecastValues = generateForecastValues(
+        timestamps,
+        actualData,
+        forecastOffset,
+      );
 
       const forecastDataIdx = newData.length;
       newData.push(forecastValues);
@@ -1125,7 +964,7 @@ export const ProductionChart = memo(({
     }
 
     return { data: newData as uPlot.AlignedData, meta: newMeta };
-  }, [baseAligned, showVarianceFill, forecastOffset, controlledDCAConfig]);
+  }, [baseAligned, showVarianceFill, forecastOffset]);
 
   useEffect(() => {
     if (aligned) setVisibility(aligned.meta.map(() => true));
@@ -1270,30 +1109,6 @@ export const ProductionChart = memo(({
           offsetRef: forecastOffsetRef,
           baseForecastRef,
           onDragEnd: handleDragEnd,
-          dcaConfigRef: controlledDCAConfig ? dcaConfigRef as { current: DCAForecastConfig | undefined } : undefined,
-          dcaOutputRef: controlledDCAConfig ? dcaOutputRef : undefined,
-          onDCAConfigChange,
-          timestamps: aligned.data[0] as number[],
-        }));
-      }
-
-      // Add segment boundary plugin when DCA config is present
-      if (controlledDCAConfig && controlledDCAConfig.segments.length > 1) {
-        plugins.push(segmentBoundaryPlugin({
-          configRef: dcaConfigRef as { current: DCAForecastConfig },
-          onConfigChange: (config) => {
-            dcaConfigRef.current = config;
-            onDCAConfigChange?.(config);
-          },
-        }));
-      } else if (controlledDCAConfig && controlledDCAConfig.segments.length === 1) {
-        // Still render segment label for single segment
-        plugins.push(segmentBoundaryPlugin({
-          configRef: dcaConfigRef as { current: DCAForecastConfig },
-          onConfigChange: (config) => {
-            dcaConfigRef.current = config;
-            onDCAConfigChange?.(config);
-          },
         }));
       }
     }
@@ -1395,7 +1210,7 @@ export const ProductionChart = memo(({
         chartRef.current = null;
       }
     };
-  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset, controlledDCAConfig]);
+  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset]);
 
   // ── Create brush/overview chart ──
   useEffect(() => {

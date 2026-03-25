@@ -1,6 +1,6 @@
 // Components
-export { OGMap, MapControls, AssetDetailCard, ProductionChart, SegmentEditor, OverlayManager, SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./components";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, SegmentEditorProps, OverlayManagerProps, SelectionSummaryCardProps, SelectionPanelProps, SelectedOverlayFeature, FilterChipsProps, FilterChip, MiniCardProps, MiniCardItem } from "./components";
+export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager, SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./components";
+export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps, SelectionSummaryCardProps, SelectionPanelProps, SelectedOverlayFeature, FilterChipsProps, FilterChip, MiniCardProps, MiniCardItem } from "./components";
 
 // Core Types
 export type {
@@ -65,20 +65,6 @@ export {
 
 // Utilities
 export { isValidCoordinates, filterPlottable, computeBounds, fitBounds, getAssetColor, getWellColor, formatNumber, csvRowToAsset, csvRowToWell } from "./utils";
-
-// DCA (Decline Curve Analysis)
-export {
-  evaluateDCA, evaluateSegmented, generateSegmentedForecast, enforceContinuity,
-  fitExponential, adjustParam, getModelParamNames, getParamLabel,
-  parseCustomEquation, clearEquationCache, genSegmentId,
-  createDefaultConfig, splitSegment, removeSegment, changeSegmentModel,
-  DCA_MODEL_LABELS,
-} from "./utils";
-export type {
-  DCAModelType, DCAModel, DCASegment, DCAForecastConfig,
-  ExponentialParams, HyperbolicParams, HarmonicParams,
-  ModifiedHyperbolicParams, LinearParams, CustomParams, ParsedCustomEquation,
-} from "./utils";
 
 // Machines (XState)
 export { mapMachine } from "./machines";
