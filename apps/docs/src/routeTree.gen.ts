@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as ChartDragRouteImport } from './routes/chart-drag'
-import { Route as ChartDcaRouteImport } from './routes/chart-dca'
 import { Route as ChartRouteImport } from './routes/chart'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -23,11 +22,6 @@ const PlaygroundRoute = PlaygroundRouteImport.update({
 const ChartDragRoute = ChartDragRouteImport.update({
   id: '/chart-drag',
   path: '/chart-drag',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChartDcaRoute = ChartDcaRouteImport.update({
-  id: '/chart-dca',
-  path: '/chart-dca',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChartRoute = ChartRouteImport.update({
@@ -44,14 +38,12 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
-  '/chart-dca': typeof ChartDcaRoute
   '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
-  '/chart-dca': typeof ChartDcaRoute
   '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
@@ -59,22 +51,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chart': typeof ChartRoute
-  '/chart-dca': typeof ChartDcaRoute
   '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chart' | '/chart-dca' | '/chart-drag' | '/playground'
+  fullPaths: '/' | '/chart' | '/chart-drag' | '/playground'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chart' | '/chart-dca' | '/chart-drag' | '/playground'
-  id: '__root__' | '/' | '/chart' | '/chart-dca' | '/chart-drag' | '/playground'
+  to: '/' | '/chart' | '/chart-drag' | '/playground'
+  id: '__root__' | '/' | '/chart' | '/chart-drag' | '/playground'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChartRoute: typeof ChartRoute
-  ChartDcaRoute: typeof ChartDcaRoute
   ChartDragRoute: typeof ChartDragRoute
   PlaygroundRoute: typeof PlaygroundRoute
 }
@@ -93,13 +83,6 @@ declare module '@tanstack/react-router' {
       path: '/chart-drag'
       fullPath: '/chart-drag'
       preLoaderRoute: typeof ChartDragRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chart-dca': {
-      id: '/chart-dca'
-      path: '/chart-dca'
-      fullPath: '/chart-dca'
-      preLoaderRoute: typeof ChartDcaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chart': {
@@ -122,7 +105,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChartRoute: ChartRoute,
-  ChartDcaRoute: ChartDcaRoute,
   ChartDragRoute: ChartDragRoute,
   PlaygroundRoute: PlaygroundRoute,
 }
