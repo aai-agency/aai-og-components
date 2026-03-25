@@ -40,15 +40,19 @@ const assets: Asset[] = [
   },
 ];
 
-<OGMap
-  assets={assets}
-  mapboxAccessToken="pk.xxx"
-  colorBy="status"
-  enableOverlayUpload
-  showDetailCard
-  controls={["pan", "zoom", "fullscreen", "center", "draw-polygon", "layers"]}
-  layers={["assets", "lines", "clusters"]}
-/>
+function App() {
+  return (
+    <OGMap
+      assets={assets}
+      mapboxAccessToken="pk.xxx"
+      colorBy="status"
+      enableOverlayUpload
+      showDetailCard
+      controls={["pan", "zoom", "fullscreen", "center", "draw-polygon", "layers"]}
+      layers={["assets", "lines", "clusters"]}
+    />
+  );
+}
 ```
 
 ## What You Can Import
@@ -57,21 +61,27 @@ const assets: Asset[] = [
 // The main map component and chart
 import { OGMap, ProductionChart, AssetDetailCard } from "@aai/og-components";
 
+// Additional components
+import { OverlayManager, SelectionPanel, MapControls } from "@aai/og-components";
+
 // Helpers for working with data
-import { formatNumber, computeBounds, csvRowToAsset, filterPlottable } from "@aai/og-components/utils";
+import { formatNumber, computeBounds, fitBounds, csvRowToAsset, filterPlottable, isValidCoordinates } from "@aai/og-components/utils";
 
 // Data validation
 import { parseAssets, safeParseAssets } from "@aai/og-components/schemas";
 
 // Save data to browser storage
 import { LocalStorageStore } from "@aai/og-components/services";
+
+// For large datasets (10K+ assets), use SQLite instead
+import { createSqliteStore, SqliteStore } from "@aai/og-components/services";
 ```
 
 ---
 
 ## How Data Works
 
-Everything on the map is an "Asset." Wells, meters, pipelines, facilities - they all follow the same structure:
+Everything on the map is an "Asset." Wells, meters, pipelines, facilities all follow the same structure:
 
 ```ts
 const myAsset: Asset = {
@@ -166,11 +176,20 @@ const pipeline: Asset = {
 | `height` | Map height (e.g., `"500px"` or `600`) | `"500px"` |
 | `width` | Map width | `"100%"` |
 | `controls` | Which toolbar buttons to show | All |
+| `layers` | Which map layers to show (see Available layers below) | All |
+| `mapStyle` | Mapbox style URL (e.g., `"mapbox://styles/mapbox/satellite-v9"`) | Dark |
+| `className` | CSS class to add to the map container | - |
+| `style` | Inline styles for the map container | - |
+| `store` | Storage backend for persistence (see Saving Data below) | None |
 | `interactive` | Allow panning, zooming, clicking | On |
 
 ### Available controls
 
 `"pan"`, `"zoom"`, `"fullscreen"`, `"center"`, `"draw-polygon"`, `"draw-rectangle"`, `"draw-circle"`, `"layers"`
+
+### Available layers
+
+`"assets"`, `"clusters"`, `"lines"`, `"overlays"`, `"labels"`
 
 ### Responding to user actions
 
@@ -180,6 +199,7 @@ const pipeline: Asset = {
 | `onAssetHover` | User hovers over an asset |
 | `onViewStateChange` | User pans or zooms the map |
 | `onDrawCreate` | User draws a shape on the map |
+| `onDrawDelete` | User clears a drawn shape |
 | `onLassoSelect` | User selects assets with a drawn shape |
 | `onDetailClose` | User closes the detail card |
 
@@ -235,12 +255,28 @@ Users can drag-and-drop files onto the map, change overlay colors, and toggle fe
 
 By default, data is not saved between page refreshes. To save to the browser:
 
-```ts
+```tsx
+import { OGMap } from "@aai/og-components";
 import { LocalStorageStore } from "@aai/og-components/services";
 
 const store = new LocalStorageStore("my-app");
 
-<OGMap store={store} assets={assets} mapboxAccessToken="pk.xxx" />
+function App() {
+  return <OGMap store={store} assets={assets} mapboxAccessToken="pk.xxx" />;
+}
+```
+
+For large datasets (10K+ assets), use the SQLite store instead:
+
+```tsx
+import { OGMap } from "@aai/og-components";
+import { createSqliteStore } from "@aai/og-components/services";
+
+const store = await createSqliteStore("my-app");
+
+function App() {
+  return <OGMap store={store} assets={assets} mapboxAccessToken="pk.xxx" />;
+}
 ```
 
 ---
@@ -253,23 +289,27 @@ You can use the production chart on its own, outside the map:
 import { ProductionChart } from "@aai/og-components";
 import "uplot/dist/uPlot.min.css";
 
-<ProductionChart
-  series={[
-    {
-      id: "oil",
-      fluidType: "oil",
-      curveType: "actual",
-      unit: "BBL",
-      frequency: "monthly",
-      data: [
-        { date: "2023-01-01", value: 12000 },
-        { date: "2023-02-01", value: 11200 },
-      ],
-    },
-  ]}
-  height={200}
-  colors={{ oil: "#22c55e", gas: "#ef4444", water: "#3b82f6" }}
-/>
+function MyChart() {
+  return (
+    <ProductionChart
+      series={[
+        {
+          id: "oil",
+          fluidType: "oil",
+          curveType: "actual",
+          unit: "BBL",
+          frequency: "monthly",
+          data: [
+            { date: "2023-01-01", value: 12000 },
+            { date: "2023-02-01", value: 11200 },
+          ],
+        },
+      ]}
+      height={200}
+      colors={{ oil: "#22c55e", gas: "#ef4444", water: "#3b82f6" }}
+    />
+  );
+}
 ```
 
 ---
@@ -300,17 +340,34 @@ Add custom sections to show specific data when users click an asset:
 ## Helpful Utilities
 
 ```ts
-import { filterPlottable, formatNumber, csvRowToAsset } from "@aai/og-components/utils";
+import {
+  filterPlottable,
+  isValidCoordinates,
+  formatNumber,
+  csvRowToAsset,
+  computeBounds,
+  fitBounds,
+} from "@aai/og-components/utils";
 
 // Remove assets with bad coordinates
 const validAssets = filterPlottable(assets);
 
+// Check a single coordinate pair
+isValidCoordinates({ lat: 48.12, lng: -103.45 }); // true
+isValidCoordinates({ lat: 999, lng: 0 });          // false
+
 // Format big numbers nicely
-formatNumber(1234567);  // "1.23M"
-formatNumber(45000);    // "45K"
+formatNumber(1234567);  // "1.2M"
+formatNumber(45000);    // "45.0K"
 
 // Convert CSV rows to assets (for Enverus/IHS-style data)
 const assets = csvRows.map(csvRowToAsset);
+
+// Get the bounding box for a set of assets
+const bounds = computeBounds(assets);
+
+// Get a view state that fits all assets (useful for initialViewState)
+const view = fitBounds(assets);
 ```
 
 ---

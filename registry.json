@@ -133,7 +133,7 @@
       "name": "drawing-tools",
       "type": "registry:component",
       "title": "Drawing Tools",
-      "description": "Draw polygons, rectangles, and circles on the map to select assets within an area. Integrates with Mapbox GL Draw.",
+      "description": "Internal drawing modes used by MapControls. Draw polygons, rectangles, and circles on the map to select assets within an area. Integrates with Mapbox GL Draw. Enable via the controls prop on OGMap.",
       "files": [
         { "path": "components/map/draw-modes/circle.ts", "type": "registry:component" },
         { "path": "components/map/draw-modes/rectangle.ts", "type": "registry:component" },

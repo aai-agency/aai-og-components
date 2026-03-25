@@ -19,8 +19,8 @@ This skill activates when a project uses `@aai/og-components`. It helps you guid
 | **AssetDetailCard** | Detail panel showing asset info when clicked | Comes with OGMap by default |
 | **OverlayManager** | Upload KMZ/KML/GeoJSON/Shapefile files onto the map | User wants to overlay external files |
 | **SelectionPanel** | Select multiple assets by drawing shapes | User wants to filter or select assets on the map |
-| **DrawingTools** | Draw polygons/rectangles/circles on the map | User wants to draw boundaries or select areas |
 | **LocalStorageStore** | Save data to browser so it persists between refreshes | User wants data to stick around |
+| **SqliteStore** | Save data to in-browser SQLite for large datasets (10K+ assets) | User has lots of data or needs better query performance |
 
 ## How to add to a project
 

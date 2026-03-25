@@ -8,20 +8,30 @@ A React component library for visualizing O&G assets (wells, pipelines, faciliti
 
 ## Install
 
+```bash
 pnpm add @aai/og-components
+```
 
 ## Key import
 
+```ts
 import { OGMap, type Asset } from "@aai/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
+```
 
 ## Minimal usage
 
+```tsx
 <OGMap assets={assets} mapboxAccessToken="pk.xxx" />
+```
 
 ## Data model
 
-Every entity is an Asset: { id, name, type, status, coordinates: { lat, lng }, properties: {} }
+Every entity is an Asset with these required fields:
+
+```ts
+{ id, name, type, status, coordinates: { lat, lng }, properties: {} }
+```
 
 ## Agent docs
 
@@ -37,9 +47,8 @@ Every entity is an Asset: { id, name, type, status, coordinates: { lat, lng }, p
 - AssetDetailCard - Detail panel showing asset info on click
 - OverlayManager - Upload and manage KMZ/KML/GeoJSON/Shapefile overlays
 - SelectionPanel - Multi-select assets by drawing shapes
-- DrawingTools - Polygon, rectangle, circle drawing on the map
 - LocalStorageStore - Save data to browser storage
-- SqliteStore - Save data to in-browser SQLite for large datasets
+- SqliteStore / createSqliteStore - Save data to in-browser SQLite for large datasets
 
 ## Requirements
 

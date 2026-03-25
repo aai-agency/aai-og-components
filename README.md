@@ -62,7 +62,7 @@ function App() {
 
 ## Documentation
 
-For complete usage guides, data model reference, and all available options, see [AGENTS.md](./AGENTS.md). This file is designed to work with AI coding assistants (Claude, Cursor, Copilot) so they can help you set everything up.
+For the full guide with examples, data formats, and all available options, see [AGENTS.md](./AGENTS.md). This file is written so that AI coding assistants (Claude, Cursor, Copilot) can help you set everything up.
 
 ## Support
 
