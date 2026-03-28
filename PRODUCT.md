@@ -28,86 +28,109 @@ The standard component library for building Oil & Gas data applications. One imp
 
 ---
 
-## Roadmap
+## Three Pillars
 
-### v0.2.0 - Polish and Performance
+The library is built around three product pillars. Each pillar has its own progression from foundational to advanced.
 
-**Bundle optimization**
-- Tree-shakeable turf.js imports (individual subpackages)
-- Lazy-load heavy dependencies (sql.js, shpjs, jszip) only when used
-- Optional peer dependencies for mapbox-gl, deck.gl, xstate
+### Pillar 1: The Map
 
-**Developer experience**
-- Storybook or similar visual component catalog
+The interactive asset map is the entry point. One component, full map.
+
+| Phase | What Ships | Status |
+|-------|-----------|--------|
+| **Foundation** | Asset rendering, clustering, color schemes, tooltips, detail cards | Shipped (v0.1) |
+| **Overlays** | KMZ/KML/GeoJSON/Shapefile upload, overlay styling, drag-and-drop | Shipped (v0.1) |
+| **Drawing** | Polygon, rectangle, circle selection with lasso multi-select | Shipped (v0.1) |
+| **Smart Filtering** | Filter panel (operator, basin, status, date range, production thresholds). Hide/show, not just color | Planned (v0.2) |
+| **Custom Markers** | SVG markers per asset type. Rig icons for wells, valve icons for valves, pipeline flow direction | Planned (v0.2) |
+| **Spatial Queries** | Distance rings, buffer zones, proximity search ("all wells within 5 miles of this pipeline") | Planned (v0.3) |
+| **3D Terrain** | Mapbox terrain with elevation. Surface vs subsurface visualization | Planned (v0.4) |
+| **Real-time** | WebSocket adapter for live SCADA/IoT updates, configurable refresh per asset type | Planned (v0.4) |
+
+### Pillar 2: Charts and Forecasting
+
+Production charts are the killer feature for O&G. Canvas-based, performant at scale, with domain-specific analytics.
+
+| Phase | What Ships | Status |
+|-------|-----------|--------|
+| **Foundation** | Dual Y-axis time series, zoom, brush, 10K+ point performance | Shipped (v0.1) |
+| **Annotations** | Mark events on charts (workover, frac, shut-in). Expandable notes, region highlights | Shipped (v0.1) |
+| **Decline Curve Analysis** | Arps models (exponential, hyperbolic, harmonic), Duong, stretched exponential | Planned (v0.2) |
+| **Interactive Forecasting** | Drag the forecast line to adjust DCA parameters in real time. Live EUR updates | Planned (v0.2) |
+| **Segmented Forecasting** | Different decline parameters per time period (initial flush, transition, terminal decline) | Planned (v0.2) |
+| **Multi-well Type Curves** | Select N wells, generate P10/P50/P90 type curve with confidence bands | Planned (v0.3) |
+| **Comparison Mode** | Overlay multiple wells on one chart, normalized by lateral length, time-on-production, or BOE | Planned (v0.3) |
+| **Variance Analysis** | Actual vs forecast variance tracking, auto-detect when wells deviate from type curve | Planned (v0.4) |
+
+### Pillar 3: Advanced Layer Interaction
+
+Layers turn the map from a visualization tool into an analysis platform. Cross-reference overlays with assets, run spatial analytics, share results.
+
+| Phase | What Ships | Status |
+|-------|-----------|--------|
+| **Foundation** | Upload overlays, toggle visibility, basic styling (fill, stroke, opacity) | Shipped (v0.1) |
+| **Layer Controls** | Layer groups, ordering, opacity sliders, blend modes. Stack overlays intelligently | Planned (v0.2) |
+| **Layer-aware Selection** | Select all wells inside a lease boundary. Cross-reference overlay polygons with assets | Planned (v0.3) |
+| **Layer Analytics** | Aggregate stats per overlay polygon (total production inside this lease, well count per unit) | Planned (v0.3) |
+| **Feature Editing** | Click an overlay polygon, edit properties, save back. In-place geometry editing | Planned (v0.4) |
+| **Dynamic Layers** | Data-driven layers that update automatically (heat maps, bubble maps, flow direction) | Planned (v0.4) |
+| **Layer Sharing** | Export styled layer packages. Import into another instance. Portable map configurations | Planned (v0.5) |
+
+---
+
+## Release Plan
+
+### v0.2.0 - Charts + Polish
+
+The charting story becomes the differentiator. Nobody else has open source DCA with interactive forecasting.
+
+- Decline curve analysis engine (Arps, Duong, stretched exponential)
+- Interactive forecast drag with live parameter updates
+- Segmented forecasting with per-segment DCA config
+- Smart filtering panel on the map
+- Custom SVG markers per asset type
+- Layer groups with ordering and opacity controls
+- Bundle optimization (lazy-load sql.js, shpjs, jszip)
 - Deploy playground as a live demo site
-- Codemods for migrating from Well API to Asset API
-
-**Testing**
 - Unit tests for utils, schemas, services
-- Integration tests for store implementations
-- Visual regression tests for map rendering
 
-### v0.3.0 - Real-time and Collaboration
+### v0.3.0 - Analysis Platform
 
-**Real-time data**
-- WebSocket adapter for live asset updates (SCADA, IoT sensors)
-- Streaming production data with auto-scrolling charts
-- Configurable refresh intervals per asset type
+The map becomes an analysis tool, not just a viewer.
 
-**Collaboration features**
-- Shared map views (shareable URL state)
-- Annotation sharing (team notes on assets)
+- Multi-well type curves (P10/P50/P90)
+- Production comparison mode with normalization
+- Layer-aware selection (wells inside overlay polygons)
+- Layer analytics (aggregate stats per polygon)
+- Spatial queries (proximity search, buffer zones)
 - Export selection to CSV/Excel
+- Shared map views (shareable URL state)
 
-### v0.4.0 - Advanced Analytics
+### v0.4.0 - Advanced Viz + Real-time
 
-**Spatial analytics**
-- Heat maps for production density
-- Decline curve analysis overlays
-- Basin/formation boundary visualization
-- Distance and area measurement tools
-
-**Comparative views**
-- Side-by-side asset comparison
-- Production normalization (per 1000ft lateral, per well)
-- Type curve generation from selected wells
+- 3D terrain visualization
+- WebSocket adapter for live asset updates
+- Variance analysis (actual vs forecast)
+- Feature editing on overlay polygons
+- Dynamic data-driven layers (heat maps, bubble maps)
+- Theming system (dark mode, custom brand colors)
 
 ### v0.5.0 - AI Agent Integration
 
-**MCP Server**
-- Model Context Protocol server for conversational component API
-- Agents can query assets, get code examples, validate data structures
-- Natural language map commands ("show me all shut-in wells in the Permian")
-
-**AI-powered data import**
-- LLM-based column mapping for messy CSV/Excel data
-- Automatic coordinate detection and geocoding
-- Smart status/type inference from raw data
-
-**Agent workflows**
-- Pre-built agent tools for common O&G data tasks
-- Prompt templates for map configuration
+- MCP Server for conversational component API
+- Natural language map commands ("show me shut-in wells in the Permian")
+- LLM-powered data import (auto-map messy CSV columns to Asset schema)
 - Agent-callable functions for programmatic map control
+- Layer sharing and portable map configurations
 
 ### v1.0.0 - Production Ready
 
-**Stability**
-- Semantic versioning with strict backward compatibility
 - Comprehensive test suite (>80% coverage)
 - Performance benchmarks and regression testing
-- Documented browser support matrix
-
-**Enterprise features**
-- Theming system (dark mode, custom brand colors)
-- Accessibility audit and WCAG 2.1 AA compliance
-- Internationalization support
-- Custom marker/icon system
-
-**Ecosystem**
+- Accessibility audit (WCAG 2.1 AA)
 - Next.js, Remix, and Vite starter templates
 - Published Storybook with all component states
-- Video tutorials and cookbook recipes
-- Community Discord or GitHub Discussions
+- Semantic versioning with strict backward compatibility
 
 ---
 
