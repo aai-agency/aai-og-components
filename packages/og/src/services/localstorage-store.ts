@@ -63,18 +63,12 @@ export class LocalStorageStore implements AssetStore {
     if (query?.bounds) {
       const [w, s, e, n] = query.bounds;
       results = results.filter(
-        (a) =>
-          a.coordinates.lng >= w &&
-          a.coordinates.lng <= e &&
-          a.coordinates.lat >= s &&
-          a.coordinates.lat <= n
+        (a) => a.coordinates.lng >= w && a.coordinates.lng <= e && a.coordinates.lat >= s && a.coordinates.lat <= n,
       );
     }
     if (query?.search) {
       const q = query.search.toLowerCase();
-      results = results.filter(
-        (a) => a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q)
-      );
+      results = results.filter((a) => a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
     }
     if (query?.offset) {
       results = results.slice(query.offset);

@@ -1,15 +1,5 @@
 import React, { memo, useRef, useState, useCallback } from "react";
-import {
-  TEXT_PRIMARY,
-  TEXT_SECONDARY,
-  TEXT_MUTED,
-  TEXT_FAINT,
-  ACCENT,
-  ACCENT_15,
-  BORDER,
-  FONT_FAMILY,
-  HOVER_BG,
-} from "../theme";
+import { ACCENT, BORDER, FONT_FAMILY, TEXT_FAINT, TEXT_MUTED, TEXT_SECONDARY } from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,12 +24,7 @@ export interface FilterChipsProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const FilterChips = memo(function FilterChips({
-  chips,
-  activeIds,
-  onToggle,
-  onClearAll,
-}: FilterChipsProps) {
+export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggle, onClearAll }: FilterChipsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(true);

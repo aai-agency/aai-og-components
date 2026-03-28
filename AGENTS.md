@@ -70,11 +70,10 @@ import {
   computeBounds,
   fitBounds,
   csvRowToAsset,
-  csvRowToWell,
   filterPlottable,
   isValidCoordinates,
   getAssetColor,
-  getWellColor,
+  groupBy,
 } from "@aai/og-components/utils";
 
 // Data validation
@@ -358,11 +357,10 @@ import {
   isValidCoordinates,
   formatNumber,
   csvRowToAsset,
-  csvRowToWell,
   computeBounds,
   fitBounds,
   getAssetColor,
-  getWellColor,
+  groupBy,
 } from "@aai/og-components/utils";
 
 // Remove assets with bad coordinates
@@ -379,9 +377,6 @@ formatNumber(45000);    // "45.0K"
 // Convert CSV rows to assets (for Enverus/IHS-style data)
 const assets = csvRows.map(csvRowToAsset);
 
-// Convert CSV rows to well-typed assets
-const wells = csvRows.map(csvRowToWell);
-
 // Get the color for an asset based on the current color scheme
 const color = getAssetColor(asset, "status");
 
@@ -390,6 +385,9 @@ const bounds = computeBounds(assets);
 
 // Get a view state that fits all assets (useful for initialViewState)
 const view = fitBounds(assets);
+
+// Group assets by any key
+const byType = groupBy(assets, (a) => a.type);
 ```
 
 ---

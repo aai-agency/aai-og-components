@@ -1,6 +1,7 @@
 /** Centralized theme constants for all map components */
 
 // ── Text ──
+export const TEXT_HEADING = "#0f172a";
 export const TEXT_PRIMARY = "#1e293b";
 export const TEXT_SECONDARY = "#334155";
 export const TEXT_MUTED = "#64748b";
@@ -12,6 +13,7 @@ export const PANEL_BG_LIGHT = "rgba(255, 255, 255, 0.92)";
 export const INPUT_BG = "rgba(241, 245, 249, 0.8)";
 export const HOVER_BG = "rgba(148, 163, 184, 0.12)";
 export const ACTIVE_BG = "rgba(148, 163, 184, 0.15)";
+export const BUTTON_BG = "rgba(30, 41, 59, 0.5)";
 
 // ── Accent ──
 export const ACCENT = "#6366f1";
@@ -40,3 +42,6 @@ export const FONT_FAMILY = "'Inter', system-ui, sans-serif";
 export const BLUR_SM = "blur(8px)";
 export const BLUR_MD = "blur(12px)";
 export const BLUR_LG = "blur(16px)";
+
+// ── Data Colors (re-exported from shared constants to avoid circular imports) ──
+export { STATUS_COLORS, TYPE_COLORS, WELL_TYPE_COLORS } from "../../constants/colors";

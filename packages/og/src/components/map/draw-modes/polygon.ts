@@ -1,6 +1,6 @@
-import type { DrawModeContext, PolygonState } from "./types";
 import type MapboxDraw from "@mapbox/mapbox-gl-draw";
 import { doubleClickZoom } from "./helpers";
+import type { DrawModeContext, PolygonState } from "./types";
 
 const DirectPolygonMode: MapboxDraw.DrawCustomMode = {
   onSetup: function (this: DrawModeContext): PolygonState {
@@ -30,7 +30,7 @@ const DirectPolygonMode: MapboxDraw.DrawCustomMode = {
   },
 
   onClick: function (state, e) {
-    const shiftPressed = e.originalEvent && e.originalEvent.shiftKey;
+    const shiftPressed = e.originalEvent?.shiftKey;
     state.clickCount = (state.clickCount || 0) + 1;
 
     if (shiftPressed && state.polygonCompleted) {
@@ -91,7 +91,7 @@ const DirectPolygonMode: MapboxDraw.DrawCustomMode = {
     }
   },
 
-  onMouseMove: function (state, e) {
+  onMouseMove: (state, e) => {
     if (state.isDrawing && !state.polygonCompleted) {
       const now = Date.now();
       if (now - state.lastDrawTime >= state.minDrawInterval) {
@@ -156,7 +156,7 @@ const DirectPolygonMode: MapboxDraw.DrawCustomMode = {
     this.changeMode("simple_select");
   },
 
-  toDisplayFeatures: function (state, geojson, display) {
+  toDisplayFeatures: (state, geojson, display) => {
     const geoJsonAny = geojson as unknown as Record<string, unknown>;
     const props = geoJsonAny.properties as Record<string, unknown> | undefined;
     const isActivePolygon = props?.id === state.polygon.id;

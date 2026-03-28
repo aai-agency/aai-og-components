@@ -1,6 +1,36 @@
 // Components
-export { OGMap, MapControls, AssetDetailCard, ProductionChart, OverlayManager, SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./components";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps, MapControlsProps, MapControlId, MapLayerId, AssetDetailCardProps, AssetDetailSection, ProductionChartProps, OverlayManagerProps, SelectionSummaryCardProps, SelectionPanelProps, SelectedOverlayFeature, FilterChipsProps, FilterChip, MiniCardProps, MiniCardItem } from "./components";
+export {
+  OGMap,
+  MapControls,
+  AssetDetailCard,
+  ProductionChart,
+  OverlayManager,
+  SelectionSummaryCard,
+  SelectionPanel,
+  FilterChips,
+  MiniCard,
+  assetToMiniCard,
+  overlayFeatureToMiniCard,
+} from "./components";
+export type {
+  OGMapProps,
+  MapTooltipProps,
+  ClusterMarkerProps,
+  MapControlsProps,
+  MapControlId,
+  MapLayerId,
+  AssetDetailCardProps,
+  AssetDetailSection,
+  ProductionChartProps,
+  OverlayManagerProps,
+  SelectionSummaryCardProps,
+  SelectionPanelProps,
+  SelectedOverlayFeature,
+  FilterChipsProps,
+  FilterChip,
+  MiniCardProps,
+  MiniCardItem,
+} from "./components";
 
 // Core Types
 export type {
@@ -28,9 +58,7 @@ export type {
 
 // Well-specific types (O&G convenience)
 export type {
-  Well,
   WellProperties,
-  WellCluster,
   WellType,
   Trajectory,
   FluidType,
@@ -40,9 +68,6 @@ export type {
   DataPoint,
   TimeSeries,
 } from "./types";
-
-// Conversion helpers
-export { wellToAsset, assetToWell } from "./types";
 
 // Schemas
 export {
@@ -56,15 +81,19 @@ export {
   DataPointSchema,
   parseAssets,
   safeParseAssets,
-  // Legacy
-  WellSchema,
-  WellArraySchema,
-  parseWells,
-  safeParseWells,
 } from "./schemas";
 
 // Utilities
-export { isValidCoordinates, filterPlottable, computeBounds, fitBounds, getAssetColor, getWellColor, formatNumber, csvRowToAsset, csvRowToWell } from "./utils";
+export {
+  isValidCoordinates,
+  filterPlottable,
+  computeBounds,
+  fitBounds,
+  getAssetColor,
+  formatNumber,
+  groupBy,
+  csvRowToAsset,
+} from "./utils";
 
 // Machines (XState)
 export { mapMachine } from "./machines";

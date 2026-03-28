@@ -7,7 +7,26 @@
       "recommended": true,
       "correctness": {
         "noUnusedVariables": "warn",
-        "noUnusedImports": "warn"
+        "noUnusedImports": "warn",
+        "useExhaustiveDependencies": "warn"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off",
+        "noAutofocus": "off",
+        "useKeyWithClickEvents": "off",
+        "useButtonType": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "off",
+        "noAssignInExpressions": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "warn",
+        "noUnusedTemplateLiteral": "off",
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "noForEach": "off"
       }
     }
   },
@@ -25,6 +44,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".vinxi", ".output", "*.gen.*"]
+    "ignore": ["node_modules", "dist", ".vinxi", ".output", "*.gen.*", "data/*.json", "apps/docs/public/data/*.json"]
   }
 }

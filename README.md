@@ -1,5 +1,7 @@
 # @aai/og-components
 
+[![npm](https://img.shields.io/npm/v/@aai/og-components)](https://www.npmjs.com/package/@aai/og-components) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/) [![CI](https://github.com/aai-agency/aai-og-components/actions/workflows/ci.yml/badge.svg)](https://github.com/aai-agency/aai-og-components/actions/workflows/ci.yml)
+
 Interactive map components for Oil & Gas assets. One component gets you an interactive map with wells, pipelines, production charts, overlay uploads, drawing tools, and detail cards.
 
 Built by [AAI Agency](https://aai.agency) in Dallas, TX.

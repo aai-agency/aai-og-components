@@ -1,22 +1,24 @@
-import React, { memo, useCallback, useMemo, useState } from "react";
-import type { Asset, AssetTypeConfig, MapOverlay } from "../../../types";
-import { FilterChips, type FilterChip } from "./filter-chips";
-import { MiniCard, type MiniCardItem, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
-import type { SelectedOverlayFeature } from "./selection-summary-card";
+import { memo, useCallback, useMemo, useState } from "react";
+import type { Asset, AssetTypeConfig } from "../../../types";
 import {
-  TEXT_PRIMARY,
-  TEXT_SECONDARY,
-  TEXT_MUTED,
-  TEXT_FAINT,
-  PANEL_BG,
+  ACCENT,
+  BLUR_LG,
   BORDER,
   BORDER_SUBTLE,
-  ACCENT,
   FONT_FAMILY,
-  BLUR_LG,
-  SHADOW_SM,
   HOVER_BG,
+  PANEL_BG,
+  SHADOW_SM,
+  STATUS_COLORS,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TYPE_COLORS,
 } from "../theme";
+import { type FilterChip, FilterChips } from "./filter-chips";
+import { MiniCard, type MiniCardItem, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
+import { groupBy } from "../../../utils";
+import type { SelectedOverlayFeature } from "./selection-summary-card";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,52 +39,13 @@ export interface SelectionPanelProps {
   onDetailOpen?: (itemId: string) => void;
 }
 
-// ── Status / type color maps ─────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "#22c55e",
-  producing: "#22c55e",
-  "shut-in": "#f59e0b",
-  inactive: "#f59e0b",
-  drilled: "#6366f1",
-  permitted: "#8b5cf6",
-  abandoned: "#6b7280",
-  offline: "#6b7280",
-  injection: "#06b6d4",
-  maintenance: "#f59e0b",
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  well: "#22c55e",
-  meter: "#06b6d4",
-  pipeline: "#f59e0b",
-  facility: "#8b5cf6",
-  tank: "#ef4444",
-  compressor: "#f97316",
-  valve: "#14b8a6",
-  pump: "#6366f1",
-  separator: "#a855f7",
-  "injection-point": "#06b6d4",
-};
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const k = key(item);
-    const arr = map.get(k);
-    if (arr) arr.push(item);
-    else map.set(k, [item]);
-  }
-  return map;
-}
 
 /** Build filter chips dynamically from the selection metadata */
 function buildChips(
   assets: Asset[],
   overlayFeatures: SelectedOverlayFeature[],
-  typeConfigs?: Map<string, AssetTypeConfig>
+  typeConfigs?: Map<string, AssetTypeConfig>,
 ): FilterChip[] {
   const chips: FilterChip[] = [];
 
@@ -146,10 +109,7 @@ function buildChips(
 }
 
 /** Apply active filters to the items list */
-function applyFilters(
-  items: MiniCardItem[],
-  activeFilters: Set<string>,
-): MiniCardItem[] {
+function applyFilters(items: MiniCardItem[], activeFilters: Set<string>): MiniCardItem[] {
   if (activeFilters.size === 0) return items;
 
   // Parse active filters into categories
@@ -227,22 +187,13 @@ export const SelectionPanel = memo(function SelectionPanel({
   }, [assets, overlayFeatures, typeConfigs]);
 
   // Build filter chips
-  const chips = useMemo(
-    () => buildChips(assets, overlayFeatures, typeConfigs),
-    [assets, overlayFeatures, typeConfigs]
-  );
+  const chips = useMemo(() => buildChips(assets, overlayFeatures, typeConfigs), [assets, overlayFeatures, typeConfigs]);
 
   // Apply filters
-  const filteredItems = useMemo(
-    () => applyFilters(allItems, activeFilters),
-    [allItems, activeFilters]
-  );
+  const filteredItems = useMemo(() => applyFilters(allItems, activeFilters), [allItems, activeFilters]);
 
   // Group filtered items by category
-  const groupedItems = useMemo(
-    () => groupBy(filteredItems, (item) => item.category),
-    [filteredItems]
-  );
+  const groupedItems = useMemo(() => groupBy(filteredItems, (item) => item.category), [filteredItems]);
 
   const handleToggleChip = useCallback((chipId: string) => {
     setActiveFilters((prev) => {
@@ -266,12 +217,12 @@ export const SelectionPanel = memo(function SelectionPanel({
         onSelectAsset?.(item.asset);
       } else if (item.overlayInfo) {
         const ovFeature = overlayFeatures.find(
-          (f) => f.overlayId === item.overlayInfo!.overlayId && f.featureIndex === item.overlayInfo!.featureIndex
+          (f) => f.overlayId === item.overlayInfo!.overlayId && f.featureIndex === item.overlayInfo!.featureIndex,
         );
         if (ovFeature) onSelectOverlayFeature?.(ovFeature);
       }
     },
-    [onSelectAsset, onSelectOverlayFeature, onDetailOpen, overlayFeatures]
+    [onSelectAsset, onSelectOverlayFeature, onDetailOpen, overlayFeatures],
   );
 
   return (
@@ -299,9 +250,7 @@ export const SelectionPanel = memo(function SelectionPanel({
       <div style={{ padding: "14px 16px 0", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT_PRIMARY }}>
-              Selection
-            </h3>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT_PRIMARY }}>Selection</h3>
             <span
               style={{
                 fontSize: 11,
@@ -313,9 +262,7 @@ export const SelectionPanel = memo(function SelectionPanel({
               }}
             >
               {filteredItems.length}
-              {activeFilters.size > 0 && (
-                <span style={{ color: TEXT_FAINT, fontWeight: 400 }}> / {totalCount}</span>
-              )}
+              {activeFilters.size > 0 && <span style={{ color: TEXT_FAINT, fontWeight: 400 }}> / {totalCount}</span>}
             </span>
           </div>
           <button
@@ -335,7 +282,15 @@ export const SelectionPanel = memo(function SelectionPanel({
               flexShrink: 0,
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden="true"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>

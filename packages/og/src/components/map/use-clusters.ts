@@ -22,7 +22,7 @@ export function useClusters(
   assets: Asset[],
   zoom: number,
   bounds: [number, number, number, number] | null,
-  options: { radius?: number; maxZoom?: number; enabled?: boolean }
+  options: { radius?: number; maxZoom?: number; enabled?: boolean },
 ): ClusterResult[] {
   const { radius = 50, maxZoom = 10, enabled = true } = options;
 
@@ -43,20 +43,17 @@ export function useClusters(
     return { pointAssets, indexMap };
   }, [assets, enabled]);
 
-  const points = useMemo<ClusterPoint[]>(
-    () => {
-      if (!enabled) return [];
-      return pointAssets.map((asset, i) => ({
-        type: "Feature" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [asset.coordinates.lng, asset.coordinates.lat],
-        },
-        properties: { assetIndex: indexMap.get(i) ?? i },
-      }));
-    },
-    [pointAssets, indexMap, enabled]
-  );
+  const points = useMemo<ClusterPoint[]>(() => {
+    if (!enabled) return [];
+    return pointAssets.map((asset, i) => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "Point" as const,
+        coordinates: [asset.coordinates.lng, asset.coordinates.lat],
+      },
+      properties: { assetIndex: indexMap.get(i) ?? i },
+    }));
+  }, [pointAssets, indexMap, enabled]);
 
   // Build Supercluster index — returned directly (no side-effect ref)
   const scIndex = useMemo(() => {
@@ -90,7 +87,8 @@ export function useClusters(
 
     return clusters.map((feature) => {
       const [lng, lat] = feature.geometry.coordinates;
-      const isCluster = feature.properties.cluster === true;
+      const props = feature.properties as Record<string, unknown>;
+      const isCluster = props.cluster === true;
 
       if (isCluster) {
         const clusterId = feature.id as number;
@@ -99,7 +97,7 @@ export function useClusters(
           lng,
           lat,
           isCluster: true,
-          count: feature.properties.point_count ?? 0,
+          count: (props.point_count as number) ?? 0,
           expansionZoom: scIndex.getClusterExpansionZoom(clusterId),
         };
       }

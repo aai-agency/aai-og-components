@@ -1,6 +1,25 @@
-import React, { useCallback, useRef, useState } from "react";
+import type React from "react";
+import { useCallback, useRef, useState } from "react";
 import type { MapOverlay, OverlayStyle } from "../../../types";
-import { ACCENT, ACCENT_10, ACCENT_15, ACCENT_30, BLUR_LG, BORDER, BORDER_INPUT, DANGER, DANGER_BG, FONT_FAMILY, HOVER_BG, INPUT_BG, PANEL_BG, TEXT_FAINT, TEXT_MUTED, TEXT_PRIMARY } from "../theme";
+import {
+  ACCENT,
+  ACCENT_10,
+  ACCENT_15,
+  ACCENT_30,
+  BLUR_LG,
+  BORDER,
+  BORDER_INPUT,
+  BUTTON_BG,
+  DANGER,
+  DANGER_BG,
+  FONT_FAMILY,
+  HOVER_BG,
+  INPUT_BG,
+  PANEL_BG,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+} from "../theme";
 
 const RADIUS = 8;
 
@@ -65,7 +84,7 @@ export function OverlayManager({
       // Reset so same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    [onUpload]
+    [onUpload],
   );
 
   const handleReuploadSelect = useCallback(
@@ -75,7 +94,7 @@ export function OverlayManager({
       setReuploadTargetId(null);
       if (reuploadInputRef.current) reuploadInputRef.current.value = "";
     },
-    [onReupload, reuploadTargetId]
+    [onReupload, reuploadTargetId],
   );
 
   const triggerReupload = useCallback((id: string) => {
@@ -103,7 +122,7 @@ export function OverlayManager({
       if (e.key === "Enter") commitRename();
       if (e.key === "Escape") setEditingNameId(null);
     },
-    [commitRename]
+    [commitRename],
   );
 
   // ── Toggle expand ──
@@ -182,8 +201,12 @@ export function OverlayManager({
               fontFamily: FONT_FAMILY,
               transition: "background 0.15s",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = ACCENT_30)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = ACCENT_15)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = ACCENT_30;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = ACCENT_15;
+            }}
           >
             <UploadIcon />
             Upload
@@ -322,33 +345,20 @@ export function OverlayManager({
                     <ActionButton label="Rename" onClick={() => startRename(overlay)}>
                       <EditIcon />
                     </ActionButton>
-                    <ActionButton
-                      label="Re-upload"
-                      onClick={() => triggerReupload(overlay.id)}
-                    >
+                    <ActionButton label="Re-upload" onClick={() => triggerReupload(overlay.id)}>
                       <ReuploadIcon />
                     </ActionButton>
-                    <ActionButton
-                      label="Delete"
-                      onClick={() => onRemove?.(overlay.id)}
-                      danger
-                    >
+                    <ActionButton label="Delete" onClick={() => onRemove?.(overlay.id)} danger>
                       <TrashIcon />
                     </ActionButton>
                   </div>
 
                   {/* Style editor */}
-                  <StyleEditor
-                    overlay={overlay}
-                    onUpdateStyle={onUpdateStyle}
-                  />
+                  <StyleEditor overlay={overlay} onUpdateStyle={onUpdateStyle} />
 
                   {/* Feature list */}
                   {featureCount > 0 && featureCount <= 50 && (
-                    <FeatureList
-                      overlay={overlay}
-                      onUpdateFeature={onUpdateFeature}
-                    />
+                    <FeatureList overlay={overlay} onUpdateFeature={onUpdateFeature} />
                   )}
                   {featureCount > 50 && (
                     <div style={{ fontSize: 10, color: TEXT_FAINT, marginTop: 8, textAlign: "center" }}>
@@ -401,17 +411,22 @@ function StyleEditor({
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          color: TEXT_MUTED,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 6,
+        }}
+      >
         Style
       </div>
 
       {/* Color pickers row */}
       <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
-        <ColorField
-          label="Fill"
-          value={fillColor}
-          onChange={(v) => onUpdateStyle?.(overlay.id, { fillColor: v })}
-        />
+        <ColorField label="Fill" value={fillColor} onChange={(v) => onUpdateStyle?.(overlay.id, { fillColor: v })} />
         <ColorField
           label="Stroke"
           value={strokeColor}
@@ -457,7 +472,16 @@ function FeatureList({
 
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          color: TEXT_MUTED,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 4,
+        }}
+      >
         Features
       </div>
       <div style={{ maxHeight: 180, overflowY: "auto" }}>
@@ -481,8 +505,12 @@ function FeatureList({
                 fontSize: 11,
                 transition: "background 0.15s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = HOVER_BG)}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = HOVER_BG;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
               {/* Feature visibility toggle */}
               <button
@@ -507,9 +535,7 @@ function FeatureList({
               <input
                 type="color"
                 value={override?.style?.fillColor ?? overlay.style?.fillColor ?? ACCENT}
-                onChange={(e) =>
-                  onUpdateFeature?.(overlay.id, idx, undefined, { fillColor: e.target.value })
-                }
+                onChange={(e) => onUpdateFeature?.(overlay.id, idx, undefined, { fillColor: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   width: 14,
@@ -552,7 +578,7 @@ function FeatureList({
                       ? "PG"
                       : feature.geometry?.type === "MultiPolygon"
                         ? "MP"
-                        : feature.geometry?.type?.slice(0, 2).toUpperCase() ?? ""}
+                        : (feature.geometry?.type?.slice(0, 2).toUpperCase() ?? "")}
               </span>
             </div>
           );
@@ -592,7 +618,7 @@ function ActionButton({
         padding: "5px 0",
         borderRadius: 5,
         border: BORDER,
-        background: "rgba(30, 41, 59, 0.5)",
+        background: BUTTON_BG,
         color: baseColor,
         fontSize: 10,
         fontWeight: 500,
@@ -685,7 +711,7 @@ function SliderField({
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => onChange(Number.parseFloat(e.target.value))}
         style={{
           width: "100%",
           height: 4,
@@ -705,7 +731,17 @@ function SliderField({
 
 function LayersIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polygon points="12 2 2 7 12 12 22 7 12 2" />
       <polyline points="2 17 12 22 22 17" />
       <polyline points="2 12 12 17 22 12" />
@@ -715,7 +751,17 @@ function LayersIcon() {
 
 function UploadIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="16 16 12 12 8 16" />
       <line x1="12" y1="12" x2="12" y2="21" />
       <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
@@ -725,7 +771,17 @@ function UploadIcon() {
 
 function CheckIcon({ size = 10 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#fff"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -742,6 +798,7 @@ function ChevronIcon({ rotated }: { rotated: boolean }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
       style={{
         transition: "transform 0.2s",
         transform: rotated ? "rotate(180deg)" : "rotate(0deg)",
@@ -755,7 +812,17 @@ function ChevronIcon({ rotated }: { rotated: boolean }) {
 
 function EditIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
@@ -764,7 +831,17 @@ function EditIcon() {
 
 function ReuploadIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="23 4 23 10 17 10" />
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
@@ -773,7 +850,17 @@ function ReuploadIcon() {
 
 function TrashIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>

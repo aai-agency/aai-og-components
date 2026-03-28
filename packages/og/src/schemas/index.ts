@@ -71,16 +71,18 @@ export const AssetTypeConfigSchema = z.object({
 export const MapOverlaySchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(["kmz", "kml", "geojson", "custom"]),
+  type: z.enum(["kmz", "kml", "geojson", "shapefile", "image", "custom"]),
   visible: z.boolean(),
-  geojson: z.any(),
+  geojson: z.object({ type: z.literal("FeatureCollection"), features: z.array(z.unknown()) }),
   fileName: z.string().optional(),
-  style: z.object({
-    fillColor: z.string().optional(),
-    fillOpacity: z.number().optional(),
-    strokeColor: z.string().optional(),
-    strokeWidth: z.number().optional(),
-  }).optional(),
+  style: z
+    .object({
+      fillColor: z.string().optional(),
+      fillOpacity: z.number().optional(),
+      strokeColor: z.string().optional(),
+      strokeWidth: z.number().optional(),
+    })
+    .optional(),
 });
 
 // ── Parse helpers ────────────────────────────────────────────────────────────
@@ -93,48 +95,4 @@ export function parseAssets(data: unknown) {
 /** Safely parse assets — returns result with errors */
 export function safeParseAssets(data: unknown) {
   return AssetArraySchema.safeParse(data);
-}
-
-// ── Legacy Well Schema (backward compat) ─────────────────────────────────────
-
-export const WellSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  api: z.string(),
-  coordinates: CoordinatesSchema,
-  coordinatesBH: CoordinatesSchema.optional(),
-  operator: z.string(),
-  status: z.enum(["producing", "shut-in", "drilled", "permitted", "abandoned", "injection"]),
-  wellType: z.enum(["oil", "gas", "injection", "disposal", "observation"]),
-  trajectory: z.enum(["horizontal", "vertical", "directional"]),
-  basin: z.string().optional(),
-  play: z.string().optional(),
-  formation: z.string().optional(),
-  county: z.string().optional(),
-  state: z.string().optional(),
-  firstProdDate: z.string().optional(),
-  spudDate: z.string().optional(),
-  tvd: z.number().optional(),
-  md: z.number().optional(),
-  lateralLength: z.number().optional(),
-  cumOil: z.number().optional(),
-  cumGas: z.number().optional(),
-  cumWater: z.number().optional(),
-  cumBOE: z.number().optional(),
-  peakOil: z.number().optional(),
-  peakGas: z.number().optional(),
-  timeSeries: z.array(TimeSeriesSchema).optional(),
-  meta: z.record(z.unknown()).optional(),
-});
-
-export const WellArraySchema = z.array(WellSchema);
-
-/** @deprecated Use parseAssets */
-export function parseWells(data: unknown) {
-  return WellArraySchema.parse(data);
-}
-
-/** @deprecated Use safeParseAssets */
-export function safeParseWells(data: unknown) {
-  return WellArraySchema.safeParse(data);
 }

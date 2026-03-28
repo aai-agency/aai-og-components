@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { ProductionChart, type ChartAnnotation } from "@aai/og-components";
+import { type ChartAnnotation, ProductionChart } from "@aai/og-components";
 import type { TimeSeries } from "@aai/og-components";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import "uplot/dist/uPlot.min.css";
 
 export const Route = createFileRoute("/chart-drag")({
@@ -24,14 +24,16 @@ function generateOilSeries(): TimeSeries[] {
     });
   }
 
-  return [{
-    id: "oil-actual",
-    fluidType: "oil" as const,
-    curveType: "actual" as const,
-    unit: "BBL",
-    frequency: "daily" as const,
-    data: oilData,
-  }];
+  return [
+    {
+      id: "oil-actual",
+      fluidType: "oil" as const,
+      curveType: "actual" as const,
+      unit: "BBL",
+      frequency: "daily" as const,
+      data: oilData,
+    },
+  ];
 }
 
 function ChartDragDemo() {
@@ -42,21 +44,21 @@ function ChartDragDemo() {
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", padding: 32 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>
-          Forecast Drag Demo
-        </h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Forecast Drag Demo</h1>
         <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
           Oil only — drag the dashed forecast line up/down. Green = outperforming, Red = underperforming.
           {forecastOffset !== 0 && (
             <span style={{ marginLeft: 8, fontWeight: 600, color: forecastOffset > 0 ? "#22c55e" : "#ef4444" }}>
-              Offset: {forecastOffset > 0 ? "+" : ""}{Math.round(forecastOffset)} BBL
+              Offset: {forecastOffset > 0 ? "+" : ""}
+              {Math.round(forecastOffset)} BBL
             </span>
           )}
         </p>
         <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
           <span style={{ fontSize: 12, color: "#94a3b8", alignSelf: "center" }}>ADJUST FORECAST:</span>
-          {[-500, -200, 0, 200, 500].map(v => (
+          {[-500, -200, 0, 200, 500].map((v) => (
             <button
+              type="button"
               key={v}
               data-offset={v}
               onClick={() => setForecastOffset(v)}
@@ -71,12 +73,21 @@ function ChartDragDemo() {
                 cursor: "pointer",
               }}
             >
-              {v > 0 ? "+" : ""}{v}
+              {v > 0 ? "+" : ""}
+              {v}
             </button>
           ))}
         </div>
 
-        <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div
+          style={{
+            background: "#ffffff",
+            borderRadius: 12,
+            border: "1px solid #e2e8f0",
+            padding: 24,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
           <ProductionChart
             series={series}
             height={500}

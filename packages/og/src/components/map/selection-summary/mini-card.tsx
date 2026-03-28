@@ -1,17 +1,16 @@
-import React, { memo } from "react";
+import { memo } from "react";
 import type { Asset, AssetTypeConfig } from "../../../types";
 import { formatNumber } from "../../../utils";
 import {
-  TEXT_PRIMARY,
-  TEXT_SECONDARY,
-  TEXT_MUTED,
-  TEXT_FAINT,
   ACCENT,
   ACCENT_15,
-  BORDER,
-  BORDER_SUBTLE,
   FONT_FAMILY,
   HOVER_BG,
+  STATUS_COLORS,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TYPE_COLORS,
 } from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -47,28 +46,9 @@ export interface MiniCardProps {
   typeConfigs?: Map<string, AssetTypeConfig>;
 }
 
-// ── Status colors ────────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "#22c55e",
-  producing: "#22c55e",
-  "shut-in": "#f59e0b",
-  inactive: "#f59e0b",
-  drilled: "#6366f1",
-  permitted: "#8b5cf6",
-  abandoned: "#6b7280",
-  offline: "#6b7280",
-  injection: "#06b6d4",
-  maintenance: "#f59e0b",
-};
-
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const MiniCard = memo(function MiniCard({
-  item,
-  active,
-  onClick,
-}: MiniCardProps) {
+export const MiniCard = memo(function MiniCard({ item, active, onClick }: MiniCardProps) {
   return (
     <button
       type="button"
@@ -153,11 +133,7 @@ export const MiniCard = memo(function MiniCard({
           >
             {item.type}
           </span>
-          {item.status && (
-            <span style={{ fontSize: 10, color: TEXT_FAINT }}>
-              {item.status}
-            </span>
-          )}
+          {item.status && <span style={{ fontSize: 10, color: TEXT_FAINT }}>{item.status}</span>}
         </div>
 
         {/* Meta pairs */}
@@ -165,8 +141,7 @@ export const MiniCard = memo(function MiniCard({
           <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px", marginTop: 5 }}>
             {item.meta.map((m) => (
               <span key={m.label} style={{ fontSize: 10, color: TEXT_MUTED }}>
-                <span style={{ color: TEXT_FAINT }}>{m.label}:</span>{" "}
-                <span style={{ fontWeight: 500 }}>{m.value}</span>
+                <span style={{ color: TEXT_FAINT }}>{m.label}:</span> <span style={{ fontWeight: 500 }}>{m.value}</span>
               </span>
             ))}
           </div>
@@ -183,6 +158,7 @@ export const MiniCard = memo(function MiniCard({
         strokeWidth="2"
         strokeLinecap="round"
         style={{ flexShrink: 0, marginTop: 4 }}
+        aria-hidden="true"
       >
         <polyline points="9 18 15 12 9 6" />
       </svg>
@@ -192,23 +168,7 @@ export const MiniCard = memo(function MiniCard({
 
 // ── Helpers to build MiniCardItems from assets/overlay features ──────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  well: "#22c55e",
-  meter: "#06b6d4",
-  pipeline: "#f59e0b",
-  facility: "#8b5cf6",
-  tank: "#ef4444",
-  compressor: "#f97316",
-  valve: "#14b8a6",
-  pump: "#6366f1",
-  separator: "#a855f7",
-  "injection-point": "#06b6d4",
-};
-
-export function assetToMiniCard(
-  asset: Asset,
-  typeConfigs?: Map<string, AssetTypeConfig>
-): MiniCardItem {
+export function assetToMiniCard(asset: Asset, typeConfigs?: Map<string, AssetTypeConfig>): MiniCardItem {
   const color = typeConfigs?.get(asset.type)?.color ?? TYPE_COLORS[asset.type] ?? "#6b7280";
   const meta: { label: string; value: string }[] = [];
 
@@ -240,13 +200,17 @@ export function overlayFeatureToMiniCard(
   overlayName: string,
   featureIndex: number,
   properties: Record<string, unknown>,
-  geometryType: string
+  geometryType: string,
 ): MiniCardItem {
-  const featureName = (properties.name ?? properties.Name ?? properties.NAME ?? `Feature ${featureIndex + 1}`) as string;
+  const featureName = (properties.name ??
+    properties.Name ??
+    properties.NAME ??
+    `Feature ${featureIndex + 1}`) as string;
 
   const meta: { label: string; value: string }[] = [];
   const entries = Object.entries(properties).filter(
-    ([k, v]) => v != null && v !== "" && !["name", "Name", "NAME", "_idx", "layer", "source", "sourceLayer"].includes(k)
+    ([k, v]) =>
+      v != null && v !== "" && !["name", "Name", "NAME", "_idx", "layer", "source", "sourceLayer"].includes(k),
   );
   for (const [key, value] of entries.slice(0, 3)) {
     meta.push({ label: key, value: String(value) });

@@ -1,9 +1,19 @@
-import { memo, useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import type { TimeSeries } from "../../../types";
 import { formatNumber } from "../../../utils";
 
-import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, ACCENT, ACCENT_15, BORDER, BORDER_SUBTLE, FONT_FAMILY, HOVER_BG, PANEL_BG } from "../theme";
+import {
+  ACCENT,
+  ACCENT_15,
+  BORDER,
+  BORDER_SUBTLE,
+  FONT_FAMILY,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+} from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,7 +117,6 @@ const AXIS_STYLE = {
   gap: 4,
 } as const;
 
-const DATE_FMT = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
 const DATE_FMT_FULL = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /**
@@ -232,7 +241,6 @@ function generateForecastValues(
   // Generate forecast: for all timestamps, compute the expected value
   // using exponential decline from the midpoint of the data
   const midIdx = Math.floor(timestamps.length / 2);
-  const midTs = timestamps[midIdx];
 
   const result: (number | null)[] = [];
   for (let i = 0; i < timestamps.length; i++) {
@@ -249,11 +257,7 @@ function generateForecastValues(
  * Draws filled areas between actual and forecast series.
  * Green where actual > forecast (outperforming), red where actual < forecast.
  */
-function varianceFillPlugin(
-  actualSeriesIdx: number,
-  forecastSeriesIdx: number,
-  scale: "y" | "y2",
-): uPlot.Plugin {
+function varianceFillPlugin(actualSeriesIdx: number, forecastSeriesIdx: number, scale: "y" | "y2"): uPlot.Plugin {
   return {
     hooks: {
       draw: (u: uPlot) => {
@@ -351,7 +355,7 @@ function drawVarianceSegment(
       ctx.fill();
     } else {
       // Crossover — find intersection point
-      const t = (fY0 - aY0) / ((aY1 - aY0) - (fY1 - fY0));
+      const t = (fY0 - aY0) / (aY1 - aY0 - (fY1 - fY0));
       const crossX = x0 + t * (x1 - x0);
       const crossY = aY0 + t * (aY1 - aY0);
 
@@ -395,10 +399,7 @@ interface ForecastDragOpts {
 }
 
 function forecastDragPlugin(opts: ForecastDragOpts): uPlot.Plugin {
-  const {
-    forecastSeriesIndices, scale, offsetRef, baseForecastRef,
-    onDragEnd,
-  } = opts;
+  const { forecastSeriesIndices, scale, offsetRef, baseForecastRef, onDragEnd } = opts;
 
   let isDragging = false;
   let dragStartY = 0;
@@ -564,7 +565,8 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
       const val = u.data[i + 1][idx];
       if (val == null) continue;
       hasValue = true;
-      html += `<div style="display:flex;align-items:center;gap:5px">` +
+      html +=
+        `<div style="display:flex;align-items:center;gap:5px">` +
         `<div style="width:8px;height:8px;border-radius:50%;background:${meta[i].color};flex-shrink:0"></div>` +
         `<span>${meta[i].label}</span>` +
         `<span style="margin-left:auto;font-weight:500;padding-left:8px">${formatNumber(val, 0)} ${meta[i].unit}</span>` +
@@ -585,13 +587,8 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
     const ttWidth = tooltip.offsetWidth;
     const ttHeight = tooltip.offsetHeight;
 
-    const xPos = viewportX + ttWidth + 16 > window.innerWidth
-      ? viewportX - ttWidth - 8
-      : viewportX + 12;
-    const yPos = Math.min(
-      Math.max(0, viewportY - ttHeight / 2),
-      window.innerHeight - ttHeight,
-    );
+    const xPos = viewportX + ttWidth + 16 > window.innerWidth ? viewportX - ttWidth - 8 : viewportX + 12;
+    const yPos = Math.min(Math.max(0, viewportY - ttHeight / 2), window.innerHeight - ttHeight);
 
     tooltip.style.left = `${xPos}px`;
     tooltip.style.top = `${yPos}px`;
@@ -610,9 +607,7 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
 
 // ── Annotations Draw Plugin ──────────────────────────────────────────────────
 
-function annotationsPlugin(
-  annotationsRef: { current: ChartAnnotation[] },
-): uPlot.Plugin {
+function annotationsPlugin(annotationsRef: { current: ChartAnnotation[] }): uPlot.Plugin {
   return {
     hooks: {
       draw: (u: uPlot) => {
@@ -661,9 +656,8 @@ function annotationsPlugin(
               ctx.font = `9px ${FONT_FAMILY}`;
               ctx.textAlign = "center";
               ctx.textBaseline = "middle";
-              const displayText = ann.text.length > Math.floor(labelW / 5)
-                ? ann.text.slice(0, Math.floor(labelW / 5)) + "…"
-                : ann.text;
+              const displayText =
+                ann.text.length > Math.floor(labelW / 5) ? ann.text.slice(0, Math.floor(labelW / 5)) + "…" : ann.text;
               ctx.fillText(displayText, left + labelW / 2, top + 10);
             }
           }
@@ -785,11 +779,7 @@ function AnnotationList({
               }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                {ann.expanded ? (
-                  <polyline points="18 15 12 9 6 15" />
-                ) : (
-                  <polyline points="6 9 12 15 18 9" />
-                )}
+                {ann.expanded ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
               </svg>
             </button>
             <button
@@ -823,155 +813,151 @@ function AnnotationList({
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
-export const ProductionChart = memo(({
-  series,
-  height = 220,
-  width,
-  showForecast = true,
-  colors,
-  rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
-  showBrush = true,
-  enableAnnotations = true,
-  annotations: controlledAnnotations,
-  onAnnotationsChange,
-  formatXValue: formatXValueProp,
-  xAxisLabel,
-  showVarianceFill = false,
-  forecastOffset: controlledForecastOffset,
-  onForecastOffsetChange,
-}: ProductionChartProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const brushContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<uPlot | null>(null);
-  const brushRef = useRef<uPlot | null>(null);
+export const ProductionChart = memo(
+  ({
+    series,
+    height = 220,
+    width,
+    showForecast = true,
+    colors,
+    rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
+    showBrush = true,
+    enableAnnotations = true,
+    annotations: controlledAnnotations,
+    onAnnotationsChange,
+    formatXValue: formatXValueProp,
+    xAxisLabel,
+    showVarianceFill = false,
+    forecastOffset: controlledForecastOffset,
+    onForecastOffsetChange,
+  }: ProductionChartProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const brushContainerRef = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<uPlot | null>(null);
+    const brushRef = useRef<uPlot | null>(null);
 
-  // Forecast offset state (for draggable forecast line)
-  const [internalOffset, setInternalOffset] = useState(0);
-  const forecastOffset = controlledForecastOffset ?? internalOffset;
-  const forecastOffsetRef = useRef(forecastOffset);
-  forecastOffsetRef.current = forecastOffset;
+    // Forecast offset state (for draggable forecast line)
+    const [internalOffset, setInternalOffset] = useState(0);
+    const forecastOffset = controlledForecastOffset ?? internalOffset;
+    const forecastOffsetRef = useRef(forecastOffset);
+    forecastOffsetRef.current = forecastOffset;
 
-  // Base forecast values for zero-allocation drag (Float64Array snapshots)
-  const baseForecastRef = useRef(new Map<number, Float64Array>());
+    // Base forecast values for zero-allocation drag (Float64Array snapshots)
+    const baseForecastRef = useRef(new Map<number, Float64Array>());
 
-  const handleForecastOffsetChange = useCallback(
-    (offset: number) => {
-      if (onForecastOffsetChange) {
-        onForecastOffsetChange(offset);
-      } else {
-        setInternalOffset(offset);
+    const handleForecastOffsetChange = useCallback(
+      (offset: number) => {
+        if (onForecastOffsetChange) {
+          onForecastOffsetChange(offset);
+        } else {
+          setInternalOffset(offset);
+        }
+      },
+      [onForecastOffsetChange],
+    );
+
+    // Called only on drag END — single React state sync after continuous canvas updates
+    const handleDragEnd = useCallback(
+      (offset: number) => {
+        handleForecastOffsetChange(offset);
+      },
+      [handleForecastOffsetChange],
+    );
+
+    // Annotation state
+    const [internalAnnotations, setInternalAnnotations] = useState<ChartAnnotation[]>([]);
+    const annotations = controlledAnnotations ?? internalAnnotations;
+    const annotationsRef = useRef(annotations);
+    annotationsRef.current = annotations;
+
+    const setAnnotations = useCallback(
+      (updater: ChartAnnotation[] | ((prev: ChartAnnotation[]) => ChartAnnotation[])) => {
+        const newAnns = typeof updater === "function" ? updater(annotationsRef.current) : updater;
+        if (onAnnotationsChange) {
+          onAnnotationsChange(newAnns);
+        } else {
+          setInternalAnnotations(newAnns);
+        }
+      },
+      [onAnnotationsChange],
+    );
+
+    // Mode: "zoom" (default drag zooms) or "annotate" (drag creates annotation)
+    const [mode, setMode] = useState<"zoom" | "annotate">("zoom");
+
+    // Zoom state
+    const [isZoomed, setIsZoomed] = useState(false);
+
+    // Visibility state
+    const [visibility, setVisibility] = useState<boolean[]>([]);
+
+    const colorMap = useMemo((): Record<string, string> => {
+      const merged: Record<string, string> = { ...DEFAULT_COLORS };
+      if (colors) {
+        for (const [k, v] of Object.entries(colors)) {
+          if (v) merged[k] = v;
+        }
       }
-    },
-    [onForecastOffsetChange],
-  );
+      return merged;
+    }, [colors]);
 
-  // Called only on drag END — single React state sync after continuous canvas updates
-  const handleDragEnd = useCallback(
-    (offset: number) => {
-      handleForecastOffsetChange(offset);
-    },
-    [handleForecastOffsetChange],
-  );
+    const filteredSeries = useMemo(
+      () => series.filter((s) => s.data.length >= 2 && (showForecast || s.curveType !== "forecast")),
+      [series, showForecast],
+    );
 
-  // Annotation state
-  const [internalAnnotations, setInternalAnnotations] = useState<ChartAnnotation[]>([]);
-  const annotations = controlledAnnotations ?? internalAnnotations;
-  const annotationsRef = useRef(annotations);
-  annotationsRef.current = annotations;
+    const baseAligned = useMemo(
+      () => (filteredSeries.length > 0 ? buildAlignedData(filteredSeries, rightAxisFluids, colorMap) : null),
+      [filteredSeries, rightAxisFluids, colorMap],
+    );
 
-  const setAnnotations = useCallback(
-    (updater: ChartAnnotation[] | ((prev: ChartAnnotation[]) => ChartAnnotation[])) => {
-      const newAnns = typeof updater === "function" ? updater(annotationsRef.current) : updater;
-      if (onAnnotationsChange) {
-        onAnnotationsChange(newAnns);
-      } else {
-        setInternalAnnotations(newAnns);
+    // Augment with forecast series for variance fill (one forecast per actual series)
+    const forecastSeriesMap = useRef(new Map<number, number>()); // actualIdx → forecastIdx (1-based in data)
+    const aligned = useMemo(() => {
+      if (!baseAligned || !showVarianceFill) {
+        forecastSeriesMap.current.clear();
+        return baseAligned;
       }
-    },
-    [onAnnotationsChange],
-  );
 
-  // Mode: "zoom" (default drag zooms) or "annotate" (drag creates annotation)
-  const [mode, setMode] = useState<"zoom" | "annotate">("zoom");
-
-  // Zoom state
-  const [isZoomed, setIsZoomed] = useState(false);
-
-  // Visibility state
-  const [visibility, setVisibility] = useState<boolean[]>([]);
-
-  const colorMap = useMemo((): Record<string, string> => {
-    const merged: Record<string, string> = { ...DEFAULT_COLORS };
-    if (colors) {
-      for (const [k, v] of Object.entries(colors)) {
-        if (v) merged[k] = v;
-      }
-    }
-    return merged;
-  }, [colors]);
-
-  const filteredSeries = useMemo(
-    () => series.filter((s) => s.data.length >= 2 && (showForecast || s.curveType !== "forecast")),
-    [series, showForecast],
-  );
-
-  const baseAligned = useMemo(
-    () => (filteredSeries.length > 0 ? buildAlignedData(filteredSeries, rightAxisFluids, colorMap) : null),
-    [filteredSeries, rightAxisFluids, colorMap],
-  );
-
-  // Augment with forecast series for variance fill (one forecast per actual series)
-  const forecastSeriesMap = useRef(new Map<number, number>()); // actualIdx → forecastIdx (1-based in data)
-  const aligned = useMemo(() => {
-    if (!baseAligned || !showVarianceFill) {
+      const newData = [...baseAligned.data] as (number | null | number)[][];
+      const newMeta = [...baseAligned.meta];
       forecastSeriesMap.current.clear();
-      return baseAligned;
-    }
 
-    const newData = [...baseAligned.data] as (number | null | number)[][];
-    const newMeta = [...baseAligned.meta];
-    forecastSeriesMap.current.clear();
+      // Generate a forecast for each actual (non-forecast) series
+      const actualIndices: number[] = [];
+      for (let i = 0; i < baseAligned.meta.length; i++) {
+        if (!baseAligned.meta[i].isForecast) actualIndices.push(i);
+      }
 
-    // Generate a forecast for each actual (non-forecast) series
-    const actualIndices: number[] = [];
-    for (let i = 0; i < baseAligned.meta.length; i++) {
-      if (!baseAligned.meta[i].isForecast) actualIndices.push(i);
-    }
+      const timestamps = baseAligned.data[0] as number[];
 
-    const timestamps = baseAligned.data[0] as number[];
+      for (const actualIdx of actualIndices) {
+        const actualData = baseAligned.data[actualIdx + 1] as (number | null)[];
+        const forecastValues = generateForecastValues(timestamps, actualData, forecastOffset);
 
-    for (const actualIdx of actualIndices) {
-      const actualData = baseAligned.data[actualIdx + 1] as (number | null)[];
-      const forecastValues = generateForecastValues(
-        timestamps,
-        actualData,
-        forecastOffset,
-      );
+        const forecastDataIdx = newData.length;
+        newData.push(forecastValues);
 
-      const forecastDataIdx = newData.length;
-      newData.push(forecastValues);
+        const meta = baseAligned.meta[actualIdx];
+        newMeta.push({
+          label: `${meta.label} (Forecast)`,
+          color: meta.color,
+          isForecast: true,
+          unit: meta.unit,
+          scale: meta.scale,
+        });
 
-      const meta = baseAligned.meta[actualIdx];
-      newMeta.push({
-        label: `${meta.label} (Forecast)`,
-        color: meta.color,
-        isForecast: true,
-        unit: meta.unit,
-        scale: meta.scale,
-      });
+        forecastSeriesMap.current.set(actualIdx + 1, forecastDataIdx);
+      }
 
-      forecastSeriesMap.current.set(actualIdx + 1, forecastDataIdx);
-    }
+      return { data: newData as uPlot.AlignedData, meta: newMeta };
+    }, [baseAligned, showVarianceFill, forecastOffset]);
 
-    return { data: newData as uPlot.AlignedData, meta: newMeta };
-  }, [baseAligned, showVarianceFill, forecastOffset]);
+    useEffect(() => {
+      if (aligned) setVisibility(aligned.meta.map(() => true));
+    }, [aligned?.meta.length]);
 
-  useEffect(() => {
-    if (aligned) setVisibility(aligned.meta.map(() => true));
-  }, [aligned?.meta.length]);
-
-  const handleToggle = useCallback(
-    (idx: number) => {
+    const handleToggle = useCallback((idx: number) => {
       setVisibility((prev) => {
         const next = [...prev];
         next[idx] = !next[idx];
@@ -983,568 +969,603 @@ export const ProductionChart = memo(({
         }
         return next;
       });
-    },
-    [],
-  );
+    }, []);
 
-  const hasRightAxis = aligned ? aligned.meta.some((m) => m.scale === "y2") : false;
+    const hasRightAxis = aligned ? aligned.meta.some((m) => m.scale === "y2") : false;
 
-  // ── Resolved x-axis formatter ──
-  // If user provides formatXValue, use that. Otherwise auto-detect from data.
-  const isTimeScale = aligned ? detectTimeScale(aligned.data[0]) : true;
-  const resolvedFormatX = useMemo(() => {
-    if (formatXValueProp) return formatXValueProp;
-    return (value: number) => autoFormatX(value, isTimeScale);
-  }, [formatXValueProp, isTimeScale]);
+    // ── Resolved x-axis formatter ──
+    // If user provides formatXValue, use that. Otherwise auto-detect from data.
+    const isTimeScale = aligned ? detectTimeScale(aligned.data[0]) : true;
+    const resolvedFormatX = useMemo(() => {
+      if (formatXValueProp) return formatXValueProp;
+      return (value: number) => autoFormatX(value, isTimeScale);
+    }, [formatXValueProp, isTimeScale]);
 
-  // ── Reset zoom ──
-  const handleResetZoom = useCallback(() => {
-    if (!chartRef.current || !aligned) return;
-    const ts = aligned.data[0];
-    chartRef.current.setScale("x", { min: ts[0], max: ts[ts.length - 1] });
-    setIsZoomed(false);
-  }, [aligned]);
+    // ── Reset zoom ──
+    const handleResetZoom = useCallback(() => {
+      if (!chartRef.current || !aligned) return;
+      const ts = aligned.data[0];
+      chartRef.current.setScale("x", { min: ts[0], max: ts[ts.length - 1] });
+      setIsZoomed(false);
+    }, [aligned]);
 
-  // ── Annotation CRUD ──
-  const handleAddAnnotation = useCallback(
-    (from: number, to: number) => {
-      const ann: ChartAnnotation = {
-        id: genId(),
-        from: Math.min(from, to),
-        to: Math.max(from, to),
-        text: "",
-        expanded: true,
-      };
-      setAnnotations((prev) => [...prev, ann]);
-    },
-    [setAnnotations],
-  );
+    // ── Annotation CRUD ──
+    const handleAddAnnotation = useCallback(
+      (from: number, to: number) => {
+        const ann: ChartAnnotation = {
+          id: genId(),
+          from: Math.min(from, to),
+          to: Math.max(from, to),
+          text: "",
+          expanded: true,
+        };
+        setAnnotations((prev) => [...prev, ann]);
+      },
+      [setAnnotations],
+    );
 
-  const handleUpdateAnnotation = useCallback(
-    (id: string, text: string) => {
-      setAnnotations((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, text } : a)),
-      );
-    },
-    [setAnnotations],
-  );
+    const handleUpdateAnnotation = useCallback(
+      (id: string, text: string) => {
+        setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, text } : a)));
+      },
+      [setAnnotations],
+    );
 
-  const handleRemoveAnnotation = useCallback(
-    (id: string) => {
-      setAnnotations((prev) => prev.filter((a) => a.id !== id));
-      // Redraw chart to remove annotation region
+    const handleRemoveAnnotation = useCallback(
+      (id: string) => {
+        setAnnotations((prev) => prev.filter((a) => a.id !== id));
+        // Redraw chart to remove annotation region
+        if (chartRef.current) chartRef.current.redraw();
+      },
+      [setAnnotations],
+    );
+
+    const handleToggleExpandAnnotation = useCallback(
+      (id: string) => {
+        setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, expanded: !a.expanded } : a)));
+      },
+      [setAnnotations],
+    );
+
+    const handleClearAnnotations = useCallback(() => {
+      setAnnotations([]);
       if (chartRef.current) chartRef.current.redraw();
-    },
-    [setAnnotations],
-  );
+    }, [setAnnotations]);
 
-  const handleToggleExpandAnnotation = useCallback(
-    (id: string) => {
-      setAnnotations((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, expanded: !a.expanded } : a)),
-      );
-    },
-    [setAnnotations],
-  );
-
-  const handleClearAnnotations = useCallback(() => {
-    setAnnotations([]);
-    if (chartRef.current) chartRef.current.redraw();
-  }, [setAnnotations]);
-
-  // ── Create main chart ──
-  useEffect(() => {
-    if (!containerRef.current || !aligned || filteredSeries.length === 0) {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-      return;
-    }
-
-    const el = containerRef.current;
-    const chartWidth = width ?? el.clientWidth ?? 300;
-
-    const axes: uPlot.Axis[] = [
-      { ...AXIS_STYLE },
-      {
-        ...AXIS_STYLE,
-        scale: "y",
-        size: 50,
-        values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
-      },
-    ];
-
-    if (hasRightAxis) {
-      axes.push({
-        ...AXIS_STYLE,
-        scale: "y2",
-        side: 1,
-        size: 50,
-        grid: { show: false },
-        values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
-      });
-    }
-
-    const plugins: uPlot.Plugin[] = [
-      tooltipPlugin(aligned.meta, resolvedFormatX),
-      annotationsPlugin(annotationsRef),
-    ];
-
-    // Add variance fill plugins for each actual/forecast pair
-    if (showVarianceFill) {
-      for (const [actualIdx, forecastIdx] of forecastSeriesMap.current) {
-        const meta = aligned.meta[actualIdx - 1];
-        plugins.push(varianceFillPlugin(actualIdx, forecastIdx, meta?.scale ?? "y"));
+    // ── Create main chart ──
+    useEffect(() => {
+      if (!containerRef.current || !aligned || filteredSeries.length === 0) {
+        if (chartRef.current) {
+          chartRef.current.destroy();
+          chartRef.current = null;
+        }
+        return;
       }
 
-      // Add drag plugin for all forecast series (zero-allocation, rAF-batched)
-      const forecastIndices = Array.from(forecastSeriesMap.current.values());
-      if (forecastIndices.length > 0) {
-        const firstActual = forecastSeriesMap.current.keys().next().value;
-        const scaleKey = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
-        plugins.push(forecastDragPlugin({
-          forecastSeriesIndices: forecastIndices,
-          scale: scaleKey,
-          offsetRef: forecastOffsetRef,
-          baseForecastRef,
-          onDragEnd: handleDragEnd,
-        }));
-      }
-    }
+      const el = containerRef.current;
+      const chartWidth = width ?? el.clientWidth ?? 300;
 
-    const opts: uPlot.Options = {
-      width: chartWidth,
-      height,
-      plugins,
-      cursor: {
-        drag: {
-          x: true,
-          y: false,
-          setScale: mode === "zoom",
-        },
-        points: {
-          size: 6,
-          width: 1.5,
-          fill: (_self: uPlot, seriesIdx: number) => aligned.meta[seriesIdx - 1]?.color ?? "#6b7280",
-          stroke: () => "#fff",
-        },
-      },
-      select: {
-        show: true,
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-      },
-      legend: { show: false },
-      axes,
-      scales: {
-        x: { time: isTimeScale },
-        y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
-        ...(hasRightAxis ? { y2: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] } } : {}),
-      },
-      series: [
-        {},
-        ...aligned.meta.map((m, i) => ({
-          label: m.label,
-          stroke: m.color,
-          scale: m.scale,
-          width: m.isForecast ? 1 : 1.5,
-          dash: m.isForecast ? [6, 3] : undefined,
-          alpha: m.isForecast ? 0.6 : 1,
-          show: visibility[i] ?? true,
-          spanGaps: true,
-          points: { show: false },
-        })),
-      ],
-      hooks: {
-        setScale: [
-          (u: uPlot, scaleKey: string) => {
-            if (scaleKey !== "x") return;
-            const ts = aligned.data[0];
-            const fullMin = ts[0];
-            const fullMax = ts[ts.length - 1];
-            const curMin = u.scales.x.min ?? fullMin;
-            const curMax = u.scales.x.max ?? fullMax;
-            const zoomed = curMin > fullMin + 1 || curMax < fullMax - 1;
-            setIsZoomed(zoomed);
-
-            // Sync brush selection
-            if (brushRef.current && zoomed) {
-              const bLeft = brushRef.current.valToPos(curMin, "x");
-              const bRight = brushRef.current.valToPos(curMax, "x");
-              brushRef.current.setSelect({
-                left: bLeft,
-                top: 0,
-                width: bRight - bLeft,
-                height: BRUSH_HEIGHT,
-              }, false);
-            }
-          },
-        ],
-        setSelect: [
-          (u: uPlot) => {
-            if (mode === "annotate") {
-              const sel = u.select;
-              if (sel.width > 5) {
-                const fromVal = u.posToVal(sel.left, "x");
-                const toVal = u.posToVal(sel.left + sel.width, "x");
-                handleAddAnnotation(fromVal, toVal);
-              }
-              // Clear the select region
-              u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
-            }
-          },
-        ],
-      },
-    };
-
-    if (chartRef.current) chartRef.current.destroy();
-    el.innerHTML = "";
-    chartRef.current = new uPlot(opts, aligned.data, el);
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
-  }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset]);
-
-  // ── Create brush/overview chart ──
-  useEffect(() => {
-    if (!showBrush || !brushContainerRef.current || !aligned || filteredSeries.length === 0) {
-      if (brushRef.current) {
-        brushRef.current.destroy();
-        brushRef.current = null;
-      }
-      return;
-    }
-
-    const el = brushContainerRef.current;
-    const chartWidth = width ?? el.clientWidth ?? 300;
-
-    const brushOpts: uPlot.Options = {
-      width: chartWidth,
-      height: BRUSH_HEIGHT,
-      cursor: {
-        drag: { x: true, y: false, setScale: false },
-        points: { show: false },
-        x: false,
-        y: false,
-      },
-      select: {
-        show: true,
-        left: 0,
-        top: 0,
-        width: chartWidth,
-        height: BRUSH_HEIGHT,
-      },
-      legend: { show: false },
-      axes: [
+      const axes: uPlot.Axis[] = [
+        { ...AXIS_STYLE },
         {
           ...AXIS_STYLE,
-          size: 18,
-          values: (_self: uPlot, ticks: number[]) => ticks.map((v) => {
-            const d = new Date(v * 1000);
-            return `'${String(d.getFullYear()).slice(2)}`;
-          }),
-        },
-        { show: false },
-      ],
-      scales: {
-        x: { time: isTimeScale },
-        y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
-      },
-      series: [
-        {},
-        ...aligned.meta.map((m, i) => ({
-          stroke: m.color,
-          fill: `${m.color}15`,
           scale: "y",
-          width: 1,
-          show: visibility[i] ?? true,
-          spanGaps: true,
-          points: { show: false },
-        })),
-      ],
-      hooks: {
-        setSelect: [
-          (u: uPlot) => {
-            const sel = u.select;
-            if (sel.width < 5) return;
-            const fromVal = u.posToVal(sel.left, "x");
-            const toVal = u.posToVal(sel.left + sel.width, "x");
-            if (chartRef.current) {
-              chartRef.current.setScale("x", { min: fromVal, max: toVal });
-            }
-          },
-        ],
-      },
-    };
+          size: 50,
+          values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
+        },
+      ];
 
-    if (brushRef.current) brushRef.current.destroy();
-    el.innerHTML = "";
-    brushRef.current = new uPlot(brushOpts, aligned.data, el);
-
-    return () => {
-      if (brushRef.current) {
-        brushRef.current.destroy();
-        brushRef.current = null;
+      if (hasRightAxis) {
+        axes.push({
+          ...AXIS_STYLE,
+          scale: "y2",
+          side: 1,
+          size: 50,
+          grid: { show: false },
+          values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
+        });
       }
-    };
-  }, [aligned, showBrush, width, filteredSeries.length]);
 
-  // ── Handle resize ──
-  useEffect(() => {
-    if (width || !containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        const w = entry.contentRect.width;
-        if (w > 0) {
-          if (chartRef.current) chartRef.current.setSize({ width: w, height });
-          if (brushRef.current) brushRef.current.setSize({ width: w, height: BRUSH_HEIGHT });
+      const plugins: uPlot.Plugin[] = [tooltipPlugin(aligned.meta, resolvedFormatX), annotationsPlugin(annotationsRef)];
+
+      // Add variance fill plugins for each actual/forecast pair
+      if (showVarianceFill) {
+        for (const [actualIdx, forecastIdx] of forecastSeriesMap.current) {
+          const meta = aligned.meta[actualIdx - 1];
+          plugins.push(varianceFillPlugin(actualIdx, forecastIdx, meta?.scale ?? "y"));
+        }
+
+        // Add drag plugin for all forecast series (zero-allocation, rAF-batched)
+        const forecastIndices = Array.from(forecastSeriesMap.current.values());
+        if (forecastIndices.length > 0) {
+          const firstActual = forecastSeriesMap.current.keys().next().value;
+          const scaleKey = aligned.meta[(firstActual ?? 1) - 1]?.scale ?? "y";
+          plugins.push(
+            forecastDragPlugin({
+              forecastSeriesIndices: forecastIndices,
+              scale: scaleKey,
+              offsetRef: forecastOffsetRef,
+              baseForecastRef,
+              onDragEnd: handleDragEnd,
+            }),
+          );
         }
       }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [width, height]);
 
-  // ── Redraw chart when annotations change ──
-  useEffect(() => {
-    if (chartRef.current) chartRef.current.redraw();
-  }, [annotations]);
+      const opts: uPlot.Options = {
+        width: chartWidth,
+        height,
+        plugins,
+        cursor: {
+          drag: {
+            x: true,
+            y: false,
+            setScale: mode === "zoom",
+          },
+          points: {
+            size: 6,
+            width: 1.5,
+            fill: (_self: uPlot, seriesIdx: number) => aligned.meta[seriesIdx - 1]?.color ?? "#6b7280",
+            stroke: () => "#fff",
+          },
+        },
+        select: {
+          show: true,
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+        },
+        legend: { show: false },
+        axes,
+        scales: {
+          x: { time: isTimeScale },
+          y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
+          ...(hasRightAxis
+            ? { y2: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] } }
+            : {}),
+        },
+        series: [
+          {},
+          ...aligned.meta.map((m, i) => ({
+            label: m.label,
+            stroke: m.color,
+            scale: m.scale,
+            width: m.isForecast ? 1 : 1.5,
+            dash: m.isForecast ? [6, 3] : undefined,
+            alpha: m.isForecast ? 0.6 : 1,
+            show: visibility[i] ?? true,
+            spanGaps: true,
+            points: { show: false },
+          })),
+        ],
+        hooks: {
+          setScale: [
+            (u: uPlot, scaleKey: string) => {
+              if (scaleKey !== "x") return;
+              const ts = aligned.data[0];
+              const fullMin = ts[0];
+              const fullMax = ts[ts.length - 1];
+              const curMin = u.scales.x.min ?? fullMin;
+              const curMax = u.scales.x.max ?? fullMax;
+              const zoomed = curMin > fullMin + 1 || curMax < fullMax - 1;
+              setIsZoomed(zoomed);
 
-  // ── Point count for perf indicator ──
-  const pointCount = aligned ? aligned.data[0].length : 0;
+              // Sync brush selection
+              if (brushRef.current && zoomed) {
+                const bLeft = brushRef.current.valToPos(curMin, "x");
+                const bRight = brushRef.current.valToPos(curMax, "x");
+                brushRef.current.setSelect(
+                  {
+                    left: bLeft,
+                    top: 0,
+                    width: bRight - bLeft,
+                    height: BRUSH_HEIGHT,
+                  },
+                  false,
+                );
+              }
+            },
+          ],
+          setSelect: [
+            (u: uPlot) => {
+              if (mode === "annotate") {
+                const sel = u.select;
+                if (sel.width > 5) {
+                  const fromVal = u.posToVal(sel.left, "x");
+                  const toVal = u.posToVal(sel.left + sel.width, "x");
+                  handleAddAnnotation(fromVal, toVal);
+                }
+                // Clear the select region
+                u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+              }
+            },
+          ],
+        },
+      };
 
-  if (!aligned || filteredSeries.length === 0) {
-    return (
-      <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_FAINT, fontSize: 12, fontFamily: FONT_FAMILY }}>
-        No production data
-      </div>
-    );
-  }
+      if (chartRef.current) chartRef.current.destroy();
+      el.innerHTML = "";
+      chartRef.current = new uPlot(opts, aligned.data, el);
 
-  return (
-    <div style={{ width: "100%", fontFamily: FONT_FAMILY }}>
-      {/* ── Toolbar ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 6, gap: 8 }}>
-        {/* Legend */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px", flex: 1 }}>
-          {aligned.meta.map((m, i) => (
-            <button
-              type="button"
-              key={m.label}
-              onClick={() => handleToggle(i)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                opacity: (visibility[i] ?? true) ? 1 : 0.35,
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontFamily: FONT_FAMILY,
-              }}
-            >
-              <div
-                style={{
-                  width: 12,
-                  height: m.isForecast ? 0 : 2,
-                  borderRadius: 1,
-                  background: m.isForecast ? "transparent" : m.color,
-                  borderTop: m.isForecast ? `2px dashed ${m.color}` : undefined,
-                }}
-              />
-              <span style={{ fontSize: 10, color: TEXT_MUTED, textDecoration: (visibility[i] ?? true) ? "none" : "line-through" }}>
-                {m.label} <span style={{ color: TEXT_FAINT }}>({m.unit})</span>
-              </span>
-            </button>
-          ))}
+      return () => {
+        if (chartRef.current) {
+          chartRef.current.destroy();
+          chartRef.current = null;
+        }
+      };
+    }, [aligned, height, width, filteredSeries.length, hasRightAxis, mode, showVarianceFill, forecastOffset]);
+
+    // ── Create brush/overview chart ──
+    useEffect(() => {
+      if (!showBrush || !brushContainerRef.current || !aligned || filteredSeries.length === 0) {
+        if (brushRef.current) {
+          brushRef.current.destroy();
+          brushRef.current = null;
+        }
+        return;
+      }
+
+      const el = brushContainerRef.current;
+      const chartWidth = width ?? el.clientWidth ?? 300;
+
+      const brushOpts: uPlot.Options = {
+        width: chartWidth,
+        height: BRUSH_HEIGHT,
+        cursor: {
+          drag: { x: true, y: false, setScale: false },
+          points: { show: false },
+          x: false,
+          y: false,
+        },
+        select: {
+          show: true,
+          left: 0,
+          top: 0,
+          width: chartWidth,
+          height: BRUSH_HEIGHT,
+        },
+        legend: { show: false },
+        axes: [
+          {
+            ...AXIS_STYLE,
+            size: 18,
+            values: (_self: uPlot, ticks: number[]) =>
+              ticks.map((v) => {
+                const d = new Date(v * 1000);
+                return `'${String(d.getFullYear()).slice(2)}`;
+              }),
+          },
+          { show: false },
+        ],
+        scales: {
+          x: { time: isTimeScale },
+          y: { range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.05] },
+        },
+        series: [
+          {},
+          ...aligned.meta.map((m, i) => ({
+            stroke: m.color,
+            fill: `${m.color}15`,
+            scale: "y",
+            width: 1,
+            show: visibility[i] ?? true,
+            spanGaps: true,
+            points: { show: false },
+          })),
+        ],
+        hooks: {
+          setSelect: [
+            (u: uPlot) => {
+              const sel = u.select;
+              if (sel.width < 5) return;
+              const fromVal = u.posToVal(sel.left, "x");
+              const toVal = u.posToVal(sel.left + sel.width, "x");
+              if (chartRef.current) {
+                chartRef.current.setScale("x", { min: fromVal, max: toVal });
+              }
+            },
+          ],
+        },
+      };
+
+      if (brushRef.current) brushRef.current.destroy();
+      el.innerHTML = "";
+      brushRef.current = new uPlot(brushOpts, aligned.data, el);
+
+      return () => {
+        if (brushRef.current) {
+          brushRef.current.destroy();
+          brushRef.current = null;
+        }
+      };
+    }, [aligned, showBrush, width, filteredSeries.length]);
+
+    // ── Handle resize ──
+    useEffect(() => {
+      if (width || !containerRef.current) return;
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          const w = entry.contentRect.width;
+          if (w > 0) {
+            if (chartRef.current) chartRef.current.setSize({ width: w, height });
+            if (brushRef.current) brushRef.current.setSize({ width: w, height: BRUSH_HEIGHT });
+          }
+        }
+      });
+      observer.observe(containerRef.current);
+      return () => observer.disconnect();
+    }, [width, height]);
+
+    // ── Redraw chart when annotations change ──
+    useEffect(() => {
+      if (chartRef.current) chartRef.current.redraw();
+    }, [annotations]);
+
+    // ── Point count for perf indicator ──
+    const pointCount = aligned ? aligned.data[0].length : 0;
+
+    if (!aligned || filteredSeries.length === 0) {
+      return (
+        <div
+          style={{
+            height,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: TEXT_FAINT,
+            fontSize: 12,
+            fontFamily: FONT_FAMILY,
+          }}
+        >
+          No production data
         </div>
+      );
+    }
 
-        {/* Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {/* Forecast offset indicator */}
-          {showVarianceFill && forecastOffset !== 0 && (
-            <button
-              type="button"
-              onClick={() => handleForecastOffsetChange(0)}
-              title="Reset forecast offset"
-              style={{
-                fontSize: 9,
-                color: forecastOffset > 0 ? "#22c55e" : "#ef4444",
-                padding: "2px 6px",
-                background: forecastOffset > 0 ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-                border: `1px solid ${forecastOffset > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                borderRadius: 4,
-                cursor: "pointer",
-                fontFamily: FONT_FAMILY,
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-              }}
-            >
-              {forecastOffset > 0 ? "+" : ""}{formatNumber(forecastOffset, 0)}
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-
-          {/* Point count badge */}
-          {pointCount > 1000 && (
-            <span style={{ fontSize: 9, color: TEXT_FAINT, padding: "2px 5px", background: "rgba(148,163,184,0.08)", borderRadius: 4 }}>
-              {pointCount.toLocaleString()} pts
-            </span>
-          )}
-
-          {/* Zoom/Annotate mode toggle */}
-          {enableAnnotations && (
-            <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: BORDER }}>
+    return (
+      <div style={{ width: "100%", fontFamily: FONT_FAMILY }}>
+        {/* ── Toolbar ── */}
+        <div
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 6, gap: 8 }}
+        >
+          {/* Legend */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px", flex: 1 }}>
+            {aligned.meta.map((m, i) => (
               <button
                 type="button"
-                onClick={() => setMode("zoom")}
-                title="Zoom mode: drag to zoom"
+                key={m.label}
+                onClick={() => handleToggle(i)}
                 style={{
-                  padding: "3px 8px",
-                  fontSize: 10,
-                  fontWeight: 500,
-                  fontFamily: FONT_FAMILY,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  opacity: (visibility[i] ?? true) ? 1 : 0.35,
+                  background: "none",
                   border: "none",
+                  padding: 0,
                   cursor: "pointer",
-                  background: mode === "zoom" ? ACCENT_15 : "transparent",
-                  color: mode === "zoom" ? ACCENT : TEXT_FAINT,
+                  fontFamily: FONT_FAMILY,
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  <line x1="11" y1="8" x2="11" y2="14" />
-                  <line x1="8" y1="11" x2="14" y2="11" />
+                <div
+                  style={{
+                    width: 12,
+                    height: m.isForecast ? 0 : 2,
+                    borderRadius: 1,
+                    background: m.isForecast ? "transparent" : m.color,
+                    borderTop: m.isForecast ? `2px dashed ${m.color}` : undefined,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: TEXT_MUTED,
+                    textDecoration: (visibility[i] ?? true) ? "none" : "line-through",
+                  }}
+                >
+                  {m.label} <span style={{ color: TEXT_FAINT }}>({m.unit})</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            {/* Forecast offset indicator */}
+            {showVarianceFill && forecastOffset !== 0 && (
+              <button
+                type="button"
+                onClick={() => handleForecastOffsetChange(0)}
+                title="Reset forecast offset"
+                style={{
+                  fontSize: 9,
+                  color: forecastOffset > 0 ? "#22c55e" : "#ef4444",
+                  padding: "2px 6px",
+                  background: forecastOffset > 0 ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                  border: `1px solid ${forecastOffset > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: FONT_FAMILY,
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                {forecastOffset > 0 ? "+" : ""}
+                {formatNumber(forecastOffset, 0)}
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
+            )}
+
+            {/* Point count badge */}
+            {pointCount > 1000 && (
+              <span
+                style={{
+                  fontSize: 9,
+                  color: TEXT_FAINT,
+                  padding: "2px 5px",
+                  background: "rgba(148,163,184,0.08)",
+                  borderRadius: 4,
+                }}
+              >
+                {pointCount.toLocaleString()} pts
+              </span>
+            )}
+
+            {/* Zoom/Annotate mode toggle */}
+            {enableAnnotations && (
+              <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: BORDER }}>
+                <button
+                  type="button"
+                  onClick={() => setMode("zoom")}
+                  title="Zoom mode: drag to zoom"
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: 10,
+                    fontWeight: 500,
+                    fontFamily: FONT_FAMILY,
+                    border: "none",
+                    cursor: "pointer",
+                    background: mode === "zoom" ? ACCENT_15 : "transparent",
+                    color: mode === "zoom" ? ACCENT : TEXT_FAINT,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("annotate")}
+                  title="Annotate mode: drag to create annotation"
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: 10,
+                    fontWeight: 500,
+                    fontFamily: FONT_FAMILY,
+                    border: "none",
+                    borderLeft: BORDER_SUBTLE,
+                    cursor: "pointer",
+                    background: mode === "annotate" ? ACCENT_15 : "transparent",
+                    color: mode === "annotate" ? ACCENT : TEXT_FAINT,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Reset zoom */}
+            {isZoomed && (
               <button
                 type="button"
-                onClick={() => setMode("annotate")}
-                title="Annotate mode: drag to create annotation"
+                onClick={handleResetZoom}
+                title="Reset zoom"
                 style={{
                   padding: "3px 8px",
                   fontSize: 10,
                   fontWeight: 500,
                   fontFamily: FONT_FAMILY,
-                  border: "none",
-                  borderLeft: BORDER_SUBTLE,
+                  border: BORDER,
+                  borderRadius: 6,
                   cursor: "pointer",
-                  background: mode === "annotate" ? ACCENT_15 : "transparent",
-                  color: mode === "annotate" ? ACCENT : TEXT_FAINT,
+                  background: "transparent",
+                  color: TEXT_MUTED,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                 </svg>
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Main chart ── */}
+        <div
+          ref={containerRef}
+          style={{
+            width: "100%",
+            minHeight: height,
+            cursor: mode === "annotate" ? "crosshair" : undefined,
+          }}
+        />
+
+        {/* ── Brush / overview scrubber ── */}
+        {showBrush && (
+          <div style={{ marginTop: 4 }}>
+            <div
+              ref={brushContainerRef}
+              style={{
+                width: "100%",
+                minHeight: BRUSH_HEIGHT,
+                opacity: 0.6,
+              }}
+            />
+          </div>
+        )}
+
+        {/* ── Annotations list ── */}
+        {enableAnnotations && annotations.length > 0 && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: TEXT_FAINT,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Annotations ({annotations.length})
+              </span>
+              <button
+                type="button"
+                onClick={handleClearAnnotations}
+                style={{
+                  fontSize: 10,
+                  color: TEXT_FAINT,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: FONT_FAMILY,
+                  padding: "2px 4px",
+                }}
+              >
+                Clear all
               </button>
             </div>
-          )}
-
-          {/* Reset zoom */}
-          {isZoomed && (
-            <button
-              type="button"
-              onClick={handleResetZoom}
-              title="Reset zoom"
-              style={{
-                padding: "3px 8px",
-                fontSize: 10,
-                fontWeight: 500,
-                fontFamily: FONT_FAMILY,
-                border: BORDER,
-                borderRadius: 6,
-                cursor: "pointer",
-                background: "transparent",
-                color: TEXT_MUTED,
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-              Reset
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Main chart ── */}
-      <div
-        ref={containerRef}
-        style={{
-          width: "100%",
-          minHeight: height,
-          cursor: mode === "annotate" ? "crosshair" : undefined,
-        }}
-      />
-
-      {/* ── Brush / overview scrubber ── */}
-      {showBrush && (
-        <div style={{ marginTop: 4 }}>
-          <div
-            ref={brushContainerRef}
-            style={{
-              width: "100%",
-              minHeight: BRUSH_HEIGHT,
-              opacity: 0.6,
-            }}
-          />
-        </div>
-      )}
-
-      {/* ── Annotations list ── */}
-      {enableAnnotations && annotations.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: TEXT_FAINT, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Annotations ({annotations.length})
-            </span>
-            <button
-              type="button"
-              onClick={handleClearAnnotations}
-              style={{
-                fontSize: 10,
-                color: TEXT_FAINT,
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: FONT_FAMILY,
-                padding: "2px 4px",
-              }}
-            >
-              Clear all
-            </button>
+            <AnnotationList
+              annotations={annotations}
+              onUpdate={handleUpdateAnnotation}
+              onRemove={handleRemoveAnnotation}
+              onToggleExpand={handleToggleExpandAnnotation}
+              formatX={resolvedFormatX}
+              xLabel={xAxisLabel}
+            />
           </div>
-          <AnnotationList
-            annotations={annotations}
-            onUpdate={handleUpdateAnnotation}
-            onRemove={handleRemoveAnnotation}
-            onToggleExpand={handleToggleExpandAnnotation}
-            formatX={resolvedFormatX}
-            xLabel={xAxisLabel}
-          />
-        </div>
-      )}
-    </div>
-  );
-});
+        )}
+      </div>
+    );
+  },
+);
 
 ProductionChart.displayName = "ProductionChart";

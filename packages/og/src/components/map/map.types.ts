@@ -1,15 +1,13 @@
-import type { CSSProperties } from "react";
 import type { Feature } from "geojson";
-import type { Asset, AssetTypeConfig, ColorScheme, MapViewState, AssetStore, Well } from "../../types";
-import type { MapControlId, MapLayerId } from "./controls";
+import type { CSSProperties } from "react";
+import type { Asset, AssetStore, AssetTypeConfig, ColorScheme, MapViewState } from "../../types";
 import type { AssetDetailSection } from "./asset-detail";
+import type { MapControlId, MapLayerId } from "./controls";
 import type { SelectedOverlayFeature } from "./selection-summary";
 
 export interface OGMapProps {
   /** Array of assets to render on the map */
   assets?: Asset[];
-  /** @deprecated Use `assets` prop. Legacy well array support. */
-  wells?: Well[];
   /** Mapbox access token. Required. */
   mapboxAccessToken: string;
   /** Initial map view state. Auto-computed from assets if omitted. */
@@ -22,15 +20,11 @@ export interface OGMapProps {
   store?: AssetStore;
   /** Callback when an asset is clicked */
   onAssetClick?: (asset: Asset) => void;
-  /** @deprecated Use onAssetClick */
-  onWellClick?: (well: Well) => void;
   /** Callback when an asset is hovered */
   onAssetHover?: (asset: Asset | null) => void;
-  /** @deprecated Use onAssetHover */
-  onWellHover?: (well: Well | null) => void;
   /** Callback when the view state changes (pan/zoom) */
   onViewStateChange?: (viewState: MapViewState) => void;
-  /** Enable clustering at low zoom levels. Default: true */
+  /** Enable clustering at low zoom levels. Default: false */
   cluster?: boolean;
   /** Min zoom level at which clusters expand. Default: 10 */
   clusterMaxZoom?: number;
@@ -38,8 +32,6 @@ export interface OGMapProps {
   clusterRadius?: number;
   /** Show asset count badge. Default: true */
   showAssetCount?: boolean;
-  /** @deprecated Use showAssetCount */
-  showWellCount?: boolean;
   /** Show the color legend. Default: true */
   showLegend?: boolean;
   /** Enable file upload overlay (KMZ/KML/GeoJSON). Default: false */

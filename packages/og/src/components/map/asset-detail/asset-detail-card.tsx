@@ -1,7 +1,20 @@
 import React, { memo, useCallback, useState, useEffect, useRef } from "react";
 import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../../types";
 import { formatNumber } from "../../../utils";
-import { TEXT_PRIMARY, TEXT_MUTED, PANEL_BG, BORDER, BORDER_SUBTLE, SHADOW_SM, FONT_FAMILY, BLUR_LG, HOVER_BG } from "../theme";
+import {
+  BLUR_LG,
+  BORDER,
+  BORDER_SUBTLE,
+  FONT_FAMILY,
+  HOVER_BG,
+  PANEL_BG,
+  SHADOW_SM,
+  STATUS_COLORS,
+  TEXT_HEADING,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TYPE_COLORS,
+} from "../theme";
 import { ProductionChart } from "./production-chart";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -48,28 +61,6 @@ function injectScrollbarStyle() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "#22c55e",
-  producing: "#22c55e",
-  "shut-in": "#f59e0b",
-  inactive: "#f59e0b",
-  drilled: "#6366f1",
-  permitted: "#8b5cf6",
-  abandoned: "#6b7280",
-  offline: "#6b7280",
-  injection: "#06b6d4",
-  maintenance: "#f59e0b",
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  well: "#22c55e",
-  meter: "#06b6d4",
-  pipeline: "#f59e0b",
-  facility: "#8b5cf6",
-  tank: "#ef4444",
-  compressor: "#ec4899",
-};
 
 function resolveField(asset: Asset, key: string): unknown {
   const parts = key.split(".");
@@ -162,7 +153,6 @@ const DEFAULT_GENERIC_SECTIONS: AssetDetailSection[] = [
   },
 ];
 
-
 // ── SectionView ──────────────────────────────────────────────────────────────
 
 const SectionView = memo(({ section, asset }: { section: AssetDetailSection; asset: Asset }) => {
@@ -187,7 +177,15 @@ const SectionView = memo(({ section, asset }: { section: AssetDetailSection; ass
           borderBottom: BORDER_SUBTLE,
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: TEXT_MUTED,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           {section.title}
         </span>
         <svg
@@ -198,6 +196,7 @@ const SectionView = memo(({ section, asset }: { section: AssetDetailSection; ass
           stroke={TEXT_MUTED}
           strokeWidth="2"
           style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+          aria-hidden="true"
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -207,9 +206,14 @@ const SectionView = memo(({ section, asset }: { section: AssetDetailSection; ass
           {fields.map((field) => {
             const value = resolveField(asset, field.key);
             return (
-              <div key={field.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+              <div
+                key={field.key}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}
+              >
                 <span style={{ fontSize: 12, color: TEXT_MUTED }}>{field.label}</span>
-                <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
+                <span
+                  style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}
+                >
                   {formatFieldValue(value, field.format, field.unit)}
                 </span>
               </div>
@@ -231,13 +235,24 @@ const MetadataView = memo(({ asset }: { asset: Asset }) => {
   return (
     <div style={{ marginBottom: 0 }}>
       <div style={{ padding: "10px 0", borderBottom: BORDER_SUBTLE }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: TEXT_MUTED,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           Metadata
         </span>
       </div>
       <div style={{ padding: "8px 0" }}>
         {Object.entries(meta).map(([key, value]) => (
-          <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+          <div
+            key={key}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}
+          >
             <span style={{ fontSize: 12, color: TEXT_MUTED }}>{key}</span>
             <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
               {String(value ?? "—")}
@@ -254,7 +269,7 @@ MetadataView.displayName = "MetadataView";
 
 const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const timeSeries = (asset.properties?.timeSeries as TimeSeries[] | undefined);
+  const timeSeries = asset.properties?.timeSeries as TimeSeries[] | undefined;
   if (!timeSeries || timeSeries.length === 0) return null;
 
   return (
@@ -274,7 +289,15 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
           borderBottom: BORDER_SUBTLE,
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: TEXT_MUTED,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           Production History
         </span>
         <svg
@@ -285,6 +308,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
           stroke={TEXT_MUTED}
           strokeWidth="2"
           style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+          aria-hidden="true"
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -301,258 +325,282 @@ ProductionChartSection.displayName = "ProductionChartSection";
 
 // ── AssetDetailCard ──────────────────────────────────────────────────────────
 
-export const AssetDetailCard = memo(({
-  asset,
-  typeConfigs,
-  sections: customSections,
-  onClose,
-  renderHeader,
-  renderSection,
-  renderBody,
-  className,
-  style,
-  mobileBreakpoint = 768,
-}: AssetDetailCardProps) => {
-  const [isMobile, setIsMobile] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerHeight, setDrawerHeight] = useState(300);
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef<{ y: number; height: number } | null>(null);
+export const AssetDetailCard = memo(
+  ({
+    asset,
+    typeConfigs,
+    sections: customSections,
+    onClose,
+    renderHeader,
+    renderSection,
+    renderBody,
+    className,
+    style,
+    mobileBreakpoint = 768,
+  }: AssetDetailCardProps) => {
+    const [isMobile, setIsMobile] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [drawerHeight, setDrawerHeight] = useState(300);
+    const drawerRef = useRef<HTMLDivElement>(null);
+    const dragStartRef = useRef<{ y: number; height: number } | null>(null);
 
-  // Inject scrollbar-hiding CSS once
-  useEffect(() => { injectScrollbarStyle(); }, []);
+    // Inject scrollbar-hiding CSS once
+    useEffect(() => {
+      injectScrollbarStyle();
+    }, []);
 
-  // Responsive detection
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < mobileBreakpoint);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, [mobileBreakpoint]);
+    // Responsive detection
+    useEffect(() => {
+      const check = () => setIsMobile(window.innerWidth < mobileBreakpoint);
+      check();
+      window.addEventListener("resize", check);
+      return () => window.removeEventListener("resize", check);
+    }, [mobileBreakpoint]);
 
-  // Open drawer when asset is selected
-  useEffect(() => {
-    if (asset) setDrawerOpen(true);
-  }, [asset]);
+    // Open drawer when asset is selected
+    useEffect(() => {
+      if (asset) setDrawerOpen(true);
+    }, [asset]);
 
-  const handleClose = useCallback(() => {
-    setDrawerOpen(false);
-    onClose?.();
-  }, [onClose]);
+    const handleClose = useCallback(() => {
+      setDrawerOpen(false);
+      onClose?.();
+    }, [onClose]);
 
-  // Drawer drag to resize (mobile)
-  const handleDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    dragStartRef.current = { y: clientY, height: drawerHeight };
-  }, [drawerHeight]);
+    // Drawer drag to resize (mobile)
+    const handleDragStart = useCallback(
+      (e: React.TouchEvent | React.MouseEvent) => {
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+        dragStartRef.current = { y: clientY, height: drawerHeight };
+      },
+      [drawerHeight],
+    );
 
-  const handleDragMove = useCallback((e: TouchEvent | MouseEvent) => {
-    if (!dragStartRef.current) return;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    const delta = dragStartRef.current.y - clientY;
-    const newHeight = Math.max(200, Math.min(window.innerHeight * 0.85, dragStartRef.current.height + delta));
-    setDrawerHeight(newHeight);
-  }, []);
+    const handleDragMove = useCallback((e: TouchEvent | MouseEvent) => {
+      if (!dragStartRef.current) return;
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+      const delta = dragStartRef.current.y - clientY;
+      const newHeight = Math.max(200, Math.min(window.innerHeight * 0.85, dragStartRef.current.height + delta));
+      setDrawerHeight(newHeight);
+    }, []);
 
-  const handleDragEnd = useCallback(() => {
-    dragStartRef.current = null;
-  }, []);
+    const handleDragEnd = useCallback(() => {
+      dragStartRef.current = null;
+    }, []);
 
-  useEffect(() => {
-    window.addEventListener("touchmove", handleDragMove, { passive: false });
-    window.addEventListener("mousemove", handleDragMove);
-    window.addEventListener("touchend", handleDragEnd);
-    window.addEventListener("mouseup", handleDragEnd);
-    return () => {
-      window.removeEventListener("touchmove", handleDragMove);
-      window.removeEventListener("mousemove", handleDragMove);
-      window.removeEventListener("touchend", handleDragEnd);
-      window.removeEventListener("mouseup", handleDragEnd);
-    };
-  }, [handleDragMove, handleDragEnd]);
+    useEffect(() => {
+      window.addEventListener("touchmove", handleDragMove, { passive: false });
+      window.addEventListener("mousemove", handleDragMove);
+      window.addEventListener("touchend", handleDragEnd);
+      window.addEventListener("mouseup", handleDragEnd);
+      return () => {
+        window.removeEventListener("touchmove", handleDragMove);
+        window.removeEventListener("mousemove", handleDragMove);
+        window.removeEventListener("touchend", handleDragEnd);
+        window.removeEventListener("mouseup", handleDragEnd);
+      };
+    }, [handleDragMove, handleDragEnd]);
 
-  if (!asset || !drawerOpen) return null;
+    if (!asset || !drawerOpen) return null;
 
-  // Resolve sections
-  const sections = customSections ?? (asset.type === "well" ? DEFAULT_WELL_SECTIONS : DEFAULT_GENERIC_SECTIONS);
+    // Resolve sections
+    const sections = customSections ?? (asset.type === "well" ? DEFAULT_WELL_SECTIONS : DEFAULT_GENERIC_SECTIONS);
 
-  const typeConfig = typeConfigs?.get(asset.type);
-  const statusColor = STATUS_COLORS[asset.status] ?? "#6b7280";
-  const typeColor = typeConfig?.color ?? TYPE_COLORS[asset.type] ?? "#6b7280";
+    const typeConfig = typeConfigs?.get(asset.type);
+    const statusColor = STATUS_COLORS[asset.status] ?? "#6b7280";
+    const typeColor = typeConfig?.color ?? TYPE_COLORS[asset.type] ?? "#6b7280";
 
-  // ── Shared card content ──
-  const cardContent = (
-    <>
-      {/* Header */}
-      {renderHeader ? (
-        renderHeader(asset)
-      ) : (
-        <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, wordBreak: "break-word" }}>
-                {asset.name}
-              </h3>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                {/* Type badge */}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 10,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    padding: "3px 8px",
-                    borderRadius: 4,
-                    background: `${typeColor}20`,
-                    color: typeColor,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: typeColor }} />
-                  {typeConfig?.label ?? asset.type}
-                </span>
-                {/* Status badge */}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 10,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    padding: "3px 8px",
-                    borderRadius: 4,
-                    background: `${statusColor}20`,
-                    color: statusColor,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
-                  {asset.status}
-                </span>
-              </div>
-            </div>
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={handleClose}
-              style={{
-                width: 28,
-                height: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: HOVER_BG,
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                color: TEXT_MUTED,
-                flexShrink: 0,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Body */}
-      <div className={SCROLLBAR_CLASS} style={{ padding: "0 16px 16px", overflowY: "auto", flex: 1 }}>
-        {renderBody ? (
-          renderBody(asset)
+    // ── Shared card content ──
+    const cardContent = (
+      <>
+        {/* Header */}
+        {renderHeader ? (
+          renderHeader(asset)
         ) : (
-          <>
-            <ProductionChartSection asset={asset} />
-            {sections.map((section) =>
-              renderSection ? (
-                <React.Fragment key={section.id}>{renderSection(section, asset)}</React.Fragment>
-              ) : (
-                <SectionView key={section.id} section={section} asset={asset} />
-              )
-            )}
-            <MetadataView asset={asset} />
-          </>
+          <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: TEXT_HEADING,
+                    lineHeight: 1.3,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {asset.name}
+                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  {/* Type badge */}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      background: `${typeColor}20`,
+                      color: typeColor,
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: typeColor }} />
+                    {typeConfig?.label ?? asset.type}
+                  </span>
+                  {/* Status badge */}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      background: `${statusColor}20`,
+                      color: statusColor,
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
+                    {asset.status}
+                  </span>
+                </div>
+              </div>
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={handleClose}
+                style={{
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: HOVER_BG,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  color: TEXT_MUTED,
+                  flexShrink: 0,
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
         )}
-      </div>
-    </>
-  );
 
-  // ── Mobile: Bottom Drawer ──
-  if (isMobile) {
+        {/* Body */}
+        <div className={SCROLLBAR_CLASS} style={{ padding: "0 16px 16px", overflowY: "auto", flex: 1 }}>
+          {renderBody ? (
+            renderBody(asset)
+          ) : (
+            <>
+              <ProductionChartSection asset={asset} />
+              {sections.map((section) =>
+                renderSection ? (
+                  <React.Fragment key={section.id}>{renderSection(section, asset)}</React.Fragment>
+                ) : (
+                  <SectionView key={section.id} section={section} asset={asset} />
+                ),
+              )}
+              <MetadataView asset={asset} />
+            </>
+          )}
+        </div>
+      </>
+    );
+
+    // ── Mobile: Bottom Drawer ──
+    if (isMobile) {
+      return (
+        <div
+          ref={drawerRef}
+          className={className}
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: drawerHeight,
+            background: PANEL_BG,
+            backdropFilter: BLUR_LG,
+            borderTop: BORDER,
+            borderRadius: "16px 16px 0 0",
+            fontFamily: FONT_FAMILY,
+            color: TEXT_PRIMARY,
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 15,
+            transition: "height 0.05s linear",
+            ...style,
+          }}
+        >
+          {/* Drag handle */}
+          <div
+            onTouchStart={handleDragStart}
+            onMouseDown={handleDragStart}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "8px 0 4px",
+              cursor: "grab",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(148, 163, 184, 0.25)" }} />
+          </div>
+          {cardContent}
+        </div>
+      );
+    }
+
+    // ── Desktop: Left Side Panel ──
     return (
       <div
-        ref={drawerRef}
         className={className}
         style={{
           position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: drawerHeight,
+          top: 12,
+          left: 12,
+          bottom: 12,
+          width: 340,
           background: PANEL_BG,
           backdropFilter: BLUR_LG,
-          borderTop: BORDER,
-          borderRadius: "16px 16px 0 0",
+          border: BORDER,
+          borderRadius: 12,
           fontFamily: FONT_FAMILY,
           color: TEXT_PRIMARY,
           display: "flex",
           flexDirection: "column",
           zIndex: 15,
-          transition: "height 0.05s linear",
+          overflow: "hidden",
+          boxShadow: SHADOW_SM,
           ...style,
         }}
       >
-        {/* Drag handle */}
-        <div
-          onTouchStart={handleDragStart}
-          onMouseDown={handleDragStart}
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            padding: "8px 0 4px",
-            cursor: "grab",
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(148, 163, 184, 0.25)" }} />
-        </div>
         {cardContent}
       </div>
     );
-  }
-
-  // ── Desktop: Left Side Panel ──
-  return (
-    <div
-      className={className}
-      style={{
-        position: "absolute",
-        top: 12,
-        left: 12,
-        bottom: 12,
-        width: 340,
-        background: PANEL_BG,
-        backdropFilter: BLUR_LG,
-        border: BORDER,
-        borderRadius: 12,
-        fontFamily: FONT_FAMILY,
-        color: TEXT_PRIMARY,
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 15,
-        overflow: "hidden",
-        boxShadow: SHADOW_SM,
-        ...style,
-      }}
-    >
-      {cardContent}
-    </div>
-  );
-});
+  },
+);
 
 AssetDetailCard.displayName = "AssetDetailCard";

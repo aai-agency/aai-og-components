@@ -16,7 +16,5 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "uplot": "^1.6.32"
-  }
+  "dependencies": {}
 }

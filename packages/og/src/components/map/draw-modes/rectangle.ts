@@ -1,6 +1,6 @@
-import type { DrawModeContext, RectangleState } from "./types";
 import type { DrawCustomMode } from "@mapbox/mapbox-gl-draw";
 import { doubleClickZoom } from "./helpers";
+import type { DrawModeContext, RectangleState } from "./types";
 
 const DirectRectangleMode: DrawCustomMode = {
   onSetup: function (this: DrawModeContext): RectangleState {
@@ -29,7 +29,7 @@ const DirectRectangleMode: DrawCustomMode = {
   onClick: function (state, e) {
     if (!state || !e || !e.lngLat) return;
 
-    const shiftPressed = e.originalEvent && e.originalEvent.shiftKey;
+    const shiftPressed = e.originalEvent?.shiftKey;
 
     if (shiftPressed && state.rectangleCompleted) {
       const feature = this.newFeature({
@@ -70,10 +70,14 @@ const DirectRectangleMode: DrawCustomMode = {
       const endPoint = state.endPoint;
 
       if (
-        startPoint && endPoint &&
-        Array.isArray(startPoint) && startPoint.length >= 2 &&
-        Array.isArray(endPoint) && endPoint.length >= 2 &&
-        state.rectangle && typeof state.rectangle.updateCoordinate === "function"
+        startPoint &&
+        endPoint &&
+        Array.isArray(startPoint) &&
+        startPoint.length >= 2 &&
+        Array.isArray(endPoint) &&
+        endPoint.length >= 2 &&
+        state.rectangle &&
+        typeof state.rectangle.updateCoordinate === "function"
       ) {
         state.rectangle.updateCoordinate("0.0", startPoint[0], startPoint[1]);
         state.rectangle.updateCoordinate("0.1", endPoint[0], startPoint[1]);
@@ -90,7 +94,7 @@ const DirectRectangleMode: DrawCustomMode = {
     }
   },
 
-  onMouseMove: function (state, e) {
+  onMouseMove: (state, e) => {
     if (!state || !e || !e.lngLat) return;
     if (state.startPoint && !state.endPoint && !state.rectangleCompleted) {
       const startPoint = state.startPoint;
@@ -143,20 +147,20 @@ const DirectRectangleMode: DrawCustomMode = {
 
   onTrash: function (state) {
     if (!state) return;
-    if (state.rectangle && state.rectangle.id) {
+    if (state.rectangle?.id) {
       this.deleteFeature(String(state.rectangle.id));
     }
     this.changeMode("simple_select");
   },
 
-  toDisplayFeatures: function (state, geojson, display) {
+  toDisplayFeatures: (state, geojson, display) => {
     if (!state || !geojson || !display) {
       if (typeof display === "function" && geojson) display(geojson);
       return;
     }
     const geoJsonAny = geojson as unknown as Record<string, unknown>;
     const props = geoJsonAny.properties as Record<string, unknown> | undefined;
-    const isActiveRectangle = state.rectangle && state.rectangle.id && props?.id === state.rectangle.id;
+    const isActiveRectangle = state.rectangle?.id && props?.id === state.rectangle.id;
     if (props) {
       props.active = isActiveRectangle ? "true" : "false";
     }

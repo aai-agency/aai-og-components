@@ -1,12 +1,6 @@
 import JSZip from "jszip";
 import type { MapOverlay, OverlayType } from "../types";
 
-// shpjs doesn't ship types — declare the module
-declare module "shpjs" {
-  function shp(buffer: ArrayBuffer): Promise<GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[]>;
-  export default shp;
-}
-
 /** Shared factory — eliminates duplicate MapOverlay construction across parsers */
 function buildOverlay(file: File, type: OverlayType, geojson: GeoJSON.FeatureCollection, extRegex: RegExp): MapOverlay {
   return {
@@ -26,9 +20,7 @@ export async function parseKMZ(file: File): Promise<MapOverlay> {
   const buffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buffer);
 
-  const kmlEntry = Object.values(zip.files).find(
-    (f) => f.name.toLowerCase().endsWith(".kml") && !f.dir
-  );
+  const kmlEntry = Object.values(zip.files).find((f) => f.name.toLowerCase().endsWith(".kml") && !f.dir);
   if (!kmlEntry) throw new Error("No KML file found inside KMZ archive");
 
   const kmlText = await kmlEntry.async("text");
@@ -78,9 +70,7 @@ export async function parseShapefileBundle(files: File[]): Promise<MapOverlay> {
   if (!shpFile) throw new Error("No .shp file found in the selected files");
 
   // Filter to only shapefile-related extensions
-  const shpFiles = files.filter((f) =>
-    SHP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
-  );
+  const shpFiles = files.filter((f) => SHP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
 
   // Bundle into a zip using JSZip (already a dependency)
   const zip = new JSZip();

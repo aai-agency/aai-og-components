@@ -1,8 +1,7 @@
-import React from "react";
-import type { MapTooltipProps } from "./map.types";
-import { formatNumber } from "../../utils";
 import type { FieldConfig } from "../../types";
-import { TEXT_PRIMARY, TEXT_MUTED, PANEL_BG, BORDER, SHADOW_MD, FONT_FAMILY, ACCENT, BLUR_SM } from "./theme";
+import { formatNumber } from "../../utils";
+import type { MapTooltipProps } from "./map.types";
+import { ACCENT, BLUR_SM, BORDER, FONT_FAMILY, PANEL_BG, SHADOW_MD, TEXT_MUTED, TEXT_PRIMARY } from "./theme";
 
 export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapTooltipProps) {
   if (renderTooltip) {
@@ -56,9 +55,7 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
             flexShrink: 0,
           }}
         />
-        <div style={{ fontWeight: 600, fontSize: 13, color: TEXT_PRIMARY }}>
-          {asset.name}
-        </div>
+        <div style={{ fontWeight: 600, fontSize: 13, color: TEXT_PRIMARY }}>{asset.name}</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" }}>
@@ -68,24 +65,24 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
         {tooltipFields ? (
           // User-defined tooltip fields
           tooltipFields.map((field) => {
-            const val = resolveField(asset, field);
+            const val = resolveField(asset as unknown as Record<string, unknown>, field);
             return val != null ? <Row key={field.key} label={field.label} value={val} /> : null;
           })
         ) : (
           // Default: show common properties
           <>
-            {getProp(asset, "api") && <Row label="API" value={getProp(asset, "api")!} />}
-            {getProp(asset, "operator") && <Row label="Operator" value={getProp(asset, "operator")!} />}
-            {getProp(asset, "basin") && <Row label="Basin" value={getProp(asset, "basin")!} />}
-            {getProp(asset, "formation") && <Row label="Formation" value={getProp(asset, "formation")!} />}
+            {getProp(asset, "api") && <Row label="API" value={getProp(asset, "api") ?? ""} />}
+            {getProp(asset, "operator") && <Row label="Operator" value={getProp(asset, "operator") ?? ""} />}
+            {getProp(asset, "basin") && <Row label="Basin" value={getProp(asset, "basin") ?? ""} />}
+            {getProp(asset, "formation") && <Row label="Formation" value={getProp(asset, "formation") ?? ""} />}
             {getNumProp(asset, "cumBOE") != null && (
-              <Row label="Cum BOE" value={formatNumber(getNumProp(asset, "cumBOE")!)} />
+              <Row label="Cum BOE" value={formatNumber(getNumProp(asset, "cumBOE") ?? 0)} />
             )}
             {getNumProp(asset, "cumOil") != null && (
-              <Row label="Cum Oil" value={`${formatNumber(getNumProp(asset, "cumOil")!)} BBL`} />
+              <Row label="Cum Oil" value={`${formatNumber(getNumProp(asset, "cumOil") ?? 0)} BBL`} />
             )}
             {getNumProp(asset, "lateralLength") != null && (
-              <Row label="Lateral" value={`${formatNumber(getNumProp(asset, "lateralLength")!, 0)} ft`} />
+              <Row label="Lateral" value={`${formatNumber(getNumProp(asset, "lateralLength") ?? 0, 0)} ft`} />
             )}
           </>
         )}
@@ -98,9 +95,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
       <span style={{ color: TEXT_MUTED, fontSize: 11 }}>{label}</span>
-      <span style={{ color: TEXT_PRIMARY, fontSize: 11, fontWeight: 500, textTransform: "capitalize" }}>
-        {value}
-      </span>
+      <span style={{ color: TEXT_PRIMARY, fontSize: 11, fontWeight: 500, textTransform: "capitalize" }}>{value}</span>
     </>
   );
 }
@@ -122,12 +117,12 @@ function resolveField(asset: Record<string, unknown>, field: FieldConfig): strin
   return String(current);
 }
 
-function getProp(asset: Record<string, unknown>, key: string): string | undefined {
-  const val = (asset.properties as Record<string, unknown>)?.[key];
+function getProp(asset: { properties?: Record<string, unknown> }, key: string): string | undefined {
+  const val = asset.properties?.[key];
   return val != null ? String(val) : undefined;
 }
 
-function getNumProp(asset: Record<string, unknown>, key: string): number | undefined {
-  const val = (asset.properties as Record<string, unknown>)?.[key];
+function getNumProp(asset: { properties?: Record<string, unknown> }, key: string): number | undefined {
+  const val = asset.properties?.[key];
   return typeof val === "number" ? val : undefined;
 }

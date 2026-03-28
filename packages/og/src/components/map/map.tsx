@@ -1,21 +1,37 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import mapboxgl from "mapbox-gl";
-import { MapboxOverlay } from "@deck.gl/mapbox";
 import { ScatterplotLayer } from "@deck.gl/layers";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { booleanIntersects, booleanPointInPolygon, point } from "@turf/turf";
 import { useMachine } from "@xstate/react";
-import * as turf from "@turf/turf";
 import type { Feature, Polygon as GeoPolygon } from "geojson";
-import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
-import { wellToAsset } from "../../types";
-import { getAssetColor, computeBounds } from "../../utils";
+import mapboxgl from "mapbox-gl";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapMachine } from "../../machines";
-import { useClusters } from "./use-clusters";
-import { MapTooltip } from "./tooltip";
-import { MapControls, type MapLayerId } from "./controls";
+import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
+import { computeBounds, getAssetColor } from "../../utils";
 import { AssetDetailCard } from "./asset-detail";
-import { SelectionPanel, type SelectedOverlayFeature } from "./selection-summary";
+import { MapControls, type MapLayerId } from "./controls";
 import type { OGMapProps } from "./map.types";
-import { TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, TEXT_FAINT, PANEL_BG, PANEL_BG_LIGHT, BORDER, BORDER_SUBTLE, ACCENT, ACCENT_15, FONT_FAMILY, BLUR_SM, BLUR_LG, SHADOW_SM, HOVER_BG } from "./theme";
+import { type SelectedOverlayFeature, SelectionPanel } from "./selection-summary";
+import {
+  ACCENT,
+  ACCENT_15,
+  BLUR_LG,
+  BLUR_SM,
+  BORDER,
+  BORDER_SUBTLE,
+  FONT_FAMILY,
+  HOVER_BG,
+  PANEL_BG,
+  PANEL_BG_LIGHT,
+  SHADOW_SM,
+  TEXT_FAINT,
+  TEXT_HEADING,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+} from "./theme";
+import { MapTooltip } from "./tooltip";
+import { useClusters } from "./use-clusters";
 
 const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
 
@@ -88,9 +104,7 @@ function OverlayFeatureDetail({
   geometryType: string;
   onClose: () => void;
 }) {
-  const entries = Object.entries(properties).filter(
-    ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k)
-  );
+  const entries = Object.entries(properties).filter(([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k));
   const featureName = (properties.name ?? properties.Name ?? properties.NAME ?? overlayName) as string;
 
   return (
@@ -118,7 +132,16 @@ function OverlayFeatureDetail({
       <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, wordBreak: "break-word" }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 600,
+                color: TEXT_HEADING,
+                lineHeight: 1.3,
+                wordBreak: "break-word",
+              }}
+            >
               {featureName}
             </h3>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
@@ -139,9 +162,7 @@ function OverlayFeatureDetail({
               >
                 {geometryType}
               </span>
-              <span style={{ fontSize: 10, color: TEXT_FAINT }}>
-                {overlayName}
-              </span>
+              <span style={{ fontSize: 10, color: TEXT_FAINT }}>{overlayName}</span>
             </div>
           </div>
           <button
@@ -161,7 +182,15 @@ function OverlayFeatureDetail({
               flexShrink: 0,
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden="true"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -174,9 +203,21 @@ function OverlayFeatureDetail({
         {entries.length > 0 ? (
           <div style={{ padding: "8px 0" }}>
             {entries.map(([key, value]) => (
-              <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+              <div
+                key={key}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}
+              >
                 <span style={{ fontSize: 12, color: TEXT_MUTED }}>{key}</span>
-                <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%", wordBreak: "break-word" }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: TEXT_PRIMARY,
+                    fontWeight: 500,
+                    textAlign: "right",
+                    maxWidth: "60%",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {String(value)}
                 </span>
               </div>
@@ -204,7 +245,7 @@ function OverlayFeatureTooltip({
   y: number;
 }) {
   const entries = Object.entries(properties).filter(
-    ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k) && k !== "name" && k !== "Name" && k !== "NAME"
+    ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k) && k !== "name" && k !== "Name" && k !== "NAME",
   );
   const preview = entries.slice(0, 3);
 
@@ -230,9 +271,7 @@ function OverlayFeatureTooltip({
         boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: preview.length > 0 ? 4 : 0 }}>
-        {name}
-      </div>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: preview.length > 0 ? 4 : 0 }}>{name}</div>
       {preview.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px" }}>
           {preview.map(([key, value]) => (
@@ -244,9 +283,7 @@ function OverlayFeatureTooltip({
         </div>
       )}
       {entries.length > 3 && (
-        <div style={{ color: TEXT_FAINT, fontSize: 10, marginTop: 2 }}>
-          +{entries.length - 3} more fields
-        </div>
+        <div style={{ color: TEXT_FAINT, fontSize: 10, marginTop: 2 }}>+{entries.length - 3} more fields</div>
       )}
     </div>
   );
@@ -281,7 +318,15 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
           marginBottom: collapsed ? 0 : 6,
         }}
       >
-        <span style={{ fontWeight: 600, fontSize: 11, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: 11,
+            color: TEXT_MUTED,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           {label}
         </span>
         <button
@@ -311,12 +356,9 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
             stroke="currentColor"
             strokeWidth="2.5"
             strokeLinecap="round"
+            aria-hidden="true"
           >
-            {collapsed ? (
-              <polyline points="6 9 12 15 18 9" />
-            ) : (
-              <line x1="5" y1="12" x2="19" y2="12" />
-            )}
+            {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
           </svg>
         </button>
       </div>
@@ -336,9 +378,9 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
 /** Parse hex color string to [r, g, b, a] tuple for deck.gl */
 function hexToRgba(hex: string, alpha = 230): [number, number, number, number] {
   const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
+  const r = Number.parseInt(h.substring(0, 2), 16);
+  const g = Number.parseInt(h.substring(2, 4), 16);
+  const b = Number.parseInt(h.substring(4, 6), 16);
   return [r, g, b, alpha];
 }
 
@@ -346,22 +388,18 @@ function hexToRgba(hex: string, alpha = 230): [number, number, number, number] {
 
 export function OGMap({
   assets: assetsProp,
-  wells: wellsProp,
   mapboxAccessToken,
   initialViewState,
   colorBy = "status",
   typeConfigs: typeConfigsProp,
   store,
   onAssetClick,
-  onWellClick,
   onAssetHover,
-  onWellHover,
   onViewStateChange,
-  cluster: clusterEnabled = true,
+  cluster: clusterEnabled = false,
   clusterMaxZoom = 10,
   clusterRadius = 50,
-  showAssetCount,
-  showWellCount = true,
+  showAssetCount = true,
   showLegend = true,
   enableOverlayUpload = false,
   mapStyle,
@@ -389,12 +427,7 @@ export function OGMap({
   const [mapReady, setMapReady] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Set<MapLayerId>>(() => new Set(layerIds ?? []));
 
-  // Resolve assets: prefer `assets` prop, fall back to converting `wells`
-  const resolvedAssets = useMemo(() => {
-    if (assetsProp) return assetsProp;
-    if (wellsProp) return wellsProp.map(wellToAsset);
-    return [];
-  }, [assetsProp, wellsProp]);
+  const resolvedAssets = useMemo(() => assetsProp ?? [], [assetsProp]);
 
   // Build type config map
   const typeConfigMap = useMemo(() => {
@@ -454,7 +487,7 @@ export function OGMap({
   const [lassoSelectedOverlayFeatures, setLassoSelectedOverlayFeatures] = useState<SelectedOverlayFeature[]>([]);
   const [showSelectionSummary, setShowSelectionSummary] = useState(false);
 
-  const showCount = showAssetCount ?? showWellCount;
+  const showCount = showAssetCount;
 
   // Only run Supercluster when clustering is enabled
   const clusters = useClusters(assets, viewState.zoom, state.context.bounds, {
@@ -481,7 +514,12 @@ export function OGMap({
         });
     }
     // Non-clustered: all point assets directly
-    const result: { asset: Asset; index: number; position: [number, number]; color: [number, number, number, number] }[] = [];
+    const result: {
+      asset: Asset;
+      index: number;
+      position: [number, number];
+      color: [number, number, number, number];
+    }[] = [];
     for (let i = 0; i < assets.length; i++) {
       const asset = assets[i];
       if (asset.lines?.length || asset.polygons?.length) continue;
@@ -591,7 +629,9 @@ export function OGMap({
 
     return () => {
       if (deckOverlayRef.current) {
-        try { map.removeControl(deckOverlayRef.current); } catch {}
+        try {
+          map.removeControl(deckOverlayRef.current);
+        } catch {}
         deckOverlayRef.current = null;
       }
       map.remove();
@@ -606,7 +646,10 @@ export function OGMap({
     if (!map || !mapReady || resolvedAssets.length === 0 || initialViewState) return;
     const { minLat, maxLat, minLng, maxLng } = computeBounds(resolvedAssets, 0.2);
     map.fitBounds(
-      [[minLng, minLat], [maxLng, maxLat]],
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
       { padding: 60, duration: 0 },
     );
   }, [resolvedAssets, mapReady, initialViewState]);
@@ -660,7 +703,9 @@ export function OGMap({
 
     // ── Cluster source + layers ──
     if (map.getSource("og-clusters-source")) {
-      (map.getSource("og-clusters-source") as mapboxgl.GeoJSONSource).setData(clusterGeoJSON as GeoJSON.FeatureCollection);
+      (map.getSource("og-clusters-source") as mapboxgl.GeoJSONSource).setData(
+        clusterGeoJSON as GeoJSON.FeatureCollection,
+      );
     } else {
       map.addSource("og-clusters-source", { type: "geojson", data: clusterGeoJSON as GeoJSON.FeatureCollection });
       map.addLayer({
@@ -823,16 +868,14 @@ export function OGMap({
           setSelectedOverlayFeature(null);
           send({ type: "SELECT", id: d.asset.id });
           onAssetClick?.(d.asset);
-          if (onWellClick && wellsProp) {
-            const wellIdx = wellsProp.findIndex((w) => w.id === d.asset.id);
-            if (wellIdx >= 0) onWellClick(wellsProp[wellIdx]);
-          }
           return;
         }
       }
 
       // Then: check native Mapbox layers (clusters, lines, overlays)
-      const clusterFeatures = map.queryRenderedFeatures(evt.point, { layers: map.getLayer("og-clusters") ? ["og-clusters"] : [] });
+      const clusterFeatures = map.queryRenderedFeatures(evt.point, {
+        layers: map.getLayer("og-clusters") ? ["og-clusters"] : [],
+      });
       if (clusterFeatures.length > 0) {
         const cf = clusterFeatures[0];
         const expansionZoom = cf.properties?.expansionZoom ?? viewState.zoom + 2;
@@ -847,7 +890,9 @@ export function OGMap({
       }
 
       // Check lines
-      const lineFeatures = map.queryRenderedFeatures(evt.point, { layers: map.getLayer("og-lines") ? ["og-lines"] : [] });
+      const lineFeatures = map.queryRenderedFeatures(evt.point, {
+        layers: map.getLayer("og-lines") ? ["og-lines"] : [],
+      });
       if (lineFeatures.length > 0) {
         const lf = lineFeatures[0];
         const id = lf.properties?.id;
@@ -892,8 +937,10 @@ export function OGMap({
     };
 
     map.on("click", handleClick);
-    return () => { map.off("click", handleClick); };
-  }, [mapReady, assets, overlays, viewState.zoom, send, onAssetClick, onWellClick, wellsProp]);
+    return () => {
+      if (mapRef.current) map.off("click", handleClick);
+    };
+  }, [mapReady, assets, overlays, viewState.zoom, send, onAssetClick]);
 
   // ── Hover handling (deck.gl + native) ──
   const [overlayHover, setOverlayHover] = useState<{
@@ -921,7 +968,6 @@ export function OGMap({
           setOverlayHover(null);
           send({ type: "HOVER", asset: d.asset, x: evt.point.x, y: evt.point.y });
           onAssetHover?.(d.asset);
-          onWellHover?.(d.asset as never);
           return;
         }
       }
@@ -950,7 +996,6 @@ export function OGMap({
           if (hoveredRef.current) {
             send({ type: "UNHOVER" });
             onAssetHover?.(null);
-            onWellHover?.(null);
           }
           return;
         }
@@ -962,23 +1007,23 @@ export function OGMap({
       if (hoveredRef.current) {
         send({ type: "UNHOVER" });
         onAssetHover?.(null);
-        onWellHover?.(null);
       }
     };
 
     const handleMouseLeave = () => {
       send({ type: "UNHOVER" });
       onAssetHover?.(null);
-      onWellHover?.(null);
     };
 
     map.on("mousemove", handleMouseMove);
     map.on("mouseout", handleMouseLeave);
     return () => {
-      map.off("mousemove", handleMouseMove);
-      map.off("mouseout", handleMouseLeave);
+      if (mapRef.current) {
+        map.off("mousemove", handleMouseMove);
+        map.off("mouseout", handleMouseLeave);
+      }
     };
-  }, [mapReady, assets, overlays, send, onAssetHover, onWellHover]);
+  }, [mapReady, assets, overlays, send, onAssetHover]);
 
   // ── Drag-and-drop overlay upload ──
   const [isDragging, setIsDragging] = useState(false);
@@ -1002,7 +1047,7 @@ export function OGMap({
         send({ type: "UPLOAD_FILE", file });
       }
     },
-    [enableOverlayUpload, send]
+    [enableOverlayUpload, send],
   );
 
   const handleFitToAssets = useCallback(() => {
@@ -1027,9 +1072,7 @@ export function OGMap({
   const handleDrawCreate = useCallback(
     (features: Feature[]) => {
       // Find the drawn polygon
-      const drawnFeature = features.find(
-        (f) => f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon"
-      );
+      const drawnFeature = features.find((f) => f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon");
       if (!drawnFeature || drawnFeature.geometry.type !== "Polygon") {
         onDrawCreate?.(features);
         return;
@@ -1040,8 +1083,8 @@ export function OGMap({
       // ── 1. Select assets within polygon ──
       const selectedAssetIds: string[] = [];
       for (const asset of assets) {
-        const pt = turf.point([asset.coordinates.lng, asset.coordinates.lat]);
-        if (turf.booleanPointInPolygon(pt, polygon)) {
+        const pt = point([asset.coordinates.lng, asset.coordinates.lat]);
+        if (booleanPointInPolygon(pt, polygon)) {
           selectedAssetIds.push(asset.id);
         }
       }
@@ -1059,8 +1102,8 @@ export function OGMap({
           try {
             if (feature.geometry.type === "Point") {
               const coords = feature.geometry.coordinates as [number, number];
-              const pt = turf.point(coords);
-              if (turf.booleanPointInPolygon(pt, polygon)) {
+              const pt = point(coords);
+              if (booleanPointInPolygon(pt, polygon)) {
                 selectedOvFeatures.push({
                   overlayId: overlay.id,
                   overlayName: overlay.name,
@@ -1075,7 +1118,7 @@ export function OGMap({
               feature.geometry.type === "MultiPolygon"
             ) {
               // Check if any part of the feature intersects the drawn polygon
-              if (turf.booleanIntersects(feature, polygon)) {
+              if (booleanIntersects(feature, polygon)) {
                 selectedOvFeatures.push({
                   overlayId: overlay.id,
                   overlayName: overlay.name,
@@ -1099,14 +1142,15 @@ export function OGMap({
         setSelectedOverlayFeature(null);
 
         // Fire lasso callback with selected items
-        const selectedAssets = assets.filter((a) => selectedAssetIds.includes(a.id));
+        const idSet = new Set(selectedAssetIds);
+        const selectedAssets = assets.filter((a) => idSet.has(a.id));
         onLassoSelect?.(selectedAssets, selectedOvFeatures);
       }
 
       // Still fire the external callback
       onDrawCreate?.(features);
     },
-    [assets, overlays, send, onDrawCreate, onLassoSelect]
+    [assets, overlays, send, onDrawCreate, onLassoSelect],
   );
 
   const handleDrawDelete = useCallback(() => {
@@ -1128,7 +1172,7 @@ export function OGMap({
       setShowSelectionSummary(false);
       onAssetClick?.(asset);
     },
-    [send, onAssetClick]
+    [send, onAssetClick],
   );
 
   // Resolve selected assets for summary card
@@ -1158,10 +1202,7 @@ export function OGMap({
       }}
     >
       {/* Pure Mapbox GL container */}
-      <div
-        ref={containerRef}
-        style={{ width: "100%", height: "100%" }}
-      />
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
       {/* Map Controls */}
       {showControls && interactive && (
@@ -1174,18 +1215,22 @@ export function OGMap({
           onDrawCreate={handleDrawCreate}
           onDrawDelete={handleDrawDelete}
           onFitToAssets={handleFitToAssets}
-          overlay={enableOverlayUpload ? {
-            overlays,
-            enableUpload: enableOverlayUpload,
-            onUpload: (file, files) => send({ type: "UPLOAD_FILE", file, files }),
-            onToggle: (id) => send({ type: "TOGGLE_OVERLAY", id }),
-            onRemove: (id) => send({ type: "REMOVE_OVERLAY", id }),
-            onRename: (id, name) => send({ type: "RENAME_OVERLAY", id, name }),
-            onUpdateStyle: (id, updateStyle) => send({ type: "UPDATE_OVERLAY_STYLE", id, style: updateStyle }),
-            onUpdateFeature: (id, featureIndex, visible, featureStyle) =>
-              send({ type: "UPDATE_FEATURE_OVERRIDE", id, featureIndex, visible, style: featureStyle }),
-            onReupload: (id, file) => send({ type: "REUPLOAD_OVERLAY", id, file }),
-          } : undefined}
+          overlay={
+            enableOverlayUpload
+              ? {
+                  overlays,
+                  enableUpload: enableOverlayUpload,
+                  onUpload: (file, files) => send({ type: "UPLOAD_FILE", file, files }),
+                  onToggle: (id) => send({ type: "TOGGLE_OVERLAY", id }),
+                  onRemove: (id) => send({ type: "REMOVE_OVERLAY", id }),
+                  onRename: (id, name) => send({ type: "RENAME_OVERLAY", id, name }),
+                  onUpdateStyle: (id, updateStyle) => send({ type: "UPDATE_OVERLAY_STYLE", id, style: updateStyle }),
+                  onUpdateFeature: (id, featureIndex, visible, featureStyle) =>
+                    send({ type: "UPDATE_FEATURE_OVERRIDE", id, featureIndex, visible, style: featureStyle }),
+                  onReupload: (id, file) => send({ type: "REUPLOAD_OVERLAY", id, file }),
+                }
+              : undefined
+          }
         />
       )}
 
@@ -1263,7 +1308,15 @@ export function OGMap({
             border: BORDER,
           }}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            aria-hidden="true"
+          >
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
@@ -1272,9 +1325,7 @@ export function OGMap({
       )}
 
       {/* Legend */}
-      {showLegend && legend && (
-        <MapLegend label={legend.label} items={legend.items} />
-      )}
+      {showLegend && legend && <MapLegend label={legend.label} items={legend.items} />}
 
       {/* Drag-and-drop overlay indicator */}
       {enableOverlayUpload && isDragging && (
@@ -1292,9 +1343,7 @@ export function OGMap({
             pointerEvents: "none",
           }}
         >
-          <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>
-            Drop KMZ, KML, or GeoJSON file
-          </div>
+          <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>Drop KMZ, KML, or GeoJSON file</div>
         </div>
       )}
     </div>

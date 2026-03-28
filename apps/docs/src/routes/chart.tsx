@@ -1,15 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
-import { ProductionChart, type ChartAnnotation } from "@aai/og-components";
+import { type ChartAnnotation, ProductionChart } from "@aai/og-components";
 import type { TimeSeries } from "@aai/og-components";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import "uplot/dist/uPlot.min.css";
 
 export const Route = createFileRoute("/chart")({
   component: ChartDemo,
 });
 
-// ── Raw shape from Petry JSON ──
-interface PetryWell {
+// ── Raw shape from sample well JSON ──
+interface SampleWell {
   id: string;
   name: string;
   timeSeries?: {
@@ -39,7 +39,14 @@ function generateDenseTimeSeries(pointCount: number): TimeSeries[] {
     const isShutdown = Math.random() < 0.005;
     oilData.push({ date: d.toISOString().split("T")[0], value: isShutdown ? 0 : Math.round(oilVal) });
   }
-  series.push({ id: "oil-actual", fluidType: "oil", curveType: "actual", unit: "BBL", frequency: "daily", data: oilData });
+  series.push({
+    id: "oil-actual",
+    fluidType: "oil",
+    curveType: "actual",
+    unit: "BBL",
+    frequency: "daily",
+    data: oilData,
+  });
 
   // Gas
   const gasData: { date: string; value: number }[] = [];
@@ -50,7 +57,14 @@ function generateDenseTimeSeries(pointCount: number): TimeSeries[] {
     const isShutdown = oilData[i].value === 0;
     gasData.push({ date: d.toISOString().split("T")[0], value: isShutdown ? 0 : Math.round(gasVal) });
   }
-  series.push({ id: "gas-actual", fluidType: "gas", curveType: "actual", unit: "MSCF", frequency: "daily", data: gasData });
+  series.push({
+    id: "gas-actual",
+    fluidType: "gas",
+    curveType: "actual",
+    unit: "MSCF",
+    frequency: "daily",
+    data: gasData,
+  });
 
   // Water
   const waterData: { date: string; value: number }[] = [];
@@ -62,7 +76,14 @@ function generateDenseTimeSeries(pointCount: number): TimeSeries[] {
     const isShutdown = oilData[i].value === 0;
     waterData.push({ date: d.toISOString().split("T")[0], value: isShutdown ? 0 : Math.round(waterVal) });
   }
-  series.push({ id: "water-actual", fluidType: "water", curveType: "actual", unit: "BBL", frequency: "daily", data: waterData });
+  series.push({
+    id: "water-actual",
+    fluidType: "water",
+    curveType: "actual",
+    unit: "BBL",
+    frequency: "daily",
+    data: waterData,
+  });
 
   return series;
 }
@@ -88,7 +109,7 @@ function ChartDemo() {
   useEffect(() => {
     fetch("/data/bakken-sample.json")
       .then((r) => r.json())
-      .then((wells: PetryWell[]) => {
+      .then((wells: SampleWell[]) => {
         // Find a well with the most time series data
         let best: TimeSeries[] = [];
         for (const w of wells) {
@@ -136,8 +157,13 @@ function ChartDemo() {
               <span className="text-xs text-slate-500 uppercase">Points:</span>
               {POINT_COUNTS.map((p) => (
                 <button
+                  type="button"
                   key={p.value}
-                  onClick={() => { setPointCount(p.value); setAnnotations([]); setGenTime(null); }}
+                  onClick={() => {
+                    setPointCount(p.value);
+                    setAnnotations([]);
+                    setGenTime(null);
+                  }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     pointCount === p.value
                       ? "bg-indigo-500 text-white"
@@ -152,7 +178,11 @@ function ChartDemo() {
             {/* Variance toggle */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setShowVariance(!showVariance); setForecastOffset(0); }}
+                type="button"
+                onClick={() => {
+                  setShowVariance(!showVariance);
+                  setForecastOffset(0);
+                }}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   showVariance
                     ? "bg-emerald-500 text-white"
@@ -180,9 +210,7 @@ function ChartDemo() {
               onForecastOffsetChange={setForecastOffset}
             />
           ) : (
-            <div className="h-[450px] flex items-center justify-center text-slate-400">
-              Loading production data...
-            </div>
+            <div className="h-[450px] flex items-center justify-center text-slate-400">Loading production data...</div>
           )}
         </div>
 
@@ -190,7 +218,14 @@ function ChartDemo() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-4 h-4 text-indigo-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 <line x1="11" y1="8" x2="11" y2="14" />
@@ -199,30 +234,47 @@ function ChartDemo() {
               <h3 className="text-sm font-semibold text-slate-800">Zoom</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Click the zoom icon (default). Drag on the chart to zoom into a time range. Use the brush at the bottom to navigate. Click "Reset" to return to full view.
+              Click the zoom icon (default). Drag on the chart to zoom into a time range. Use the brush at the bottom to
+              navigate. Click "Reset" to return to full view.
             </p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-4 h-4 text-indigo-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
               <h3 className="text-sm font-semibold text-slate-800">Annotate</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Click the pen icon to switch to annotate mode. Drag on the chart to highlight a region. Add notes, expand/collapse, or remove annotations below the chart.
+              Click the pen icon to switch to annotate mode. Drag on the chart to highlight a region. Add notes,
+              expand/collapse, or remove annotations below the chart.
             </p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-4 h-4 text-indigo-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
               </svg>
               <h3 className="text-sm font-semibold text-slate-800">Performance</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Canvas-based rendering via uPlot. Try 5K or 10K points — zoom, pan, and hover remain smooth at 60fps. No DOM nodes per data point.
+              Canvas-based rendering via uPlot. Try 5K or 10K points — zoom, pan, and hover remain smooth at 60fps. No
+              DOM nodes per data point.
             </p>
           </div>
         </div>

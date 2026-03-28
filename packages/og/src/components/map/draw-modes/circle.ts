@@ -1,7 +1,7 @@
-import type { DrawModeContext, CircleState } from "./types";
 import type { DrawCustomMode } from "@mapbox/mapbox-gl-draw";
 import * as turf from "@turf/turf";
 import { doubleClickZoom } from "./helpers";
+import type { CircleState, DrawModeContext } from "./types";
 
 const DirectCircleMode: DrawCustomMode = {
   onSetup: function (this: DrawModeContext): CircleState {
@@ -27,7 +27,7 @@ const DirectCircleMode: DrawCustomMode = {
   },
 
   onClick: function (state, e) {
-    const shiftPressed = e.originalEvent && e.originalEvent.shiftKey;
+    const shiftPressed = e.originalEvent?.shiftKey;
     state.clickCount = (state.clickCount || 0) + 1;
 
     if (shiftPressed && state.circleCompleted) {
@@ -84,7 +84,7 @@ const DirectCircleMode: DrawCustomMode = {
     }
   },
 
-  onMouseMove: function (state, e) {
+  onMouseMove: (state, e) => {
     if (state.center && state.clickCount === 1 && !state.circleCompleted) {
       const center = turf.point(state.center);
       const radiusPoint = turf.point([e.lngLat.lng, e.lngLat.lat]);
@@ -120,7 +120,7 @@ const DirectCircleMode: DrawCustomMode = {
     this.activateUIButton();
     if (this.getFeature(String(state.circle.id)) === undefined) return;
     if (!state.circleCompleted) {
-      if (state.circle.isValid && state.circle.isValid()) {
+      if (state.circle.isValid?.()) {
         this.map.fire("draw.create", { features: [state.circle.toGeoJSON()] });
       } else {
         this.deleteFeature(String(state.circle.id));
@@ -129,7 +129,7 @@ const DirectCircleMode: DrawCustomMode = {
   },
 
   onTrash: function (state) {
-    if (state.circle && state.circle.id) {
+    if (state.circle?.id) {
       this.deleteFeature(String(state.circle.id));
     }
     const feature = this.newFeature({
@@ -145,7 +145,7 @@ const DirectCircleMode: DrawCustomMode = {
     state.circleCompleted = false;
   },
 
-  toDisplayFeatures: function (state, geojson, display) {
+  toDisplayFeatures: (state, geojson, display) => {
     const geoJsonAny = geojson as unknown as Record<string, unknown>;
     const props = geoJsonAny.properties as Record<string, unknown> | undefined;
     const isActiveCircle = props?.id === state.circle.id;

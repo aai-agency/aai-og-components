@@ -161,14 +161,19 @@ export class SqliteStore implements AssetStore {
       `INSERT INTO assets (id, name, type, status, lat, lng, lines, polygons, properties, meta, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        asset.id, asset.name, asset.type, asset.status,
-        asset.coordinates.lat, asset.coordinates.lng,
+        asset.id,
+        asset.name,
+        asset.type,
+        asset.status,
+        asset.coordinates.lat,
+        asset.coordinates.lng,
         asset.lines ? JSON.stringify(asset.lines) : null,
         asset.polygons ? JSON.stringify(asset.polygons) : null,
         JSON.stringify(asset.properties),
         asset.meta ? JSON.stringify(asset.meta) : null,
-        asset.createdAt ?? now, asset.updatedAt ?? now,
-      ]
+        asset.createdAt ?? now,
+        asset.updatedAt ?? now,
+      ],
     );
     return { ...asset, createdAt: asset.createdAt ?? now, updatedAt: asset.updatedAt ?? now };
   }
@@ -177,17 +182,22 @@ export class SqliteStore implements AssetStore {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(
       `INSERT OR REPLACE INTO assets (id, name, type, status, lat, lng, lines, polygons, properties, meta, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const asset of assets) {
       stmt.run([
-        asset.id, asset.name, asset.type, asset.status,
-        asset.coordinates.lat, asset.coordinates.lng,
+        asset.id,
+        asset.name,
+        asset.type,
+        asset.status,
+        asset.coordinates.lat,
+        asset.coordinates.lng,
         asset.lines ? JSON.stringify(asset.lines) : null,
         asset.polygons ? JSON.stringify(asset.polygons) : null,
         JSON.stringify(asset.properties),
         asset.meta ? JSON.stringify(asset.meta) : null,
-        asset.createdAt ?? now, asset.updatedAt ?? now,
+        asset.createdAt ?? now,
+        asset.updatedAt ?? now,
       ]);
     }
     stmt.free();
@@ -202,14 +212,18 @@ export class SqliteStore implements AssetStore {
       `UPDATE assets SET name=?, type=?, status=?, lat=?, lng=?, lines=?, polygons=?, properties=?, meta=?, updated_at=?
        WHERE id=?`,
       [
-        updated.name, updated.type, updated.status,
-        updated.coordinates.lat, updated.coordinates.lng,
+        updated.name,
+        updated.type,
+        updated.status,
+        updated.coordinates.lat,
+        updated.coordinates.lng,
         updated.lines ? JSON.stringify(updated.lines) : null,
         updated.polygons ? JSON.stringify(updated.polygons) : null,
         JSON.stringify(updated.properties),
         updated.meta ? JSON.stringify(updated.meta) : null,
-        updated.updatedAt, id,
-      ]
+        updated.updatedAt,
+        id,
+      ],
     );
     return updated;
   }
@@ -243,7 +257,7 @@ export class SqliteStore implements AssetStore {
         overlay.uploadedAt ?? null,
         overlay.imageUrl ?? null,
         overlay.imageBounds ? JSON.stringify(overlay.imageBounds) : null,
-      ]
+      ],
     );
     return overlay;
   }
@@ -293,7 +307,7 @@ export class SqliteStore implements AssetStore {
         view.visibleOverlayIds ? JSON.stringify(view.visibleOverlayIds) : null,
         view.createdAt,
         view.updatedAt ?? null,
-      ]
+      ],
     );
     return view;
   }
@@ -311,20 +325,13 @@ export class SqliteStore implements AssetStore {
   }
 
   async savePreference(key: string, value: unknown): Promise<void> {
-    this.db.run(
-      "INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)",
-      [key, JSON.stringify(value)]
-    );
+    this.db.run("INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)", [key, JSON.stringify(value)]);
   }
 
   // ── Migration ───────────────────────────────────────────────────────────────
 
   async exportAll(): Promise<StoreExport> {
-    const [assets, overlays, mapViews] = await Promise.all([
-      this.getAssets(),
-      this.getOverlays(),
-      this.getMapViews(),
-    ]);
+    const [assets, overlays, mapViews] = await Promise.all([this.getAssets(), this.getOverlays(), this.getMapViews()]);
 
     // Export all preferences
     const prefResults = this.db.exec("SELECT key, value FROM preferences");

@@ -1,21 +1,21 @@
 /**
- * Load sample well data + production history from petry production-data CSVs.
+ * Load sample well data + production history from production-data CSVs.
  * Outputs JSON samples to data/ for development.
  * This script and output are gitignored - NEVER commit real well data.
  *
  * Usage: pnpm tsx scripts/load-sample-data.ts
  */
 
-import { readFileSync, writeFileSync, mkdirSync, createReadStream } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const DATA_DIR = resolve(ROOT, "data");
 
-const PETRY_DATA = resolve(process.env.HOME ?? "~", "Documents/petry/production-data");
+const SAMPLE_DATA = resolve(process.env.HOME ?? "~", "Documents/production-data");
 
 function parseCSV(content: string): Record<string, string>[] {
   const lines = content.split("\n").filter((l) => l.trim());
@@ -82,8 +82,8 @@ function csvRowToWell(row: Record<string, string>): WellData {
     firstProdDate: row.FirstProdDate || undefined,
     lateralLength: row.LateralLength_FT ? Number.parseFloat(row.LateralLength_FT) : undefined,
     cumBOE: row.CumProd_BOE ? Number.parseFloat(row.CumProd_BOE) : undefined,
-    cumOil: row["CumOil_BBL"] ? Number.parseFloat(row["CumOil_BBL"]) : undefined,
-    cumGas: row["CumGas_MCF"] ? Number.parseFloat(row["CumGas_MCF"]) : undefined,
+    cumOil: row.CumOil_BBL ? Number.parseFloat(row.CumOil_BBL) : undefined,
+    cumGas: row.CumGas_MCF ? Number.parseFloat(row.CumGas_MCF) : undefined,
     cumWater: row.CumWater_BBL ? Number.parseFloat(row.CumWater_BBL) : undefined,
   };
 }
@@ -100,7 +100,7 @@ async function streamProductionData(
 
   const rl = createInterface({
     input: createReadStream(filePath, { encoding: "utf-8" }),
-    crlfDelay: Infinity,
+    crlfDelay: Number.POSITIVE_INFINITY,
   });
 
   let headers: string[] | null = null;
@@ -122,7 +122,7 @@ async function streamProductionData(
 
     // Parse only the columns we need
     const getValue = (col: string): string => {
-      const idx = headers!.indexOf(col);
+      const idx = headers?.indexOf(col);
       return idx >= 0 ? (values[idx]?.trim().replace(/^"|"$/g, "") ?? "") : "";
     };
 
@@ -157,13 +157,34 @@ function buildTimeSeries(wellId: string, records: { date: string; oil: number; g
   const waterData = sorted.filter((r) => r.water > 0).map((r) => ({ date: r.date, value: r.water }));
 
   if (oilData.length > 1) {
-    series.push({ id: `${wellId}-oil`, fluidType: "oil", curveType: "actual", unit: "BBL", frequency: "monthly", data: oilData });
+    series.push({
+      id: `${wellId}-oil`,
+      fluidType: "oil",
+      curveType: "actual",
+      unit: "BBL",
+      frequency: "monthly",
+      data: oilData,
+    });
   }
   if (gasData.length > 1) {
-    series.push({ id: `${wellId}-gas`, fluidType: "gas", curveType: "actual", unit: "MSCF", frequency: "monthly", data: gasData });
+    series.push({
+      id: `${wellId}-gas`,
+      fluidType: "gas",
+      curveType: "actual",
+      unit: "MSCF",
+      frequency: "monthly",
+      data: gasData,
+    });
   }
   if (waterData.length > 1) {
-    series.push({ id: `${wellId}-water`, fluidType: "water", curveType: "actual", unit: "BBL", frequency: "monthly", data: waterData });
+    series.push({
+      id: `${wellId}-water`,
+      fluidType: "water",
+      curveType: "actual",
+      unit: "BBL",
+      frequency: "monthly",
+      data: waterData,
+    });
   }
 
   return series;
@@ -178,8 +199,8 @@ async function main() {
   mkdirSync(DATA_DIR, { recursive: true });
 
   for (const basin of BASINS) {
-    const wellsPath = resolve(PETRY_DATA, "basin", basin.name, basin.wellsFile);
-    const prodPath = resolve(PETRY_DATA, "basin", basin.name, basin.prodFile);
+    const wellsPath = resolve(SAMPLE_DATA, "basin", basin.name, basin.wellsFile);
+    const prodPath = resolve(SAMPLE_DATA, "basin", basin.name, basin.prodFile);
 
     try {
       // Load wells

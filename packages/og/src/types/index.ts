@@ -172,7 +172,15 @@ export interface AssetTypeConfig {
 
 // ── Color Schemes ────────────────────────────────────────────────────────────
 
-export type ColorScheme = "status" | "type" | "operator" | "production" | "wellType" | "waterCut" | "basin" | (string & {});
+export type ColorScheme =
+  | "status"
+  | "type"
+  | "operator"
+  | "production"
+  | "wellType"
+  | "waterCut"
+  | "basin"
+  | (string & {});
 
 // ── Map Types ────────────────────────────────────────────────────────────────
 
@@ -301,97 +309,4 @@ export interface AssetStore {
   // ── Migration ──
   exportAll(): Promise<StoreExport>;
   importAll(data: StoreExport): Promise<void>;
-}
-
-// ── Backward Compatibility ───────────────────────────────────────────────────
-
-/**
- * @deprecated Use `Asset` with `type: "well"` and `WellProperties` in `properties`.
- * Kept for migration convenience.
- */
-export interface Well {
-  id: string;
-  name: string;
-  api: string;
-  coordinates: Coordinates;
-  coordinatesBH?: Coordinates;
-  operator: string;
-  status: AssetStatus;
-  wellType: WellType;
-  trajectory: Trajectory;
-  basin?: string;
-  play?: string;
-  formation?: string;
-  county?: string;
-  state?: string;
-  firstProdDate?: string;
-  spudDate?: string;
-  tvd?: number;
-  md?: number;
-  lateralLength?: number;
-  cumOil?: number;
-  cumGas?: number;
-  cumWater?: number;
-  cumBOE?: number;
-  peakOil?: number;
-  peakGas?: number;
-  timeSeries?: TimeSeries[];
-  meta?: Record<string, unknown>;
-}
-
-/** @deprecated Use AssetCluster */
-export interface WellCluster {
-  id: string;
-  coordinates: Coordinates;
-  count: number;
-  wells: Well[];
-  expansion_zoom: number;
-}
-
-/** Convert a legacy Well to an Asset */
-export function wellToAsset(well: Well): Asset {
-  const { id, name, coordinates, status, meta, ...rest } = well;
-  return {
-    id,
-    name,
-    type: "well",
-    status,
-    coordinates,
-    properties: rest as Record<string, unknown>,
-    meta,
-  };
-}
-
-/** Convert an Asset (type=well) back to legacy Well format */
-export function assetToWell(asset: Asset): Well {
-  const props = asset.properties as WellProperties & Record<string, unknown>;
-  return {
-    id: asset.id,
-    name: asset.name,
-    coordinates: asset.coordinates,
-    status: asset.status,
-    api: (props.api as string) ?? "",
-    operator: (props.operator as string) ?? "",
-    wellType: (props.wellType as WellType) ?? "oil",
-    trajectory: (props.trajectory as Trajectory) ?? "horizontal",
-    basin: props.basin,
-    play: props.play,
-    formation: props.formation,
-    county: props.county,
-    state: props.state,
-    firstProdDate: props.firstProdDate,
-    spudDate: props.spudDate,
-    tvd: props.tvd,
-    md: props.md,
-    lateralLength: props.lateralLength,
-    cumOil: props.cumOil,
-    cumGas: props.cumGas,
-    cumWater: props.cumWater,
-    cumBOE: props.cumBOE,
-    peakOil: props.peakOil,
-    peakGas: props.peakGas,
-    coordinatesBH: props.coordinatesBH,
-    timeSeries: props.timeSeries,
-    meta: asset.meta,
-  };
 }

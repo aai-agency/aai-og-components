@@ -27,7 +27,9 @@ interface CreateSqliteStoreOptions {
  * <OGMap store={store} />
  * ```
  */
-export async function createSqliteStore(options?: CreateSqliteStoreOptions): Promise<SqliteStore & { persist(): Promise<void> }> {
+export async function createSqliteStore(
+  options?: CreateSqliteStoreOptions,
+): Promise<SqliteStore & { persist(): Promise<void> }> {
   const dbName = options?.dbName ?? DEFAULT_IDB_NAME;
   const autoPersist = options?.autoPersist ?? true;
 
@@ -39,8 +41,7 @@ export async function createSqliteStore(options?: CreateSqliteStoreOptions): Pro
     // Dynamically import sql.js (tree-shaken if not used)
     const initSqlJs = (await import("sql.js")).default;
     const SQL = await initSqlJs({
-      locateFile: (file: string) =>
-        options?.wasmUrl ?? `https://sql.js.org/dist/${file}`,
+      locateFile: (file: string) => options?.wasmUrl ?? `https://sql.js.org/dist/${file}`,
     });
 
     // Try to load existing database from IndexedDB

@@ -1,6 +1,6 @@
-import { DirectRectangleMode } from "./rectangle";
 import { DirectCircleMode } from "./circle";
 import { DirectPolygonMode } from "./polygon";
+import { DirectRectangleMode } from "./rectangle";
 
 export const CustomDrawModes = {
   direct_polygon: DirectPolygonMode,
