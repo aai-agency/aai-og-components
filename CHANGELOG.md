@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-03-28
 
-Initial public release of @aai/og-components.
+Initial public release of @aai-agency/og-components.
 
 ### Added
 
@@ -24,5 +24,5 @@ Initial public release of @aai/og-components.
 - **Zod schemas** for runtime validation of assets, production records, overlays, and configuration.
 - **CSV import utilities** for converting well data spreadsheets into typed Asset objects.
 - **XState state machine** managing all map interactions (selection, overlays, drawing, view transitions).
-- **Multiple export paths**: `@aai/og-components`, `@aai/og-components/schemas`, `@aai/og-components/utils`, `@aai/og-components/services`, `@aai/og-components/machines`.
+- **Multiple export paths**: `@aai-agency/og-components`, `@aai-agency/og-components/schemas`, `@aai-agency/og-components/utils`, `@aai-agency/og-components/services`, `@aai-agency/og-components/machines`.
 - **Playground app** (`apps/docs/`) with sample Bakken and DJ Basin well data for interactive testing.

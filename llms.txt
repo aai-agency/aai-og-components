@@ -1,4 +1,4 @@
-# @aai/og-components
+# @aai-agency/og-components
 
 > Oil & Gas asset map components for React. By AAI Agency.
 
@@ -9,13 +9,13 @@ A React component library for visualizing O&G assets (wells, pipelines, faciliti
 ## Install
 
 ```bash
-pnpm add @aai/og-components
+pnpm add @aai-agency/og-components
 ```
 
 ## Key import
 
 ```ts
-import { OGMap, type Asset } from "@aai/og-components";
+import { OGMap, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 ```
 
@@ -39,6 +39,7 @@ Every entity is an Asset with these required fields:
 - [registry.json](./registry.json) - Component catalog with descriptions, dependencies, and metadata
 - [.claude/SKILL.md](./.claude/SKILL.md) - Claude Code auto-discovery skill
 - [llms.txt](./llms.txt) - This file
+- [llms-full.txt](./llms-full.txt) - Complete API reference with all TypeScript interfaces and code examples
 
 ## Available components
 

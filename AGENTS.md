@@ -1,4 +1,4 @@
-# @aai/og-components - Agent Reference
+# @aai-agency/og-components - Agent Reference
 
 > This file helps AI agents (Claude Code, Cursor, Copilot, etc.) guide users through using this library.
 
@@ -7,17 +7,32 @@ Open-source Oil & Gas map component library by [AAI Agency](https://aai.agency).
 ## Install
 
 ```bash
-pnpm add @aai/og-components
+pnpm add @aai-agency/og-components
 ```
 
 Your project needs React 18 or newer.
 
-You also need a free Mapbox token. Get one at [mapbox.com](https://account.mapbox.com/access-tokens/).
+### Environment Setup
+
+Create a `.env` file in your project root:
+
+```
+VITE_MAPBOX_TOKEN=pk.your_token_here
+```
+
+Get a free token at [mapbox.com/account/access-tokens](https://account.mapbox.com/access-tokens/).
+
+**Framework-specific env vars:**
+| Framework | Env variable | Access in code |
+|-----------|-------------|----------------|
+| Vite | `VITE_MAPBOX_TOKEN` | `import.meta.env.VITE_MAPBOX_TOKEN` |
+| Next.js | `NEXT_PUBLIC_MAPBOX_TOKEN` | `process.env.NEXT_PUBLIC_MAPBOX_TOKEN` |
+| Create React App | `REACT_APP_MAPBOX_TOKEN` | `process.env.REACT_APP_MAPBOX_TOKEN` |
 
 ## Quick Start
 
 ```tsx
-import { OGMap, type Asset } from "@aai/og-components";
+import { OGMap, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
@@ -55,14 +70,36 @@ function App() {
 }
 ```
 
+## What Can I Do?
+
+Tell Claude Code what you need in plain English. Here is what is available today:
+
+**Available Now (v0.1)**
+- "Show my wells on a map" - Pass your well data and see them plotted with clustering
+- "Color wells by operator / status / production / well type / water cut / basin" - Use the `colorBy` prop
+- "Upload a lease boundary KMZ" - Enable overlay upload to drag-and-drop KMZ, KML, GeoJSON, or Shapefiles
+- "Show production charts for a well" - Click any well to see oil/gas/water time series
+- "Select wells in an area" - Draw polygons, rectangles, or circles to select groups
+- "Save my map views" - Use a storage backend to persist overlays and preferences
+
+**Coming Soon**
+- Decline curve analysis (Arps, Duong) - v0.2
+- Smart filtering panel (by operator, basin, date range) - v0.2
+- Multi-well comparison and type curves - v0.3
+- Export selected wells to CSV - v0.3
+- Wells inside overlay boundary (spatial query) - v0.3
+- Heat maps and 3D terrain - v0.4
+
+---
+
 ## What You Can Import
 
 ```ts
 // The main map component and chart
-import { OGMap, ProductionChart, AssetDetailCard } from "@aai/og-components";
+import { OGMap, ProductionChart, AssetDetailCard } from "@aai-agency/og-components";
 
 // Additional components
-import { OverlayManager, SelectionPanel } from "@aai/og-components";
+import { OverlayManager, SelectionPanel } from "@aai-agency/og-components";
 
 // Helpers for working with data
 import {
@@ -74,19 +111,19 @@ import {
   isValidCoordinates,
   getAssetColor,
   groupBy,
-} from "@aai/og-components/utils";
+} from "@aai-agency/og-components/utils";
 
 // Data validation
-import { parseAssets, safeParseAssets } from "@aai/og-components/schemas";
+import { parseAssets, safeParseAssets } from "@aai-agency/og-components/schemas";
 
 // Save data to browser storage
-import { LocalStorageStore } from "@aai/og-components/services";
+import { LocalStorageStore } from "@aai-agency/og-components/services";
 
 // For large datasets (10,000+ assets), use SQLite instead
-import { createSqliteStore, SqliteStore } from "@aai/og-components/services";
+import { createSqliteStore, SqliteStore } from "@aai-agency/og-components/services";
 
 // In-memory store (useful for testing or temporary data)
-import { InMemoryStore } from "@aai/og-components/services";
+import { InMemoryStore } from "@aai-agency/og-components/services";
 ```
 
 ---
@@ -184,7 +221,7 @@ const pipeline: Asset = {
 | `showDetailCard` | Show a detail panel when clicking an asset | On |
 | `showLegend` | Show the color legend | On |
 | `showControls` | Show the map toolbar | On |
-| `cluster` | Group nearby dots together at low zoom | On |
+| `cluster` | Group nearby dots together at low zoom | Off |
 | `height` | Map height (e.g., `"500px"` or `600`) | `"500px"` |
 | `width` | Map width | `"100%"` |
 | `controls` | Which toolbar buttons to show | All |
@@ -268,8 +305,8 @@ Users can drag-and-drop files onto the map, change overlay colors, and toggle fe
 By default, data is not saved between page refreshes. To save to the browser:
 
 ```tsx
-import { OGMap } from "@aai/og-components";
-import { LocalStorageStore } from "@aai/og-components/services";
+import { OGMap } from "@aai-agency/og-components";
+import { LocalStorageStore } from "@aai-agency/og-components/services";
 
 const store = new LocalStorageStore("my-app");
 
@@ -281,8 +318,8 @@ function App() {
 For large datasets (10,000+ assets), use the SQLite store instead:
 
 ```tsx
-import { OGMap } from "@aai/og-components";
-import { createSqliteStore } from "@aai/og-components/services";
+import { OGMap } from "@aai-agency/og-components";
+import { createSqliteStore } from "@aai-agency/og-components/services";
 
 const store = await createSqliteStore("my-app");
 
@@ -298,7 +335,7 @@ function App() {
 You can use the production chart on its own, outside the map:
 
 ```tsx
-import { ProductionChart } from "@aai/og-components";
+import { ProductionChart } from "@aai-agency/og-components";
 import "uplot/dist/uPlot.min.css";
 
 function MyChart() {
@@ -361,7 +398,7 @@ import {
   fitBounds,
   getAssetColor,
   groupBy,
-} from "@aai/og-components/utils";
+} from "@aai-agency/og-components/utils";
 
 // Remove assets with bad coordinates
 const validAssets = filterPlottable(assets);
@@ -389,6 +426,19 @@ const view = fitBounds(assets);
 // Group assets by any key
 const byType = groupBy(assets, (a) => a.type);
 ```
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Blank map with no markers | Missing or invalid Mapbox token | Check your `.env` file has a valid `VITE_MAPBOX_TOKEN` (or framework equivalent) |
+| Map controls look broken/unstyled | Missing Mapbox CSS | The component auto-imports CSS, but if using SSR you may need `import "mapbox-gl/dist/mapbox-gl.css"` |
+| "Mapbox token required" error shown | Empty `mapboxAccessToken` prop | Pass your token: `mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}` |
+| Assets not showing on map | Data not matching Asset schema | Ensure each asset has `id`, `name`, `type`, `status`, `coordinates`, and `properties` fields |
+| Empty detail card | Properties at wrong level | Domain fields (operator, cumOil, etc.) must be inside `properties: {}`, not at the top level |
+| Colors all the same for operator/basin | Using old version | Update to latest. Operator and basin colorBy now generate unique colors per value |
 
 ---
 

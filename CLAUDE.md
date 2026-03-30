@@ -1,4 +1,4 @@
-# @aai/og-components - Dev Guide
+# @aai-agency/og-components - Dev Guide
 
 For the full API reference and agent docs, see [AGENTS.md](./AGENTS.md).
 
@@ -23,7 +23,7 @@ pnpm typecheck
 ## Project Structure
 
 ```
-packages/og/        # The @aai/og-components library
+packages/og/        # The @aai-agency/og-components library
   src/
     components/     # React components (OGMap, ProductionChart, etc.)
     types/          # TypeScript type definitions
@@ -45,11 +45,11 @@ Uses tsup with these entry points:
 
 | Entry | Export Path |
 |-------|-------------|
-| `src/index.ts` | `@aai/og-components` |
-| `src/schemas/index.ts` | `@aai/og-components/schemas` |
-| `src/utils/index.ts` | `@aai/og-components/utils` |
-| `src/services/index.ts` | `@aai/og-components/services` |
-| `src/machines/index.ts` | `@aai/og-components/machines` |
+| `src/index.ts` | `@aai-agency/og-components` |
+| `src/schemas/index.ts` | `@aai-agency/og-components/schemas` |
+| `src/utils/index.ts` | `@aai-agency/og-components/utils` |
+| `src/services/index.ts` | `@aai-agency/og-components/services` |
+| `src/machines/index.ts` | `@aai-agency/og-components/machines` |
 
 ## Key Design Decisions
 

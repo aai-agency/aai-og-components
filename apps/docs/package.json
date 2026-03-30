@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aai/og-components": "workspace:*",
+    "@aai-agency/og-components": "workspace:*",
     "@tanstack/react-router": "1.166.4",
     "mapbox-gl": "^3.9.4",
     "react": "^19.0.0",

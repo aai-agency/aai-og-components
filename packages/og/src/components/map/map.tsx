@@ -4,6 +4,7 @@ import { booleanIntersects, booleanPointInPolygon, point } from "@turf/turf";
 import { useMachine } from "@xstate/react";
 import type { Feature, Polygon as GeoPolygon } from "geojson";
 import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapMachine } from "../../machines";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
@@ -1183,6 +1184,38 @@ export function OGMap({
 
   const mapInstance = mapReady ? mapRef.current : null;
   const legend = LEGEND_ITEMS[colorBy];
+
+  if (!mapboxAccessToken) {
+    return (
+      <div
+        className={className}
+        style={{
+          width,
+          height,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: PANEL_BG,
+          color: TEXT_PRIMARY,
+          fontFamily: FONT_FAMILY,
+          borderRadius: 12,
+          border: BORDER,
+          padding: "2rem",
+          textAlign: "center" as const,
+          ...style,
+        }}
+      >
+        <div>
+          <p style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+            Mapbox token required
+          </p>
+          <p style={{ fontSize: "0.875rem", color: TEXT_MUTED }}>
+            Pass your token via the mapboxAccessToken prop. Get a free token at mapbox.com/account/access-tokens
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

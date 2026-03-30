@@ -1,9 +1,9 @@
-# @aai/og-components - Full API Reference
+# @aai-agency/og-components - Full API Reference
 
 > Oil & Gas asset map components for React. By AAI Agency.
 > This is the definitive reference for AI agents to use the library without reading source code.
 
-Package: @aai/og-components
+Package: @aai-agency/og-components
 License: MIT
 Requirements: React 18+, Mapbox access token (https://account.mapbox.com/access-tokens/)
 
@@ -11,7 +11,7 @@ Requirements: React 18+, Mapbox access token (https://account.mapbox.com/access-
 INSTALLATION
 ================================================================================
 
-  pnpm add @aai/og-components
+  pnpm add @aai-agency/og-components
 
 Required CSS import:
 
@@ -25,16 +25,16 @@ For standalone ProductionChart usage, also import:
 EXPORTS OVERVIEW
 ================================================================================
 
-Main entry: "@aai/og-components"
+Main entry: "@aai-agency/og-components"
   Components: OGMap, MapControls, AssetDetailCard, ProductionChart,
               OverlayManager, SelectionSummaryCard, SelectionPanel,
               FilterChips, MiniCard
   Helpers:    assetToMiniCard, overlayFeatureToMiniCard
 
 Sub-path exports:
-  "@aai/og-components/utils"     - Data validation, formatting, color, CSV
-  "@aai/og-components/schemas"   - Zod schemas and parse helpers
-  "@aai/og-components/services"  - Storage backends (localStorage, SQLite, in-memory)
+  "@aai-agency/og-components/utils"     - Data validation, formatting, color, CSV
+  "@aai-agency/og-components/schemas"   - Zod schemas and parse helpers
+  "@aai-agency/og-components/services"  - Storage backends (localStorage, SQLite, in-memory)
 
 ================================================================================
 CORE TYPES
@@ -330,13 +330,48 @@ COMPONENT PROPS
 --- MapLayerId (available layers) ---
   "assets" | "clusters" | "lines" | "overlays" | "labels"
 
+--- ChartAnnotation ---
+  interface ChartAnnotation {
+    id: string;
+    from: number;                        // Start timestamp (epoch seconds)
+    to: number;                          // End timestamp (epoch seconds)
+    text: string;                        // User-provided text
+    color?: string;                      // Color of the annotation region
+    expanded?: boolean;                  // Whether the annotation text is expanded
+  }
+
 --- ProductionChartProps ---
-  Used standalone or inside the detail card.
-  Props: series (TimeSeries[]), height (number), colors ({ oil, gas, water } hex strings)
+  interface ProductionChartProps {
+    series: TimeSeries[];                // One or more time series to plot (required)
+    height?: number;                     // Chart height in pixels. Default: 220
+    width?: number;                      // Chart width in pixels. Fills container if omitted.
+    showForecast?: boolean;              // Show forecast series with dashed lines. Default: true
+    colors?: Partial<Record<string, string>>;  // Custom color map by fluidType (defaults: oil=#22c55e, gas=#ef4444, water=#3b82f6)
+    rightAxisFluids?: string[];          // Which fluid types use the right axis. Default: ["gas"]
+    showBrush?: boolean;                 // Show overview brush/scrubber for timeline zoom. Default: true
+    enableAnnotations?: boolean;         // Enable annotations. Default: true
+    annotations?: ChartAnnotation[];     // Controlled annotations (if provided, component is controlled)
+    onAnnotationsChange?: (annotations: ChartAnnotation[]) => void;  // Called when annotations change
+    formatXValue?: (value: number) => string;  // Custom x-axis value formatter (epoch seconds or raw number)
+    xAxisLabel?: string;                 // X-axis label (e.g., "Days on Production", "Date", "Cum BOE")
+    showVarianceFill?: boolean;          // Show variance fill between actual and forecast. Default: false
+    forecastOffset?: number;             // Vertical offset for forecast line drag adjustment
+    onForecastOffsetChange?: (offset: number) => void;  // Called when user drags forecast line
+  }
 
 --- AssetDetailCardProps ---
-  Shows asset info when an asset is clicked.
-  Rendered automatically when showDetailCard is true.
+  interface AssetDetailCardProps {
+    asset: Asset | null;                 // The asset to display. Pass null to hide. (required)
+    typeConfigs?: Map<string, AssetTypeConfig>;  // Per-type display config for field labels and section layout
+    sections?: AssetDetailSection[];     // Custom sections to display. Falls back to default O&G sections if omitted.
+    onClose?: () => void;                // Called when the user closes the card
+    renderHeader?: (asset: Asset) => ReactNode;   // Custom renderer for the header area
+    renderSection?: (section: AssetDetailSection, asset: Asset) => ReactNode;  // Custom renderer for a section
+    renderBody?: (asset: Asset) => ReactNode;     // Custom renderer for the entire card body
+    className?: string;                  // Additional className for the container
+    style?: CSSProperties;               // Additional inline styles
+    mobileBreakpoint?: number;           // Breakpoint for mobile drawer vs desktop panel. Default: 768
+  }
 
 --- AssetDetailSection ---
   interface AssetDetailSection {
@@ -350,7 +385,7 @@ COMPONENT PROPS
   Helpers: assetToMiniCard(asset) and overlayFeatureToMiniCard(feature)
 
 ================================================================================
-ZOD SCHEMAS (from "@aai/og-components/schemas")
+ZOD SCHEMAS (from "@aai-agency/og-components/schemas")
 ================================================================================
 
   CoordinatesSchema      - z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
@@ -369,7 +404,7 @@ ZOD SCHEMAS (from "@aai/og-components/schemas")
     Safely parse assets. Returns result object with success flag and errors.
 
 ================================================================================
-UTILITY FUNCTIONS (from "@aai/og-components/utils")
+UTILITY FUNCTIONS (from "@aai-agency/og-components/utils")
 ================================================================================
 
   isValidCoordinates(coords: Coordinates | null | undefined): boolean
@@ -408,7 +443,7 @@ UTILITY FUNCTIONS (from "@aai/og-components/utils")
     Latitude_BH, Longitude_BH, and more.
 
 ================================================================================
-STORAGE SERVICES (from "@aai/og-components/services")
+STORAGE SERVICES (from "@aai-agency/og-components/services")
 ================================================================================
 
   LocalStorageStore
@@ -491,7 +526,7 @@ CODE EXAMPLES
 
 --- Minimal Map ---
 
-  import { OGMap, type Asset } from "@aai/og-components";
+  import { OGMap, type Asset } from "@aai-agency/og-components";
   import "mapbox-gl/dist/mapbox-gl.css";
 
   const assets: Asset[] = [
@@ -506,14 +541,14 @@ CODE EXAMPLES
   ];
 
   function App() {
-    return <OGMap assets={assets} mapboxAccessToken={MAPBOX_TOKEN} />;
+    return <OGMap assets={assets} mapboxAccessToken={YOUR_MAPBOX_TOKEN} />;
   }
 
 --- Full-featured Map ---
 
   <OGMap
     assets={assets}
-    mapboxAccessToken={MAPBOX_TOKEN}
+    mapboxAccessToken={YOUR_MAPBOX_TOKEN}
     colorBy="status"
     enableOverlayUpload
     showDetailCard
@@ -586,7 +621,7 @@ CODE EXAMPLES
 
 --- Standalone Production Chart ---
 
-  import { ProductionChart } from "@aai/og-components";
+  import { ProductionChart } from "@aai-agency/og-components";
   import "uplot/dist/uPlot.min.css";
 
   <ProductionChart
@@ -609,25 +644,25 @@ CODE EXAMPLES
 
 --- Persisting Data with LocalStorageStore ---
 
-  import { OGMap } from "@aai/og-components";
-  import { LocalStorageStore } from "@aai/og-components/services";
+  import { OGMap } from "@aai-agency/og-components";
+  import { LocalStorageStore } from "@aai-agency/og-components/services";
 
   const store = new LocalStorageStore("my-app");
 
-  <OGMap store={store} assets={assets} mapboxAccessToken={MAPBOX_TOKEN} />
+  <OGMap store={store} assets={assets} mapboxAccessToken={YOUR_MAPBOX_TOKEN} />
 
 --- Large Dataset with SQLite ---
 
-  import { OGMap } from "@aai/og-components";
-  import { createSqliteStore } from "@aai/og-components/services";
+  import { OGMap } from "@aai-agency/og-components";
+  import { createSqliteStore } from "@aai-agency/og-components/services";
 
   const store = await createSqliteStore("my-app");
 
-  <OGMap store={store} assets={assets} mapboxAccessToken={MAPBOX_TOKEN} />
+  <OGMap store={store} assets={assets} mapboxAccessToken={YOUR_MAPBOX_TOKEN} />
 
 --- Validating Asset Data ---
 
-  import { parseAssets, safeParseAssets } from "@aai/og-components/schemas";
+  import { parseAssets, safeParseAssets } from "@aai-agency/og-components/schemas";
 
   // Throws on invalid data
   const validated = parseAssets(untrustedData);
@@ -642,8 +677,8 @@ CODE EXAMPLES
 
 --- CSV Import (Enverus/IHS format) ---
 
-  import { csvRowToAsset } from "@aai/og-components/utils";
-  import { filterPlottable } from "@aai/og-components/utils";
+  import { csvRowToAsset } from "@aai-agency/og-components/utils";
+  import { filterPlottable } from "@aai-agency/og-components/utils";
 
   const csvRows = parseCsvFile(file); // your CSV parser
   const assets = csvRows.map(csvRowToAsset);
@@ -651,7 +686,7 @@ CODE EXAMPLES
 
 --- Migrating Between Stores ---
 
-  import { LocalStorageStore, createSqliteStore, migrateStore } from "@aai/og-components/services";
+  import { LocalStorageStore, createSqliteStore, migrateStore } from "@aai-agency/og-components/services";
 
   const oldStore = new LocalStorageStore("my-app");
   const newStore = await createSqliteStore("my-app-v2");

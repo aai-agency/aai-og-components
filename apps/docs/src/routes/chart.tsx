@@ -1,5 +1,5 @@
-import { type ChartAnnotation, ProductionChart } from "@aai/og-components";
-import type { TimeSeries } from "@aai/og-components";
+import { type ChartAnnotation, ProductionChart } from "@aai-agency/og-components";
+import type { TimeSeries } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import "uplot/dist/uPlot.min.css";
@@ -8,19 +8,24 @@ export const Route = createFileRoute("/chart")({
   component: ChartDemo,
 });
 
-// ── Raw shape from sample well JSON ──
-interface SampleWell {
+// Sample data is now in Asset format with timeSeries inside properties
+interface SampleAsset {
   id: string;
   name: string;
-  timeSeries?: {
-    id: string;
-    fluidType: "oil" | "gas" | "water";
-    curveType: "actual" | "forecast";
-    unit: string;
-    frequency: string;
-    data: { date: string; value: number }[];
-  }[];
-  [key: string]: unknown;
+  type: string;
+  status: string;
+  coordinates: { lat: number; lng: number };
+  properties: {
+    timeSeries?: {
+      id: string;
+      fluidType: "oil" | "gas" | "water";
+      curveType: "actual" | "forecast";
+      unit: string;
+      frequency: string;
+      data: { date: string; value: number }[];
+    }[];
+    [key: string]: unknown;
+  };
 }
 
 // ── Generate synthetic dense time series for stress testing ──
@@ -109,14 +114,15 @@ function ChartDemo() {
   useEffect(() => {
     fetch("/data/bakken-sample.json")
       .then((r) => r.json())
-      .then((wells: SampleWell[]) => {
+      .then((wells: SampleAsset[]) => {
         // Find a well with the most time series data
         let best: TimeSeries[] = [];
         for (const w of wells) {
-          if (w.timeSeries && w.timeSeries.length > 0) {
-            const totalPts = w.timeSeries.reduce((s, ts) => s + ts.data.length, 0);
-            if (totalPts > best.reduce((s, ts) => s + ts.data.length, 0)) {
-              best = w.timeSeries as TimeSeries[];
+          const ts = w.properties?.timeSeries;
+          if (ts && ts.length > 0) {
+            const totalPts = ts.reduce((s, t) => s + t.data.length, 0);
+            if (totalPts > best.reduce((s, t) => s + t.data.length, 0)) {
+              best = ts as TimeSeries[];
             }
           }
         }

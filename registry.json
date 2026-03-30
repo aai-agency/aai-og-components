@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "@aai/og-components",
+  "name": "@aai-agency/og-components",
   "homepage": "https://github.com/aai-agency/aai-og-components",
   "items": [
     {

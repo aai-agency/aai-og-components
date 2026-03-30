@@ -1,5 +1,5 @@
-import { type ChartAnnotation, ProductionChart } from "@aai/og-components";
-import type { TimeSeries } from "@aai/og-components";
+import { type ChartAnnotation, ProductionChart } from "@aai-agency/og-components";
+import type { TimeSeries } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import "uplot/dist/uPlot.min.css";

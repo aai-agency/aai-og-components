@@ -1,4 +1,4 @@
-# Contributing to @aai/og-components
+# Contributing to @aai-agency/og-components
 
 Thanks for your interest in contributing. This guide covers everything you need to get started.
 
@@ -31,7 +31,7 @@ pnpm build
 ## Project Structure
 
 ```
-packages/og/        # The @aai/og-components library
+packages/og/        # The @aai-agency/og-components library
   src/
     components/     # React components (OGMap, ProductionChart, etc.)
     types/          # TypeScript type definitions
@@ -65,7 +65,7 @@ pnpm build       # Verify the library builds cleanly
 - **Biome** handles formatting and linting. Run `pnpm lint` before committing.
 - **TypeScript strict mode** is enabled. No `any` types. Use `unknown` with type guards when the type is uncertain.
 - **ESM only.** No CommonJS. The library ships as ES modules.
-- Keep imports clean. Use the package's export paths (`@aai/og-components/schemas`, `@aai/og-components/utils`, etc.).
+- Keep imports clean. Use the package's export paths (`@aai-agency/og-components/schemas`, `@aai-agency/og-components/utils`, etc.).
 
 ## Component Guidelines
 

@@ -161,7 +161,7 @@ The map becomes an analysis tool, not just a viewer.
 
 | Library | Scope | O&G Native | Agent Docs | Open Source |
 |---------|-------|------------|------------|-------------|
-| **@aai/og-components** | Full O&G map + charts | Yes | Yes | MIT |
+| **@aai-agency/og-components** | Full O&G map + charts | Yes | Yes | MIT |
 | react-map-gl | Generic Mapbox wrapper | No | No | MIT |
 | deck.gl | Data visualization layers | No | No | MIT |
 | Spotfire / Power BI | Enterprise BI platforms | Partial | No | Proprietary |

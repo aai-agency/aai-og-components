@@ -1,6 +1,6 @@
-# @aai/og-components - Claude Code Skill
+# @aai-agency/og-components - Claude Code Skill
 
-This skill activates when a project uses `@aai/og-components`. It helps you guide users through adding maps, charts, and O&G visualization components to their React projects.
+This skill activates when a project uses `@aai-agency/og-components`. It helps you guide users through adding maps, charts, and O&G visualization components to their React projects.
 
 ## When to use this skill
 
@@ -8,7 +8,7 @@ This skill activates when a project uses `@aai/og-components`. It helps you guid
 - User mentions wells, pipelines, assets, or O&G data
 - User wants to visualize production data
 - User wants to upload KMZ/KML/GeoJSON files onto a map
-- Project has `@aai/og-components` in package.json
+- Project has `@aai-agency/og-components` in package.json
 
 ## Available components
 
@@ -26,7 +26,7 @@ This skill activates when a project uses `@aai/og-components`. It helps you guid
 ## How to add to a project
 
 ```bash
-pnpm add @aai/og-components
+pnpm add @aai-agency/og-components
 ```
 
 Then add these CSS imports at the top of your app:
@@ -38,7 +38,7 @@ import "uplot/dist/uPlot.min.css"; // only if using ProductionChart
 ## Minimal working example
 
 ```tsx
-import { OGMap, type Asset } from "@aai/og-components";
+import { OGMap, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
@@ -70,13 +70,17 @@ export default function MapPage() {
 
 ## Important notes for generating code
 
-- The user needs a Mapbox token. Help them get one at https://account.mapbox.com/access-tokens/ and store it in .env as VITE_MAPBOX_TOKEN
+- The user needs a Mapbox token. Help them get one at https://account.mapbox.com/access-tokens/ and store it in `.env`:
+  - **Vite**: `VITE_MAPBOX_TOKEN=pk.xxx`, access via `import.meta.env.VITE_MAPBOX_TOKEN`
+  - **Next.js**: `NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxx`, access via `process.env.NEXT_PUBLIC_MAPBOX_TOKEN`
+  - **Create React App**: `REACT_APP_MAPBOX_TOKEN=pk.xxx`, access via `process.env.REACT_APP_MAPBOX_TOKEN`
 - Every asset needs: id, name, type, status, coordinates (lat/lng), and properties (object)
 - The properties field is flexible - any key/value pairs work and show up in the detail card
 - For production charts, add a timeSeries array inside properties with fluidType, curveType, unit, frequency, and data points
 - colorBy options: "status", "type", "production", "waterCut", "wellType", "operator", "basin"
 - The map auto-fits to show all assets. No need to set initialViewState unless you want a specific view
-- For full API reference, read AGENTS.md in the @aai/og-components package root
+- For full API reference, read AGENTS.md in the @aai-agency/og-components package root
+- For complete TypeScript interfaces, read llms-full.txt
 - For the component catalog with descriptions and dependencies, read registry.json
 
 ## Do not

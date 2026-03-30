@@ -1,30 +1,9 @@
-import { type Asset, type ColorScheme, OGMap } from "@aai/og-components";
+import { type Asset, type ColorScheme, OGMap } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-/** Convert legacy well JSON (from sample data files) to Asset */
-interface LegacyWellJSON {
-  id: string;
-  name: string;
-  coordinates: { lat: number; lng: number };
-  status: string;
-  meta?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-function legacyWellToAsset(well: LegacyWellJSON): Asset {
-  const { id, name, coordinates, status, meta, ...rest } = well;
-  return {
-    id,
-    name,
-    type: "well",
-    status,
-    coordinates,
-    properties: rest as Record<string, unknown>,
-    meta,
-  };
-}
+// Sample data files are now in Asset format directly
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
 
@@ -340,22 +319,20 @@ function HomePage() {
           break;
         case "bakken": {
           const res = await fetch("/data/bakken-sample.json");
-          const wells: LegacyWellJSON[] = await res.json();
-          setAssets(wells.map(legacyWellToAsset));
+          setAssets(await res.json() as Asset[]);
           break;
         }
         case "dj": {
           const res = await fetch("/data/dj-sample.json");
-          const wells: LegacyWellJSON[] = await res.json();
-          setAssets(wells.map(legacyWellToAsset));
+          setAssets(await res.json() as Asset[]);
           break;
         }
         case "both": {
           const [b, d] = await Promise.all([
-            fetch("/data/bakken-sample.json").then((r) => r.json()),
-            fetch("/data/dj-sample.json").then((r) => r.json()),
+            fetch("/data/bakken-sample.json").then((r) => r.json()) as Promise<Asset[]>,
+            fetch("/data/dj-sample.json").then((r) => r.json()) as Promise<Asset[]>,
           ]);
-          setAssets([...(b as LegacyWellJSON[]), ...(d as LegacyWellJSON[])].map(legacyWellToAsset));
+          setAssets([...b, ...d]);
           break;
         }
         case "5k":
@@ -425,7 +402,7 @@ function HomePage() {
           >
             OG
           </div>
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>@aai/og-components</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>@aai-agency/og-components</span>
           <span
             style={{
               fontSize: 11,

@@ -67,6 +67,17 @@ export function fitBounds(items: (Asset | { coordinates: Coordinates })[]): MapV
 
 // ── Color Functions ──────────────────────────────────────────────────────────
 
+/** Generate a deterministic color from a string (for operator/basin coloring) */
+function hashColor(str: string): string {
+  if (!str) return "#94a3b8";
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 65%, 55%)`;
+}
+
 /** Get color for any asset based on scheme and optional type configs */
 export function getAssetColor(asset: Asset, scheme: ColorScheme, typeConfigs?: Map<string, AssetTypeConfig>): string {
   // Check user-provided type config first
@@ -100,6 +111,14 @@ export function getAssetColor(asset: Asset, scheme: ColorScheme, typeConfigs?: M
       if (wc > 0.7) return "#ef4444";
       if (wc > 0.4) return "#f59e0b";
       return "#22c55e";
+    }
+    case "operator": {
+      const op = (asset.properties?.operator as string) ?? "";
+      return hashColor(op);
+    }
+    case "basin": {
+      const basin = (asset.properties?.basin as string) ?? "";
+      return hashColor(basin);
     }
     default:
       return config?.color ?? "#6366f1";

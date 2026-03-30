@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter docs dev",
-    "build": "pnpm --filter @aai/og-components build",
+    "build": "pnpm --filter @aai-agency/og-components build",
     "build:docs": "pnpm --filter docs build",
     "lint": "biome check --write .",
     "typecheck": "pnpm -r typecheck"
