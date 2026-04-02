@@ -11,7 +11,7 @@ Initial public release of @aai-agency/og-components.
 
 ### Added
 
-- **OGMap** component. Single component that renders an interactive Mapbox map with wells, meters, pipelines, and facilities.
+- **Map** component. Single component that renders an interactive Mapbox map with wells, meters, pipelines, and facilities.
 - **ProductionChart** component. Time series charts with dual Y-axis and zoom, powered by uPlot for high-volume data rendering.
 - **AssetDetailCard** component. Click any asset to view its properties, production chart, and custom fields.
 - **OverlayManager** with drag-and-drop support for KMZ, KML, GeoJSON, and Shapefile uploads.

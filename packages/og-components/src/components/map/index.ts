@@ -1,5 +1,5 @@
-export { OGMap } from "./map";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps } from "./map.types";
+export { OGMap as Map } from "./map";
+export type { MapProps, MapTooltipProps, ClusterMarkerProps } from "./map.types";
 export { MapControls } from "./components/controls";
 export type { MapControlsProps, MapControlId, MapLayerId } from "./components/controls";
 export { AssetDetailCard } from "../asset-card";

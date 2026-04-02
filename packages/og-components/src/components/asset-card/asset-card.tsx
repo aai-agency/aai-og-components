@@ -97,65 +97,56 @@ function formatFieldValue(value: unknown, format?: string, unit?: string): strin
   return String(value) + (unit ? ` ${unit}` : "");
 }
 
-// ── Default O&G Sections ─────────────────────────────────────────────────────
+// ── Dynamic Section Builder ──────────────────────────────────────────────────
 
-const DEFAULT_WELL_SECTIONS: AssetDetailSection[] = [
-  {
-    id: "general",
-    title: "General Information",
-    fields: [
-      { key: "properties.operator", label: "Operator" },
-      { key: "properties.api", label: "API Number" },
-      { key: "properties.wellType", label: "Well Type" },
-      { key: "properties.trajectory", label: "Trajectory" },
-      { key: "properties.basin", label: "Basin" },
-      { key: "properties.formation", label: "Formation" },
-      { key: "properties.county", label: "County" },
-      { key: "properties.state", label: "State" },
-      { key: "properties.firstProdDate", label: "First Prod Date", format: "date" },
-    ],
-  },
-  {
-    id: "production",
-    title: "Production",
-    fields: [
-      { key: "properties.cumBOE", label: "Cum BOE", format: "number", unit: "BOE" },
-      { key: "properties.cumOil", label: "Cum Oil", format: "number", unit: "BBL" },
-      { key: "properties.cumGas", label: "Cum Gas", format: "number", unit: "MSCF" },
-      { key: "properties.cumWater", label: "Cum Water", format: "number", unit: "BBL" },
-      { key: "properties.peakOil", label: "Peak Oil", format: "number", unit: "BBL" },
-      { key: "properties.peakGas", label: "Peak Gas", format: "number", unit: "MSCF" },
-    ],
-  },
-  {
-    id: "well-specs",
-    title: "Well Specifications",
-    fields: [
-      { key: "properties.lateralLength", label: "Lateral Length", format: "number", unit: "ft" },
-      { key: "properties.tvd", label: "TVD", format: "number", unit: "ft" },
-      { key: "properties.md", label: "MD", format: "number", unit: "ft" },
-    ],
-  },
-  {
-    id: "location",
-    title: "Coordinates",
-    fields: [
-      { key: "coordinates.lat", label: "Latitude" },
-      { key: "coordinates.lng", label: "Longitude" },
-    ],
-  },
-];
+/** Convert a camelCase or snake_case key to a human-readable label */
+function humanize(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-const DEFAULT_GENERIC_SECTIONS: AssetDetailSection[] = [
-  {
-    id: "location",
-    title: "Location",
-    fields: [
-      { key: "coordinates.lat", label: "Latitude" },
-      { key: "coordinates.lng", label: "Longitude" },
-    ],
-  },
-];
+/** Infer format from key name and value type */
+function inferFormat(_key: string, value: unknown): { format?: string; unit?: string } {
+  if (typeof value === "number") return { format: "number" };
+  if (typeof value === "string" && /^\d{4}-\d{2}/.test(value)) return { format: "date" };
+  return {};
+}
+
+/** Build sections dynamically from the asset's actual data */
+function buildSectionsFromAsset(asset: Asset): AssetDetailSection[] {
+  const sections: AssetDetailSection[] = [];
+
+  // Properties section — all key/value pairs from asset.properties
+  if (asset.properties && Object.keys(asset.properties).length > 0) {
+    const fields: FieldConfig[] = [];
+    for (const [key, value] of Object.entries(asset.properties)) {
+      if (value == null || value === "") continue;
+      // Skip timeSeries and complex objects — only show scalar values
+      if (typeof value === "object") continue;
+      const { format, unit } = inferFormat(key, value);
+      fields.push({ key: `properties.${key}`, label: humanize(key), format, unit });
+    }
+    if (fields.length > 0) {
+      sections.push({ id: "properties", title: "Properties", fields });
+    }
+  }
+
+  // Coordinates section
+  if (asset.coordinates) {
+    sections.push({
+      id: "location",
+      title: "Location",
+      fields: [
+        { key: "coordinates.lat", label: "Latitude" },
+        { key: "coordinates.lng", label: "Longitude" },
+      ],
+    });
+  }
+
+  return sections;
+}
 
 // ── SectionView ──────────────────────────────────────────────────────────────
 
@@ -499,8 +490,8 @@ export const AssetDetailCard = memo(
 
     if (!asset || !drawerOpen) return null;
 
-    // Resolve sections
-    const sections = customSections ?? (asset.type === "well" ? DEFAULT_WELL_SECTIONS : DEFAULT_GENERIC_SECTIONS);
+    // Resolve sections — use custom if provided, otherwise auto-generate from data
+    const sections = customSections ?? buildSectionsFromAsset(asset);
 
     const typeConfig = typeConfigs?.get(asset.type);
     const statusColor = STATUS_COLORS[asset.status] ?? "#6b7280";
@@ -656,6 +647,7 @@ export const AssetDetailCard = memo(
     // ── Mobile: Bottom Drawer ──
     if (isMobile) {
       return (
+        <TooltipProvider delayDuration={300}>
         <div
           ref={drawerRef}
           className={className}
@@ -694,11 +686,13 @@ export const AssetDetailCard = memo(
           </div>
           {cardContent}
         </div>
+        </TooltipProvider>
       );
     }
 
     // ── Desktop: Left Side Panel ──
     return (
+      <TooltipProvider delayDuration={300}>
       <div
         className={className}
         style={{
@@ -723,6 +717,7 @@ export const AssetDetailCard = memo(
       >
         {cardContent}
       </div>
+      </TooltipProvider>
     );
   },
 );

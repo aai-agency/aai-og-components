@@ -1,5 +1,5 @@
-export { OGMap } from "./map";
-export type { OGMapProps, MapTooltipProps, ClusterMarkerProps } from "./map";
+export { Map } from "./map";
+export type { MapProps, MapTooltipProps, ClusterMarkerProps } from "./map";
 export { MapControls } from "./map";
 export type { MapControlsProps, MapControlId, MapLayerId } from "./map";
 export { LineChart } from "./line-chart";

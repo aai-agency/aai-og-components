@@ -7,7 +7,7 @@ The standard component library for building Oil & Gas data applications. One imp
 ## Current State (v0.1.0)
 
 ### Core Components
-- **OGMap** - Interactive Mapbox map with deck.gl rendering, XState state machine
+- **Map** - Interactive Mapbox map with deck.gl rendering, XState state machine
 - **ProductionChart** - Canvas-based time series (uPlot), dual Y-axis, zoom, brush, annotations
 - **AssetDetailCard** - Expandable detail panel with production chart, custom sections
 - **OverlayManager** - Upload and style KMZ, KML, GeoJSON, Shapefile overlays
@@ -136,7 +136,7 @@ The map becomes an analysis tool, not just a viewer.
 
 ## Design Principles
 
-1. **One component, full map.** `<OGMap />` should get you from zero to interactive map in under 5 minutes.
+1. **One component, full map.** `<Map />` should get you from zero to interactive map in under 5 minutes.
 2. **No wrappers.** Use libraries directly (pure mapbox-gl, not react-map-gl). Fewer layers, fewer bugs.
 3. **Agent-first docs.** Every API should be documented so an AI assistant can generate correct code on the first try.
 4. **O&G domain native.** Built-in support for wells, pipelines, facilities, production data, decline curves. Not a generic map with O&G bolted on.

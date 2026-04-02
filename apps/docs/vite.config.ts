@@ -9,7 +9,7 @@ export default defineConfig({
   envDir: "../../",
   resolve: {
     alias: {
-      "@aai-agency/og-components": path.resolve(__dirname, "../../packages/og/src/index.ts"),
+      "@aai-agency/og-components": path.resolve(__dirname, "../../packages/og-components/src/index.ts"),
     },
   },
 });

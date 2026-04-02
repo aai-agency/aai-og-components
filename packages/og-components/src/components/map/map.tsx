@@ -12,7 +12,7 @@ import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
 import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
 import { AssetDetailCard } from "../asset-card";
 import { MapControls, type MapLayerId } from "./components/controls";
-import type { OGMapProps } from "./map.types";
+import type { MapProps } from "./map.types";
 import { type SelectedOverlayFeature, SelectionPanel } from "./components/selection-summary";
 import { Tooltip, TooltipProvider } from "../ui/tooltip";
 import {
@@ -510,7 +510,7 @@ function hexToRgba(hex: string, alpha = 230): [number, number, number, number] {
   return [r, g, b, alpha];
 }
 
-// ── OGMap ─────────────────────────────────────────────────────────────────────
+// ── Map ─────────────────────────────────────────────────────────────────────
 
 export function OGMap({
   assets: assetsProp,
@@ -547,7 +547,7 @@ export function OGMap({
   renderDetailBody,
   onDetailClose,
   onColorByChange,
-}: OGMapProps) {
+}: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const deckOverlayRef = useRef<MapboxOverlay | null>(null);
@@ -692,6 +692,23 @@ export function OGMap({
       }));
     return { type: "FeatureCollection" as const, features };
   }, [clusterEnabled, clusters, clusterMaxZoom]);
+
+  // ── Label GeoJSON for asset name labels (native Mapbox symbol layer) ──
+  const labelGeoJSON = useMemo(() => {
+    const features: GeoJSON.Feature[] = [];
+    for (const asset of assets) {
+      if (asset.lines?.length || asset.polygons?.length) continue;
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [asset.coordinates.lng, asset.coordinates.lat],
+        },
+        properties: { name: asset.name },
+      });
+    }
+    return { type: "FeatureCollection" as const, features };
+  }, [assets]);
 
   // ── Line GeoJSON for pipelines (native Mapbox layer) ──
   const lineGeoJSON = useMemo(() => {
@@ -904,6 +921,56 @@ export function OGMap({
       });
     }
   }, [lineGeoJSON, mapReady]);
+
+  // ── Asset label layer (native Mapbox symbol — GPU collision detection, zero perf cost when hidden) ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    if (map.getSource("og-labels-source")) {
+      (map.getSource("og-labels-source") as mapboxgl.GeoJSONSource).setData(
+        labelGeoJSON as GeoJSON.FeatureCollection,
+      );
+    } else {
+      map.addSource("og-labels-source", { type: "geojson", data: labelGeoJSON as GeoJSON.FeatureCollection });
+      map.addLayer({
+        id: "og-asset-labels",
+        type: "symbol",
+        source: "og-labels-source",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": 11,
+          "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
+          "text-offset": [0, 1.4],
+          "text-anchor": "top",
+          "text-max-width": 8,
+          "text-allow-overlap": false,
+          "text-ignore-placement": false,
+          "text-optional": true,
+          visibility: visibleLayers.has("labels") ? "visible" : "none",
+        },
+        paint: {
+          "text-color": TEXT_PRIMARY,
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1.5,
+          "text-halo-blur": 0.5,
+        },
+      });
+    }
+  }, [labelGeoJSON, mapReady]);
+
+  // ── Sync label layer visibility with visibleLayers state ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (map.getLayer("og-asset-labels")) {
+      map.setLayoutProperty(
+        "og-asset-labels",
+        "visibility",
+        visibleLayers.has("labels") ? "visible" : "none",
+      );
+    }
+  }, [visibleLayers, mapReady]);
 
   // ── Overlay layers (native Mapbox — these are small datasets) ──
   const prevOverlayIdsRef = useRef<Set<string>>(new Set());
@@ -1439,6 +1506,8 @@ export function OGMap({
           onFitToAssets={handleFitToAssets}
           clearDrawRef={clearDrawRef}
           onDrawingModeChange={setIsDrawingMode}
+          labelsActive={visibleLayers.has("labels")}
+          onLabelsToggle={() => handleLayerToggle("labels")}
           overlay={
             enableOverlayUpload
               ? {
@@ -1587,4 +1656,4 @@ export function OGMap({
   );
 }
 
-OGMap.displayName = "OGMap";
+OGMap.displayName = "Map";

@@ -5,7 +5,7 @@ import type { AssetDetailSection } from "../asset-card";
 import type { MapControlId, MapLayerId } from "./components/controls";
 import type { SelectedOverlayFeature } from "./components/selection-summary";
 
-export interface OGMapProps {
+export interface MapProps {
   /** Array of assets to render on the map */
   assets?: Asset[];
   /** Mapbox access token. Required. */

@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "paths": {
       "~/*": ["./src/*"],
-      "@aai-agency/og-components": ["../../packages/og/src/index.ts"]
+      "@aai-agency/og-components": ["../../packages/og-components/src/index.ts"]
     }
   },
   "include": ["src"],

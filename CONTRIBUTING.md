@@ -31,9 +31,9 @@ pnpm build
 ## Project Structure
 
 ```
-packages/og/        # The @aai-agency/og-components library
+packages/og-components/        # The @aai-agency/og-components library
   src/
-    components/     # React components (OGMap, ProductionChart, etc.)
+    components/     # React components (Map, ProductionChart, etc.)
     types/          # TypeScript type definitions
     schemas/        # Zod validation schemas
     utils/          # Helpers (formatting, geo, CSV conversion)
@@ -48,7 +48,7 @@ apps/docs/          # Interactive playground and docs site
 ## Development Workflow
 
 1. Create a branch from `main` with a descriptive name (e.g., `feature/add-heatmap-layer`, `fix/cluster-zoom-level`).
-2. Make your changes in `packages/og/src/`.
+2. Make your changes in `packages/og-components/src/`.
 3. Test your changes using the playground app (`pnpm dev`).
 4. Run lint, typecheck, and build before pushing:
 

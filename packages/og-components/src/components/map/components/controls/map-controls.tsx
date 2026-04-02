@@ -119,6 +119,13 @@ const Icons = {
       <polyline points="2 12 12 17 22 12" />
     </svg>
   ),
+  tag: () => (
+    <svg {...iconProps}>
+      <path d="M12 2L2 7l10 5 10-5-10-5z" style={{ display: "none" }} />
+      <path d="M4 4h6l8 8-6 6-8-8V4z" />
+      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 };
 
 // ── Styles ───────────────────────────────────────────────────────────────────
@@ -993,7 +1000,8 @@ export type MapControlId =
   | "draw-polygon"
   | "draw-rectangle"
   | "draw-circle"
-  | "layers";
+  | "layers"
+  | "labels";
 
 export interface MapControlsProps {
   map: MapboxMap | null;
@@ -1010,6 +1018,10 @@ export interface MapControlsProps {
   clearDrawRef?: React.MutableRefObject<(() => void) | null>;
   /** Called when draw mode changes (true = drawing active, false = not drawing) */
   onDrawingModeChange?: (isDrawing: boolean) => void;
+  /** Whether asset labels are currently visible */
+  labelsActive?: boolean;
+  /** Called when the labels toggle button is clicked */
+  onLabelsToggle?: () => void;
 }
 
 export function MapControls({
@@ -1024,6 +1036,8 @@ export function MapControls({
   overlay,
   clearDrawRef,
   onDrawingModeChange,
+  labelsActive,
+  onLabelsToggle,
 }: MapControlsProps) {
   const drawRef = useRef<MapboxDraw | null>(null);
   const onDrawCreateRef = useRef(onDrawCreate);
@@ -1045,6 +1059,7 @@ export function MapControls({
   const showFullscreen = controls.includes("fullscreen");
   const showCenter = controls.includes("center");
   const showLayers = controls.includes("layers") && (layers.length > 0 || overlay);
+  const showLabels = controls.includes("labels") && onLabelsToggle;
   const showDrawing = enabledDrawTools.length > 0;
 
   // Notify parent when draw mode changes
@@ -1321,7 +1336,16 @@ export function MapControls({
           <LayerToggle layers={layers} visibleLayers={visibleLayers} onToggle={onLayerToggle} overlay={overlay} />
         )}
 
-        {(showFullscreen || showLayers) && (showZoom || showCenter) && <div style={separatorStyle} />}
+        {showLabels && (
+          <ControlButton
+            icon="tag"
+            title={labelsActive ? "Hide Labels" : "Show Labels"}
+            active={labelsActive}
+            onClick={() => onLabelsToggle?.()}
+          />
+        )}
+
+        {(showFullscreen || showLayers || showLabels) && (showZoom || showCenter) && <div style={separatorStyle} />}
 
         {showZoom && (
           <>

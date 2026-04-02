@@ -133,7 +133,7 @@
       "name": "drawing-tools",
       "type": "registry:component",
       "title": "Drawing Tools",
-      "description": "Internal drawing modes used by MapControls. Draw polygons, rectangles, and circles on the map to select assets within an area. Integrates with Mapbox GL Draw. Enable via the controls prop on OGMap.",
+      "description": "Internal drawing modes used by MapControls. Draw polygons, rectangles, and circles on the map to select assets within an area. Integrates with Mapbox GL Draw. Enable via the controls prop on Map.",
       "files": [
         { "path": "components/map/draw-modes/circle.ts", "type": "registry:component" },
         { "path": "components/map/draw-modes/rectangle.ts", "type": "registry:component" },
@@ -152,7 +152,7 @@
       "name": "local-storage",
       "type": "registry:component",
       "title": "Local Storage",
-      "description": "Save assets, overlays, and map views to the browser's localStorage so data survives page refreshes. Drop-in storage backend for OGMap.",
+      "description": "Save assets, overlays, and map views to the browser's localStorage so data survives page refreshes. Drop-in storage backend for Map.",
       "files": [
         { "path": "services/localstorage-store.ts", "type": "registry:component" },
         { "path": "services/memory-store.ts", "type": "registry:component" },

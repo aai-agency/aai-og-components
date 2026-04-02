@@ -22,7 +22,7 @@ importers:
     dependencies:
       '@aai-agency/og-components':
         specifier: workspace:*
-        version: link:../../packages/og
+        version: link:../../packages/og-components
       '@tanstack/react-router':
         specifier: 1.166.4
         version: 1.166.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -67,7 +67,7 @@ importers:
         specifier: ^7.1.0
         version: 7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)
 
-  packages/og:
+  packages/og-components:
     dependencies:
       '@deck.gl/core':
         specifier: ^9.2.11

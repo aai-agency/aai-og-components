@@ -1,6 +1,6 @@
 // Components
 export {
-  OGMap,
+  Map,
   MapControls,
   AssetDetailCard,
   LineChart,
@@ -17,7 +17,7 @@ export {
 // UI primitives
 export { Tooltip, TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from "./components/ui/tooltip";
 export type {
-  OGMapProps,
+  MapProps,
   MapTooltipProps,
   ClusterMarkerProps,
   MapControlsProps,

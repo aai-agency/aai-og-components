@@ -15,7 +15,7 @@ pnpm add @aai-agency/og-components
 ## Quick Start
 
 ```tsx
-import { OGMap, type Asset } from "@aai-agency/og-components";
+import { Map, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
@@ -35,7 +35,7 @@ const assets: Asset[] = [
 
 function App() {
   return (
-    <OGMap
+    <Map
       assets={assets}
       mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
       colorBy="status"

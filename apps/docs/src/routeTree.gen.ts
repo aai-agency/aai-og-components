@@ -10,23 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as ChartDragRouteImport } from './routes/chart-drag'
-import { Route as ChartRouteImport } from './routes/chart'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsInstallationRouteImport } from './routes/docs/installation'
+import { Route as DocsComponentsProductionChartRouteImport } from './routes/docs/components/production-chart'
+import { Route as DocsComponentsOgMapRouteImport } from './routes/docs/components/og-map'
+import { Route as DocsComponentsAssetDetailCardRouteImport } from './routes/docs/components/asset-detail-card'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
   path: '/playground',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChartDragRoute = ChartDragRouteImport.update({
-  id: '/chart-drag',
-  path: '/chart-drag',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChartRoute = ChartRouteImport.update({
-  id: '/chart',
-  path: '/chart',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -34,39 +26,88 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsInstallationRoute = DocsInstallationRouteImport.update({
+  id: '/docs/installation',
+  path: '/docs/installation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsComponentsProductionChartRoute =
+  DocsComponentsProductionChartRouteImport.update({
+    id: '/docs/components/production-chart',
+    path: '/docs/components/production-chart',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocsComponentsOgMapRoute = DocsComponentsOgMapRouteImport.update({
+  id: '/docs/components/og-map',
+  path: '/docs/components/og-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsComponentsAssetDetailCardRoute =
+  DocsComponentsAssetDetailCardRouteImport.update({
+    id: '/docs/components/asset-detail-card',
+    path: '/docs/components/asset-detail-card',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/chart': typeof ChartRoute
-  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
+  '/docs/installation': typeof DocsInstallationRoute
+  '/docs/components/asset-detail-card': typeof DocsComponentsAssetDetailCardRoute
+  '/docs/components/og-map': typeof DocsComponentsOgMapRoute
+  '/docs/components/production-chart': typeof DocsComponentsProductionChartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/chart': typeof ChartRoute
-  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
+  '/docs/installation': typeof DocsInstallationRoute
+  '/docs/components/asset-detail-card': typeof DocsComponentsAssetDetailCardRoute
+  '/docs/components/og-map': typeof DocsComponentsOgMapRoute
+  '/docs/components/production-chart': typeof DocsComponentsProductionChartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/chart': typeof ChartRoute
-  '/chart-drag': typeof ChartDragRoute
   '/playground': typeof PlaygroundRoute
+  '/docs/installation': typeof DocsInstallationRoute
+  '/docs/components/asset-detail-card': typeof DocsComponentsAssetDetailCardRoute
+  '/docs/components/og-map': typeof DocsComponentsOgMapRoute
+  '/docs/components/production-chart': typeof DocsComponentsProductionChartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chart' | '/chart-drag' | '/playground'
+  fullPaths:
+    | '/'
+    | '/playground'
+    | '/docs/installation'
+    | '/docs/components/asset-detail-card'
+    | '/docs/components/og-map'
+    | '/docs/components/production-chart'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chart' | '/chart-drag' | '/playground'
-  id: '__root__' | '/' | '/chart' | '/chart-drag' | '/playground'
+  to:
+    | '/'
+    | '/playground'
+    | '/docs/installation'
+    | '/docs/components/asset-detail-card'
+    | '/docs/components/og-map'
+    | '/docs/components/production-chart'
+  id:
+    | '__root__'
+    | '/'
+    | '/playground'
+    | '/docs/installation'
+    | '/docs/components/asset-detail-card'
+    | '/docs/components/og-map'
+    | '/docs/components/production-chart'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChartRoute: typeof ChartRoute
-  ChartDragRoute: typeof ChartDragRoute
   PlaygroundRoute: typeof PlaygroundRoute
+  DocsInstallationRoute: typeof DocsInstallationRoute
+  DocsComponentsAssetDetailCardRoute: typeof DocsComponentsAssetDetailCardRoute
+  DocsComponentsOgMapRoute: typeof DocsComponentsOgMapRoute
+  DocsComponentsProductionChartRoute: typeof DocsComponentsProductionChartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,20 +119,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chart-drag': {
-      id: '/chart-drag'
-      path: '/chart-drag'
-      fullPath: '/chart-drag'
-      preLoaderRoute: typeof ChartDragRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chart': {
-      id: '/chart'
-      path: '/chart'
-      fullPath: '/chart'
-      preLoaderRoute: typeof ChartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -99,14 +126,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/installation': {
+      id: '/docs/installation'
+      path: '/docs/installation'
+      fullPath: '/docs/installation'
+      preLoaderRoute: typeof DocsInstallationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/components/production-chart': {
+      id: '/docs/components/production-chart'
+      path: '/docs/components/production-chart'
+      fullPath: '/docs/components/production-chart'
+      preLoaderRoute: typeof DocsComponentsProductionChartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/components/og-map': {
+      id: '/docs/components/og-map'
+      path: '/docs/components/og-map'
+      fullPath: '/docs/components/og-map'
+      preLoaderRoute: typeof DocsComponentsOgMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/components/asset-detail-card': {
+      id: '/docs/components/asset-detail-card'
+      path: '/docs/components/asset-detail-card'
+      fullPath: '/docs/components/asset-detail-card'
+      preLoaderRoute: typeof DocsComponentsAssetDetailCardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChartRoute: ChartRoute,
-  ChartDragRoute: ChartDragRoute,
   PlaygroundRoute: PlaygroundRoute,
+  DocsInstallationRoute: DocsInstallationRoute,
+  DocsComponentsAssetDetailCardRoute: DocsComponentsAssetDetailCardRoute,
+  DocsComponentsOgMapRoute: DocsComponentsOgMapRoute,
+  DocsComponentsProductionChartRoute: DocsComponentsProductionChartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

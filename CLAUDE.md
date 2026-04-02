@@ -23,9 +23,9 @@ pnpm typecheck
 ## Project Structure
 
 ```
-packages/og/        # The @aai-agency/og-components library
+packages/og-components/        # The @aai-agency/og-components library
   src/
-    components/     # React components (OGMap, ProductionChart, etc.)
+    components/     # React components (Map, ProductionChart, etc.)
     types/          # TypeScript type definitions
     schemas/        # Zod validation schemas
     utils/          # Helpers (formatting, geo, CSV conversion)

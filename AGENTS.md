@@ -32,7 +32,7 @@ Get a free token at [mapbox.com/account/access-tokens](https://account.mapbox.co
 ## Quick Start
 
 ```tsx
-import { OGMap, type Asset } from "@aai-agency/og-components";
+import { Map, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
@@ -57,7 +57,7 @@ const assets: Asset[] = [
 
 function App() {
   return (
-    <OGMap
+    <Map
       assets={assets}
       mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
       colorBy="status"
@@ -96,7 +96,7 @@ Tell Claude Code what you need in plain English. Here is what is available today
 
 ```ts
 // The main map component and chart
-import { OGMap, ProductionChart, AssetDetailCard } from "@aai-agency/og-components";
+import { Map, ProductionChart, AssetDetailCard } from "@aai-agency/og-components";
 
 // Additional components
 import { OverlayManager, SelectionPanel } from "@aai-agency/og-components";
@@ -234,11 +234,15 @@ const pipeline: Asset = {
 
 ### Available controls
 
-`"pan"`, `"zoom"`, `"fullscreen"`, `"center"`, `"draw-polygon"`, `"draw-rectangle"`, `"draw-circle"`, `"layers"`
+`"pan"`, `"zoom"`, `"fullscreen"`, `"center"`, `"draw-polygon"`, `"draw-rectangle"`, `"draw-circle"`, `"layers"`, `"labels"`
 
 ### Available layers
 
 `"assets"`, `"clusters"`, `"lines"`, `"overlays"`, `"labels"`
+
+### UI Rules
+
+- **Every interactive control MUST have a tooltip.** Every button, icon button, toggle, and control on the map must have a tooltip on hover so the user knows what it does. Use the `<Tooltip label="...">` component from `components/ui/tooltip`. When adding new controls, always wrap them in a tooltip. No exceptions.
 
 ### Responding to user actions
 
@@ -293,7 +297,7 @@ Users can upload map overlays in these formats:
 Enable with `enableOverlayUpload`:
 
 ```tsx
-<OGMap enableOverlayUpload assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />
+<Map enableOverlayUpload assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />
 ```
 
 Users can drag-and-drop files onto the map, change overlay colors, and toggle feature visibility.
@@ -305,26 +309,26 @@ Users can drag-and-drop files onto the map, change overlay colors, and toggle fe
 By default, data is not saved between page refreshes. To save to the browser:
 
 ```tsx
-import { OGMap } from "@aai-agency/og-components";
+import { Map } from "@aai-agency/og-components";
 import { LocalStorageStore } from "@aai-agency/og-components/services";
 
 const store = new LocalStorageStore("my-app");
 
 function App() {
-  return <OGMap store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
+  return <Map store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
 }
 ```
 
 For large datasets (10,000+ assets), use the SQLite store instead:
 
 ```tsx
-import { OGMap } from "@aai-agency/og-components";
+import { Map } from "@aai-agency/og-components";
 import { createSqliteStore } from "@aai-agency/og-components/services";
 
 const store = await createSqliteStore("my-app");
 
 function App() {
-  return <OGMap store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
+  return <Map store={store} assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />;
 }
 ```
 
@@ -368,7 +372,7 @@ function MyChart() {
 Add custom sections to show specific data when users click an asset:
 
 ```tsx
-<OGMap
+<Map
   detailSections={[
     {
       id: "reservoir",

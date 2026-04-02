@@ -14,9 +14,9 @@ This skill activates when a project uses `@aai-agency/og-components`. It helps y
 
 | Component | What it does | When to suggest it |
 |-----------|-------------|-------------------|
-| **OGMap** | Interactive map showing assets (wells, pipelines, facilities) | User wants a map with their O&G data |
+| **Map** | Interactive map showing assets (wells, pipelines, facilities) | User wants a map with their O&G data |
 | **ProductionChart** | Time series chart for oil/gas/water production | User wants to chart production data |
-| **AssetDetailCard** | Detail panel showing asset info when clicked | Comes with OGMap by default |
+| **AssetDetailCard** | Detail panel showing asset info when clicked | Comes with Map by default |
 | **OverlayManager** | Upload KMZ/KML/GeoJSON/Shapefile files onto the map | User wants to overlay external files |
 | **SelectionPanel** | Select multiple assets by drawing shapes | User wants to filter or select assets on the map |
 | **LocalStorageStore** | Save data to browser so it persists between refreshes | User wants data to stick around |
@@ -38,7 +38,7 @@ import "uplot/dist/uPlot.min.css"; // only if using ProductionChart
 ## Minimal working example
 
 ```tsx
-import { OGMap, type Asset } from "@aai-agency/og-components";
+import { Map, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
@@ -57,7 +57,7 @@ const assets: Asset[] = [
 
 export default function MapPage() {
   return (
-    <OGMap
+    <Map
       assets={assets}
       mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
       colorBy="status"
@@ -87,4 +87,4 @@ export default function MapPage() {
 
 - Do not suggest react-map-gl or other React map wrappers. This library uses mapbox-gl directly.
 - Do not guess at prop names. Read AGENTS.md or registry.json for the real API.
-- Do not add CSS framework classes to OGMap. It uses inline styles.
+- Do not add CSS framework classes to Map. It uses inline styles.

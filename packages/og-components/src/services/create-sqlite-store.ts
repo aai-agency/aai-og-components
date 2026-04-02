@@ -24,7 +24,7 @@ interface CreateSqliteStoreOptions {
  * import { createSqliteStore } from "@aai-agency/og-components";
  *
  * const store = await createSqliteStore();
- * <OGMap store={store} />
+ * <Map store={store} />
  * ```
  */
 export async function createSqliteStore(
