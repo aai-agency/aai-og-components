@@ -615,6 +615,7 @@ export function OGMap({
   const showSelectionSummary = state.context.showSelectionSummary;
   const lassoSelectedOverlayFeatures = state.context.lassoOverlayFeatures;
   const clearDrawRef = useRef<(() => void) | null>(null);
+  const savedLassoRef = useRef<{ ids: string[]; overlayFeatures: typeof lassoSelectedOverlayFeatures } | null>(null);
   const shiftKeyRef = useRef(false);
 
   useEffect(() => {
@@ -1208,6 +1209,13 @@ export function OGMap({
   }, [send, assets]);
 
   const handleDetailClose = useCallback(() => {
+    const saved = savedLassoRef.current;
+    if (saved) {
+      // Go back to selection summary
+      savedLassoRef.current = null;
+      send({ type: "LASSO_SELECT", ids: saved.ids, overlayFeatures: saved.overlayFeatures });
+      return;
+    }
     send({ type: "LASSO_CLEAR" });
     clearDrawRef.current?.();
     onDetailClose?.();
@@ -1303,10 +1311,15 @@ export function OGMap({
 
   const handleSelectAssetFromSummary = useCallback(
     (asset: Asset) => {
+      // Save lasso state so we can go back
+      savedLassoRef.current = {
+        ids: [...state.context.selectedIds],
+        overlayFeatures: state.context.lassoOverlayFeatures,
+      };
       send({ type: "SELECT", id: asset.id });
       onAssetClick?.(asset);
     },
-    [send, onAssetClick],
+    [send, onAssetClick, state.context.selectedIds, state.context.lassoOverlayFeatures],
   );
 
   // Resolve selected assets for summary card
@@ -1458,6 +1471,7 @@ export function OGMap({
           typeConfigs={typeConfigMap}
           sections={detailSections}
           onClose={handleDetailClose}
+          onBack={savedLassoRef.current ? handleDetailClose : undefined}
           renderHeader={renderDetailHeader}
           renderBody={renderDetailBody}
         />

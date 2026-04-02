@@ -36,6 +36,8 @@ export interface AssetDetailCardProps {
   sections?: AssetDetailSection[];
   /** Called when the user closes the card */
   onClose?: () => void;
+  /** Called when user clicks back (e.g., to return to selection summary). Shows a back arrow when provided. */
+  onBack?: () => void;
   /** Custom renderer for the header area */
   renderHeader?: (asset: Asset) => React.ReactNode;
   /** Custom renderer for a section */
@@ -424,6 +426,7 @@ export const AssetDetailCard = memo(
     typeConfigs,
     sections: customSections,
     onClose,
+    onBack,
     renderHeader,
     renderSection,
     renderBody,
@@ -511,6 +514,32 @@ export const AssetDetailCard = memo(
           renderHeader(asset)
         ) : (
           <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
+            {onBack && (
+              <Tooltip label="Back to selection">
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "0 0 8px",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: TEXT_MUTED,
+                  fontFamily: FONT_FAMILY,
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back to selection
+              </button>
+              </Tooltip>
+            )}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h3
