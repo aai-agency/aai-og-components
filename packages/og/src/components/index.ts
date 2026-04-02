@@ -5,8 +5,8 @@ export type { MapControlsProps, MapControlId, MapLayerId } from "./map";
 export { LineChart } from "./line-chart";
 export { ProductionChart } from "./line-chart";
 export type { LineChartProps, ProductionChartProps } from "./line-chart";
-export { AssetDetailCard } from "./asset-detail/asset-detail-card";
-export type { AssetDetailCardProps, AssetDetailSection } from "./asset-detail/asset-detail-card";
+export { AssetDetailCard } from "./asset-card";
+export type { AssetDetailCardProps, AssetDetailSection } from "./asset-card";
 export { OverlayManager } from "./map";
 export type { OverlayManagerProps } from "./map";
 export {

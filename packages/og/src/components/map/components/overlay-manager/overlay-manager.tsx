@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
-import type { MapOverlay, OverlayStyle } from "../../../types";
+import type { MapOverlay, OverlayStyle } from "../../../../types";
 import {
   ACCENT,
   ACCENT_10,
@@ -19,7 +19,7 @@ import {
   TEXT_FAINT,
   TEXT_MUTED,
   TEXT_PRIMARY,
-} from "../theme";
+} from "../../theme";
 
 const RADIUS = 8;
 

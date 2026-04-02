@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
-import type { Asset, AssetTypeConfig } from "../../../types";
-import { Tooltip } from "../../ui/tooltip";
+import type { Asset, AssetTypeConfig } from "../../../../types";
+import { Tooltip } from "../../../ui/tooltip";
 import {
   ACCENT,
   BLUR_LG,
@@ -16,10 +16,10 @@ import {
   TEXT_MUTED,
   TEXT_PRIMARY,
   TYPE_COLORS,
-} from "../theme";
+} from "../../theme";
 import { type FilterChip, FilterChips } from "./filter-chips";
 import { MiniCard, type MiniCardItem, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
-import { groupBy } from "../../../utils";
+import { groupBy } from "../../../../utils";
 import type { SelectedOverlayFeature } from "./selection-summary-card";
 
 // ── Types ────────────────────────────────────────────────────────────────────

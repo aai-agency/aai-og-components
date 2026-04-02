@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import Supercluster from "supercluster";
-import type { Asset } from "../../types";
+import type { Asset } from "../../../types";
 
 interface ClusterPoint {
   type: "Feature";

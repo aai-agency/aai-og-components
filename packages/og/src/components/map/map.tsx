@@ -10,10 +10,10 @@ import { mapMachine } from "../../machines";
 import type { Asset, AssetTypeConfig, ColorScheme, MapViewState } from "../../types";
 import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
 import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
-import { AssetDetailCard } from "../asset-detail";
-import { MapControls, type MapLayerId } from "./controls";
+import { AssetDetailCard } from "../asset-card";
+import { MapControls, type MapLayerId } from "./components/controls";
 import type { OGMapProps } from "./map.types";
-import { type SelectedOverlayFeature, SelectionPanel } from "./selection-summary";
+import { type SelectedOverlayFeature, SelectionPanel } from "./components/selection-summary";
 import { Tooltip, TooltipProvider } from "../ui/tooltip";
 import {
   ACCENT,
@@ -34,7 +34,7 @@ import {
   TEXT_SECONDARY,
 } from "./theme";
 import { MapTooltip } from "./tooltip";
-import { useClusters } from "./use-clusters";
+import { useClusters } from "./hooks/use-clusters";
 
 const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
 

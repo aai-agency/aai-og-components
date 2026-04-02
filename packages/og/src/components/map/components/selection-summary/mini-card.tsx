@@ -1,6 +1,6 @@
 import { memo } from "react";
-import type { Asset, AssetTypeConfig } from "../../../types";
-import { formatNumber } from "../../../utils";
+import type { Asset, AssetTypeConfig } from "../../../../types";
+import { formatNumber } from "../../../../utils";
 import {
   ACCENT,
   ACCENT_15,
@@ -11,7 +11,7 @@ import {
   TEXT_MUTED,
   TEXT_PRIMARY,
   TYPE_COLORS,
-} from "../theme";
+} from "../../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

@@ -3,9 +3,9 @@ import type { Feature } from "geojson";
 import type { Map as MapboxMap } from "mapbox-gl";
 import type React from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import type { MapOverlay, OverlayStyle } from "../../../types";
+import type { MapOverlay, OverlayStyle } from "../../../../types";
 import { CustomDrawModeKeys, CustomDrawModes } from "../draw-modes";
-import { Tooltip } from "../../ui/tooltip";
+import { Tooltip } from "../../../ui/tooltip";
 import {
   ACCENT,
   ACCENT_15,
@@ -24,7 +24,7 @@ import {
   TEXT_MUTED,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
-} from "../theme";
+} from "../../theme";
 
 // ── SVG Icons (inline, no external deps) ────────────────────────────────────
 

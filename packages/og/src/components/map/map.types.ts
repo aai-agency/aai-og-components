@@ -1,9 +1,9 @@
 import type { Feature } from "geojson";
 import type { CSSProperties } from "react";
 import type { Asset, AssetStore, AssetTypeConfig, ColorScheme, MapViewState } from "../../types";
-import type { AssetDetailSection } from "../asset-detail";
-import type { MapControlId, MapLayerId } from "./controls";
-import type { SelectedOverlayFeature } from "./selection-summary";
+import type { AssetDetailSection } from "../asset-card";
+import type { MapControlId, MapLayerId } from "./components/controls";
+import type { SelectedOverlayFeature } from "./components/selection-summary";
 
 export interface OGMapProps {
   /** Array of assets to render on the map */
