@@ -2,6 +2,20 @@
 @import "mapbox-gl/dist/mapbox-gl.css";
 
 @theme {
+  /* shadcn tokens */
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+  --color-border: #e2e8f0;
+  --color-primary: #6366f1;
+  --color-primary-foreground: #ffffff;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-ring: #6366f1;
+  --radius: 0.5rem;
+
+  /* og-specific */
   --color-og-green: #22c55e;
   --color-og-indigo: #6366f1;
   --color-og-amber: #f59e0b;

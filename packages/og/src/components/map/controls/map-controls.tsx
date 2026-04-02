@@ -5,7 +5,7 @@ import type React from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { MapOverlay, OverlayStyle } from "../../../types";
 import { CustomDrawModeKeys, CustomDrawModes } from "../draw-modes";
-import { TooltipHint } from "../tooltip-hint";
+import { Tooltip } from "../../ui/tooltip";
 import {
   ACCENT,
   ACCENT_15,
@@ -162,7 +162,7 @@ const ControlButton = memo(({ icon, title, active, disabled, onClick }: ControlB
   const [hovered, setHovered] = useState(false);
   const Icon = Icons[icon];
   return (
-    <TooltipHint label={title}>
+    <Tooltip label={title}>
       <button
         type="button"
         onClick={disabled ? undefined : onClick}
@@ -177,7 +177,7 @@ const ControlButton = memo(({ icon, title, active, disabled, onClick }: ControlB
       >
         <Icon />
       </button>
-    </TooltipHint>
+    </Tooltip>
   );
 });
 ControlButton.displayName = "ControlButton";

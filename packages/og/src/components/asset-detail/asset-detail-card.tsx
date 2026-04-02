@@ -16,7 +16,7 @@ import {
   TEXT_PRIMARY,
   TYPE_COLORS,
 } from "../../theme";
-import { TooltipHint } from "../shared/tooltip-hint";
+import { Tooltip, TooltipProvider } from "../ui/tooltip";
 import { LineChart } from "../line-chart";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {!collapsed && (
-            <TooltipHint label="Expand chart">
+            <Tooltip label="Expand chart">
             <span
               role="button"
               tabIndex={0}
@@ -329,7 +329,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
                 <line x1="3" y1="21" x2="10" y2="14" />
               </svg>
             </span>
-            </TooltipHint>
+            </Tooltip>
           )}
           <svg
             width="12"
@@ -382,7 +382,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
               <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
                 {asset.name} - Production History
               </span>
-              <TooltipHint label="Close">
+              <Tooltip label="Close">
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
@@ -404,7 +404,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              </TooltipHint>
+              </Tooltip>
             </div>
             <LineChart series={timeSeries} height={500} />
           </div>
@@ -567,7 +567,7 @@ export const AssetDetailCard = memo(
                 </div>
               </div>
               {/* Close button */}
-              <TooltipHint label="Close">
+              <Tooltip label="Close">
               <button
                 type="button"
                 onClick={handleClose}
@@ -598,7 +598,7 @@ export const AssetDetailCard = memo(
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              </TooltipHint>
+              </Tooltip>
             </div>
           </div>
         )}

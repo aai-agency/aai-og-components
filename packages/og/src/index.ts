@@ -13,6 +13,9 @@ export {
   assetToMiniCard,
   overlayFeatureToMiniCard,
 } from "./components";
+
+// UI primitives
+export { Tooltip, TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from "./components/ui/tooltip";
 export type {
   OGMapProps,
   MapTooltipProps,

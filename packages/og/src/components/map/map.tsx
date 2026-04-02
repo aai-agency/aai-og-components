@@ -14,7 +14,7 @@ import { AssetDetailCard } from "../asset-detail";
 import { MapControls, type MapLayerId } from "./controls";
 import type { OGMapProps } from "./map.types";
 import { type SelectedOverlayFeature, SelectionPanel } from "./selection-summary";
-import { TooltipHint } from "./tooltip-hint";
+import { Tooltip, TooltipProvider } from "../ui/tooltip";
 import {
   ACCENT,
   ACCENT_15,
@@ -463,7 +463,7 @@ function MapLegend({ label, items, schemes, activeScheme, onSchemeChange }: MapL
           )}
         </div>
 
-        <TooltipHint label={collapsed ? "Expand legend" : "Collapse legend"}>
+        <Tooltip label={collapsed ? "Expand legend" : "Collapse legend"}>
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
@@ -486,7 +486,7 @@ function MapLegend({ label, items, schemes, activeScheme, onSchemeChange }: MapL
             {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
           </svg>
         </button>
-        </TooltipHint>
+        </Tooltip>
       </div>
       {!collapsed &&
         items.map((item) => (
@@ -1389,6 +1389,7 @@ export function OGMap({
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div
       className={className}
       onDragOver={enableOverlayUpload ? handleDragOver : undefined}
@@ -1563,6 +1564,7 @@ export function OGMap({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 
