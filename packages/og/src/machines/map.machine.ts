@@ -4,6 +4,15 @@ import { fitBounds } from "../utils";
 
 // ── Context ──────────────────────────────────────────────────────────────────
 
+/** Overlay feature selected via lasso */
+export interface LassoOverlayFeature {
+  overlayId: string;
+  overlayName: string;
+  featureIndex: number;
+  properties: Record<string, unknown>;
+  geometryType: string;
+}
+
 export interface MapContext {
   /** All assets currently loaded */
   assets: Asset[];
@@ -13,6 +22,10 @@ export interface MapContext {
   typeConfigs: Map<string, AssetTypeConfig>;
   /** Currently selected asset(s) */
   selectedIds: Set<string>;
+  /** Whether the selection summary panel should be shown */
+  showSelectionSummary: boolean;
+  /** Overlay features selected via lasso */
+  lassoOverlayFeatures: LassoOverlayFeature[];
   /** Hovered asset + screen position */
   hovered: { asset: Asset; x: number; y: number } | null;
   /** Current map view */
@@ -48,6 +61,8 @@ export type MapEvent =
   | { type: "SELECT_MANY"; ids: string[] }
   | { type: "DESELECT"; id: string }
   | { type: "CLEAR_SELECTION" }
+  | { type: "LASSO_SELECT"; ids: string[]; overlayFeatures: LassoOverlayFeature[]; additive?: boolean }
+  | { type: "LASSO_CLEAR" }
   | { type: "HOVER"; asset: Asset; x: number; y: number }
   | { type: "UNHOVER" }
   | { type: "PAN_ZOOM"; viewState: MapViewState }
@@ -197,6 +212,8 @@ export const mapMachine = setup({
     visibleIndices: [] as number[],
     typeConfigs: input.typeConfigs ?? new Map<string, AssetTypeConfig>(),
     selectedIds: new Set<string>(),
+    showSelectionSummary: false,
+    lassoOverlayFeatures: [] as LassoOverlayFeature[],
     hovered: null,
     viewState: input.viewState ?? { longitude: -98.5, latitude: 39.8, zoom: 4 },
     bounds: null as [number, number, number, number] | null,
@@ -335,7 +352,7 @@ export const mapMachine = setup({
           actions: assign(({ context, event }) => {
             const selectedIds = event.multi ? new Set(context.selectedIds) : new Set<string>();
             selectedIds.add(event.id);
-            return { selectedIds };
+            return { selectedIds, showSelectionSummary: false };
           }),
         },
         SELECT_MANY: {
@@ -351,7 +368,33 @@ export const mapMachine = setup({
           }),
         },
         CLEAR_SELECTION: {
-          actions: assign({ selectedIds: () => new Set<string>() }),
+          actions: assign({
+            selectedIds: () => new Set<string>(),
+            showSelectionSummary: false,
+            lassoOverlayFeatures: [],
+          }),
+        },
+        LASSO_SELECT: {
+          actions: assign(({ context, event }) => {
+            const newIds = event.additive
+              ? new Set([...context.selectedIds, ...event.ids])
+              : new Set(event.ids);
+            const overlayFeatures = event.additive
+              ? [...context.lassoOverlayFeatures, ...event.overlayFeatures]
+              : event.overlayFeatures;
+            return {
+              selectedIds: newIds,
+              lassoOverlayFeatures: overlayFeatures,
+              showSelectionSummary: newIds.size > 0 || overlayFeatures.length > 0,
+            };
+          }),
+        },
+        LASSO_CLEAR: {
+          actions: assign({
+            selectedIds: () => new Set<string>(),
+            showSelectionSummary: false,
+            lassoOverlayFeatures: [],
+          }),
         },
 
         // ── Filtering ──

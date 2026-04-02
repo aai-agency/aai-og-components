@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import type { Asset, AssetTypeConfig } from "../../../types";
+import { TooltipHint } from "../tooltip-hint";
 import {
   ACCENT,
   BLUR_LG,
@@ -265,6 +266,7 @@ export const SelectionPanel = memo(function SelectionPanel({
               {activeFilters.size > 0 && <span style={{ color: TEXT_FAINT, fontWeight: 400 }}> / {totalCount}</span>}
             </span>
           </div>
+          <TooltipHint label="Close">
           <button
             type="button"
             onClick={onClose}
@@ -295,6 +297,7 @@ export const SelectionPanel = memo(function SelectionPanel({
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
+          </TooltipHint>
         </div>
       </div>
 

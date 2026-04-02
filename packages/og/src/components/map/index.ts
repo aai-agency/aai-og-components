@@ -3,7 +3,7 @@ export type { OGMapProps, MapTooltipProps, ClusterMarkerProps } from "./map.type
 export { MapControls } from "./controls";
 export type { MapControlsProps, MapControlId, MapLayerId } from "./controls";
 export { AssetDetailCard, ProductionChart } from "./asset-detail";
-export type { AssetDetailCardProps, AssetDetailSection, ProductionChartProps } from "./asset-detail";
+export type { AssetDetailCardProps, AssetDetailSection, ProductionChartProps, ChartAnnotation } from "./asset-detail";
 export { OverlayManager } from "./overlay-manager";
 export type { OverlayManagerProps } from "./overlay-manager";
 export { SelectionSummaryCard, SelectionPanel, FilterChips, MiniCard } from "./selection-summary";

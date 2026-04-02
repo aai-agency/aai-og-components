@@ -8,8 +8,8 @@ export const TEXT_MUTED = "#64748b";
 export const TEXT_FAINT = "#94a3b8";
 
 // ── Surfaces ──
-export const PANEL_BG = "rgba(255, 255, 255, 0.95)";
-export const PANEL_BG_LIGHT = "rgba(255, 255, 255, 0.92)";
+export const PANEL_BG = "#ffffff";
+export const PANEL_BG_LIGHT = "#ffffff";
 export const INPUT_BG = "rgba(241, 245, 249, 0.8)";
 export const HOVER_BG = "rgba(148, 163, 184, 0.12)";
 export const ACTIVE_BG = "rgba(148, 163, 184, 0.15)";

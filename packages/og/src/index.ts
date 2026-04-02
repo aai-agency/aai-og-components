@@ -22,6 +22,7 @@ export type {
   AssetDetailCardProps,
   AssetDetailSection,
   ProductionChartProps,
+  ChartAnnotation,
   OverlayManagerProps,
   SelectionSummaryCardProps,
   SelectionPanelProps,

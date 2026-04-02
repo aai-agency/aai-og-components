@@ -8,11 +8,13 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapMachine } from "../../machines";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
-import { computeBounds, getAssetColor } from "../../utils";
+import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
+import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
 import { AssetDetailCard } from "./asset-detail";
 import { MapControls, type MapLayerId } from "./controls";
 import type { OGMapProps } from "./map.types";
 import { type SelectedOverlayFeature, SelectionPanel } from "./selection-summary";
+import { TooltipHint } from "./tooltip-hint";
 import {
   ACCENT,
   ACCENT_15,
@@ -300,7 +302,6 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
         bottom: 12,
         right: 12,
         background: PANEL_BG_LIGHT,
-        backdropFilter: BLUR_SM,
         borderRadius: 8,
         padding: collapsed ? "6px 10px" : "10px 14px",
         color: TEXT_SECONDARY,
@@ -330,6 +331,7 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
         >
           {label}
         </span>
+        <TooltipHint label={collapsed ? "Expand legend" : "Collapse legend"}>
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
@@ -347,7 +349,6 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
             flexShrink: 0,
             color: TEXT_MUTED,
           }}
-          title={collapsed ? "Expand legend" : "Collapse legend"}
         >
           <svg
             width="10"
@@ -362,6 +363,7 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
             {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
           </svg>
         </button>
+        </TooltipHint>
       </div>
       {!collapsed &&
         items.map((item) => (
@@ -400,7 +402,7 @@ export function OGMap({
   cluster: clusterEnabled = false,
   clusterMaxZoom = 10,
   clusterRadius = 50,
-  showAssetCount = true,
+  showAssetCount = false,
   showLegend = true,
   enableOverlayUpload = false,
   mapStyle,
@@ -428,7 +430,7 @@ export function OGMap({
   const [mapReady, setMapReady] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Set<MapLayerId>>(() => new Set(layerIds ?? []));
 
-  const resolvedAssets = useMemo(() => assetsProp ?? [], [assetsProp]);
+  const resolvedAssets = useMemo(() => filterPlottable(assetsProp ?? []), [assetsProp]);
 
   // Build type config map
   const typeConfigMap = useMemo(() => {
@@ -484,9 +486,22 @@ export function OGMap({
     geometryType: string;
   } | null>(null);
 
-  // Lasso selection state
-  const [lassoSelectedOverlayFeatures, setLassoSelectedOverlayFeatures] = useState<SelectedOverlayFeature[]>([]);
-  const [showSelectionSummary, setShowSelectionSummary] = useState(false);
+  // Lasso state — driven by XState
+  const showSelectionSummary = state.context.showSelectionSummary;
+  const lassoSelectedOverlayFeatures = state.context.lassoOverlayFeatures;
+  const clearDrawRef = useRef<(() => void) | null>(null);
+  const shiftKeyRef = useRef(false);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { shiftKeyRef.current = e.shiftKey; };
+    const up = (e: KeyboardEvent) => { shiftKeyRef.current = e.shiftKey; };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
 
   const showCount = showAssetCount;
 
@@ -665,31 +680,33 @@ export function OGMap({
       id: "og-assets-scatter",
       data: pointAssetData,
       getPosition: (d) => d.position,
-      getFillColor: (d) => {
-        if (selectedIdSet.has(d.asset.id)) return [255, 255, 255, 255];
-        return d.color;
-      },
+      getFillColor: (d) => d.color,
       getLineColor: (d) => {
-        if (selectedIdSet.has(d.asset.id)) return [255, 255, 255, 230];
+        if (selectedIdSet.has(d.asset.id)) return [15, 23, 42, 255];
         return [255, 255, 255, 150];
       },
+      getLineWidth: (d) => {
+        if (selectedIdSet.has(d.asset.id)) return 2;
+        return 1;
+      },
       getRadius: (d) => {
-        if (selectedIdSet.has(d.asset.id)) return 8;
+        if (selectedIdSet.has(d.asset.id)) return 7;
         return 5;
       },
       radiusMinPixels: 3,
       radiusMaxPixels: 16,
       radiusUnits: "pixels",
       lineWidthMinPixels: 1,
-      lineWidthMaxPixels: 2,
+      lineWidthMaxPixels: 3,
       stroked: true,
       filled: true,
       pickable: true,
       autoHighlight: true,
       highlightColor: [255, 255, 0, 80],
       updateTriggers: {
-        getFillColor: [colorBy, selectedIds],
+        getFillColor: [colorBy],
         getLineColor: [selectedIds],
+        getLineWidth: [selectedIds],
         getRadius: [selectedIds],
       },
     });
@@ -1053,10 +1070,21 @@ export function OGMap({
 
   const handleFitToAssets = useCallback(() => {
     send({ type: "FIT_TO_ASSETS" });
-  }, [send]);
+    const map = mapRef.current;
+    if (!map || assets.length === 0) return;
+    const bounds = computeBounds(assets, 0.1);
+    map.fitBounds(
+      [
+        [bounds.minLng, bounds.minLat],
+        [bounds.maxLng, bounds.maxLat],
+      ],
+      { padding: 50, duration: 1000 },
+    );
+  }, [send, assets]);
 
   const handleDetailClose = useCallback(() => {
-    send({ type: "CLEAR_SELECTION" });
+    send({ type: "LASSO_CLEAR" });
+    clearDrawRef.current?.();
     onDetailClose?.();
   }, [send, onDetailClose]);
 
@@ -1072,62 +1100,46 @@ export function OGMap({
   // ── Lasso / draw selection handler ──
   const handleDrawCreate = useCallback(
     (features: Feature[]) => {
-      // Find the drawn polygon
-      const drawnFeature = features.find((f) => f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon");
-      if (!drawnFeature || drawnFeature.geometry.type !== "Polygon") {
+      const polygons = extractPolygons(features);
+      if (polygons.length === 0) {
         onDrawCreate?.(features);
         return;
       }
 
-      const polygon = drawnFeature as Feature<GeoPolygon>;
+      // Select assets inside the drawn polygon
+      const newIds = computeLassoSelection(assets, polygons);
 
-      // ── 1. Select assets within polygon ──
-      const selectedAssetIds: string[] = [];
-      for (const asset of assets) {
-        const pt = point([asset.coordinates.lng, asset.coordinates.lat]);
-        if (booleanPointInPolygon(pt, polygon)) {
-          selectedAssetIds.push(asset.id);
-        }
-      }
-
-      if (selectedAssetIds.length > 0) {
-        send({ type: "SELECT_MANY", ids: selectedAssetIds });
-      }
-
-      // ── 2. Find overlay features within polygon ──
-      const selectedOvFeatures: SelectedOverlayFeature[] = [];
+      // Find overlay features inside the polygon
+      const overlayHits: SelectedOverlayFeature[] = [];
       for (const overlay of overlays) {
         if (!overlay.visible) continue;
         for (let i = 0; i < overlay.geojson.features.length; i++) {
           const feature = overlay.geojson.features[i];
           try {
+            let hitCount = 0;
             if (feature.geometry.type === "Point") {
               const coords = feature.geometry.coordinates as [number, number];
               const pt = point(coords);
-              if (booleanPointInPolygon(pt, polygon)) {
-                selectedOvFeatures.push({
-                  overlayId: overlay.id,
-                  overlayName: overlay.name,
-                  featureIndex: i,
-                  properties: (feature.properties ?? {}) as Record<string, unknown>,
-                  geometryType: feature.geometry.type,
-                });
+              for (const poly of polygons) {
+                if (booleanPointInPolygon(pt, poly)) hitCount++;
               }
             } else if (
               feature.geometry.type === "LineString" ||
               feature.geometry.type === "Polygon" ||
               feature.geometry.type === "MultiPolygon"
             ) {
-              // Check if any part of the feature intersects the drawn polygon
-              if (booleanIntersects(feature, polygon)) {
-                selectedOvFeatures.push({
-                  overlayId: overlay.id,
-                  overlayName: overlay.name,
-                  featureIndex: i,
-                  properties: (feature.properties ?? {}) as Record<string, unknown>,
-                  geometryType: feature.geometry.type,
-                });
+              for (const poly of polygons) {
+                if (booleanIntersects(feature, poly)) hitCount++;
               }
+            }
+            if (hitCount % 2 === 1) {
+              overlayHits.push({
+                overlayId: overlay.id,
+                overlayName: overlay.name,
+                featureIndex: i,
+                properties: (feature.properties ?? {}) as Record<string, unknown>,
+                geometryType: feature.geometry.type,
+              });
             }
           } catch {
             // Skip features with invalid geometry
@@ -1135,42 +1147,38 @@ export function OGMap({
         }
       }
 
-      setLassoSelectedOverlayFeatures(selectedOvFeatures);
+      // Single event handles everything: selection, summary, shift-additive
+      send({
+        type: "LASSO_SELECT",
+        ids: newIds,
+        overlayFeatures: overlayHits,
+        additive: shiftKeyRef.current,
+      });
 
-      // Show summary if anything was selected
-      if (selectedAssetIds.length > 0 || selectedOvFeatures.length > 0) {
-        setShowSelectionSummary(true);
+      if (newIds.length > 0 || overlayHits.length > 0) {
         setSelectedOverlayFeature(null);
-
-        // Fire lasso callback with selected items
-        const idSet = new Set(selectedAssetIds);
-        const selectedAssets = assets.filter((a) => idSet.has(a.id));
-        onLassoSelect?.(selectedAssets, selectedOvFeatures);
+        const idSet = new Set(newIds);
+        onLassoSelect?.(assets.filter((a) => idSet.has(a.id)), overlayHits);
       }
 
-      // Still fire the external callback
       onDrawCreate?.(features);
     },
     [assets, overlays, send, onDrawCreate, onLassoSelect],
   );
 
   const handleDrawDelete = useCallback(() => {
-    send({ type: "CLEAR_SELECTION" });
-    setLassoSelectedOverlayFeatures([]);
-    setShowSelectionSummary(false);
+    send({ type: "LASSO_CLEAR" });
     onDrawDelete?.();
   }, [send, onDrawDelete]);
 
   const handleSelectionSummaryClose = useCallback(() => {
-    send({ type: "CLEAR_SELECTION" });
-    setLassoSelectedOverlayFeatures([]);
-    setShowSelectionSummary(false);
+    send({ type: "LASSO_CLEAR" });
+    clearDrawRef.current?.();
   }, [send]);
 
   const handleSelectAssetFromSummary = useCallback(
     (asset: Asset) => {
       send({ type: "SELECT", id: asset.id });
-      setShowSelectionSummary(false);
       onAssetClick?.(asset);
     },
     [send, onAssetClick],
@@ -1178,7 +1186,7 @@ export function OGMap({
 
   // Resolve selected assets for summary card
   const lassoSelectedAssets = useMemo(() => {
-    if (!showSelectionSummary || selectedIds.size <= 1) return [];
+    if (!showSelectionSummary) return [];
     return assets.filter((a) => selectedIds.has(a.id));
   }, [showSelectionSummary, selectedIds, assets]);
 
@@ -1248,6 +1256,7 @@ export function OGMap({
           onDrawCreate={handleDrawCreate}
           onDrawDelete={handleDrawDelete}
           onFitToAssets={handleFitToAssets}
+          clearDrawRef={clearDrawRef}
           overlay={
             enableOverlayUpload
               ? {

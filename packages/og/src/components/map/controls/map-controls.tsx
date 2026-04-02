@@ -5,6 +5,7 @@ import type React from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { MapOverlay, OverlayStyle } from "../../../types";
 import { CustomDrawModeKeys, CustomDrawModes } from "../draw-modes";
+import { TooltipHint } from "../tooltip-hint";
 import {
   ACCENT,
   ACCENT_15,
@@ -161,21 +162,22 @@ const ControlButton = memo(({ icon, title, active, disabled, onClick }: ControlB
   const [hovered, setHovered] = useState(false);
   const Icon = Icons[icon];
   return (
-    <button
-      type="button"
-      title={title}
-      onClick={disabled ? undefined : onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        ...btnBase,
-        background: active ? ACCENT_15 : hovered && !disabled ? HOVER_BG : "transparent",
-        opacity: disabled ? 0.35 : 1,
-        cursor: disabled ? "default" : "pointer",
-      }}
-    >
-      <Icon />
-    </button>
+    <TooltipHint label={title}>
+      <button
+        type="button"
+        onClick={disabled ? undefined : onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          ...btnBase,
+          background: active ? ACCENT_15 : hovered && !disabled ? HOVER_BG : "transparent",
+          opacity: disabled ? 0.35 : 1,
+          cursor: disabled ? "default" : "pointer",
+        }}
+      >
+        <Icon />
+      </button>
+    </TooltipHint>
   );
 });
 ControlButton.displayName = "ControlButton";
@@ -1004,6 +1006,8 @@ export interface MapControlsProps {
   onFitToAssets?: () => void;
   /** Overlay management callbacks — shown inside the layers dropdown */
   overlay?: OverlayCallbacks;
+  /** Ref that receives a function to programmatically clear the draw */
+  clearDrawRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export function MapControls({
@@ -1016,9 +1020,15 @@ export function MapControls({
   onDrawDelete,
   onFitToAssets,
   overlay,
+  clearDrawRef,
 }: MapControlsProps) {
   const drawRef = useRef<MapboxDraw | null>(null);
+  const onDrawCreateRef = useRef(onDrawCreate);
+  onDrawCreateRef.current = onDrawCreate;
+  const onDrawDeleteRef = useRef(onDrawDelete);
+  onDrawDeleteRef.current = onDrawDelete;
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const activeToolRef = useRef<string | null>(null);
   const [hasFeatures, setHasFeatures] = useState(false);
   const [isPanning, setIsPanning] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1087,18 +1097,32 @@ export function MapControls({
     map.addControl(drawInstance);
     drawRef.current = drawInstance;
 
+    if (clearDrawRef) {
+      clearDrawRef.current = () => {
+        if (!drawRef.current || !map) return;
+        drawRef.current.deleteAll();
+        setHasFeatures(false);
+        // Re-enter active draw mode so user can keep drawing
+        const currentTool = DRAW_TOOLS.find((t) => t.id === activeToolRef.current);
+        drawRef.current.changeMode(currentTool?.mode ?? "simple_select");
+      };
+    }
+
     const handleCreate = () => {
       if (!drawRef.current) return;
       const allFeatures = drawRef.current.getAll().features;
-      onDrawCreate?.(allFeatures as Feature[]);
-      // Remove drawing mode classes
-      const container = map.getContainer();
-      const modeClasses = Array.from(container.classList).filter((cls) => cls.startsWith("mode-"));
-      modeClasses.forEach((cls) => container.classList.remove(cls));
-      container.classList.remove("drawing-active");
+      onDrawCreateRef.current?.(allFeatures as Feature[]);
+      // Delete drawn shapes immediately — we only need the geometry for selection
+      drawRef.current.deleteAll();
+      // Re-enter draw mode so user can keep drawing
+      const currentTool = DRAW_TOOLS.find((t) => t.id === activeToolRef.current);
+      if (currentTool) {
+        drawRef.current.changeMode(currentTool.mode);
+      }
+      setHasFeatures(false);
     };
 
-    const handleDelete = () => onDrawDelete?.();
+    const handleDelete = () => onDrawDeleteRef.current?.();
 
     const handleModeChange = (e: { mode: string }) => {
       const container = map.getContainer();
@@ -1131,18 +1155,22 @@ export function MapControls({
     map.on("draw.modechange", handleModeChange);
 
     return () => {
-      map.off("draw.create", handleCreate);
-      map.off("draw.create", checkFeatures);
-      map.off("draw.delete", handleDelete);
-      map.off("draw.delete", checkFeatures);
-      map.off("draw.update", checkFeatures);
-      map.off("draw.modechange", handleModeChange);
-      if (drawInstance) {
-        map.removeControl(drawInstance);
-        drawRef.current = null;
+      try {
+        map.off("draw.create", handleCreate);
+        map.off("draw.create", checkFeatures);
+        map.off("draw.delete", handleDelete);
+        map.off("draw.delete", checkFeatures);
+        map.off("draw.update", checkFeatures);
+        map.off("draw.modechange", handleModeChange);
+        if (drawInstance) {
+          map.removeControl(drawInstance);
+        }
+      } catch {
+        // Map may already be removed
       }
+      drawRef.current = null;
     };
-  }, [map, onDrawCreate, onDrawDelete]);
+  }, [map]);
 
   // ── Fullscreen listener ──
   useEffect(() => {
@@ -1166,6 +1194,7 @@ export function MapControls({
     if (!map || !drawRef.current || isPanning) return;
     drawRef.current.changeMode("simple_select");
     setActiveTool(null);
+    activeToolRef.current = null;
     setIsPanning(true);
     setIsDrawing(false);
     const container = map.getContainer();
@@ -1181,6 +1210,7 @@ export function MapControls({
       drawRef.current.deleteAll();
       drawRef.current.changeMode(tool.mode);
       setActiveTool(tool.id);
+      activeToolRef.current = tool.id;
       setIsDrawing(true);
       const container = map.getContainer();
       container.classList.add(`mode-${tool.mode}`);
@@ -1196,16 +1226,17 @@ export function MapControls({
       if (!drawRef.current || !map) return;
       drawRef.current.deleteAll();
       drawRef.current.changeMode("simple_select");
-      onDrawDelete?.();
+      onDrawDeleteRef.current?.();
       const container = map.getContainer();
       const modeClasses = Array.from(container.classList).filter((cls) => cls.startsWith("mode-"));
       modeClasses.forEach((cls) => container.classList.remove(cls));
       container.classList.remove("drawing-active");
       setActiveTool(null);
+      activeToolRef.current = null;
       setIsPanning(true);
       setIsDrawing(false);
     },
-    [map, onDrawDelete],
+    [map],
   );
 
   const handleZoomIn = useCallback(() => map?.zoomIn(), [map]);

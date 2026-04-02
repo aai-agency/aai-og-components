@@ -15,6 +15,7 @@ import {
   TEXT_PRIMARY,
   TYPE_COLORS,
 } from "../theme";
+import { TooltipHint } from "../tooltip-hint";
 import { ProductionChart } from "./production-chart";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -474,6 +475,7 @@ export const AssetDetailCard = memo(
                 </div>
               </div>
               {/* Close button */}
+              <TooltipHint label="Close">
               <button
                 type="button"
                 onClick={handleClose}
@@ -504,6 +506,7 @@ export const AssetDetailCard = memo(
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
+              </TooltipHint>
             </div>
           </div>
         )}

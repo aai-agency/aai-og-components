@@ -6,15 +6,17 @@
     "build": "pnpm --filter @aai-agency/og-components build",
     "build:docs": "pnpm --filter docs build",
     "lint": "biome check --write .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @aai-agency/og-components test",
+    "test:watch": "pnpm --filter @aai-agency/og-components test:watch"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.2"
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {}
+  }
 }

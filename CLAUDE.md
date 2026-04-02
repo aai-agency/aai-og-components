@@ -64,6 +64,25 @@ Uses tsup with these entry points:
 
 The `apps/docs/public/data/` directory contains sample well datasets (Bakken and DJ basins) for the playground. These are loaded by the docs app at runtime.
 
+## UI Conventions
+
+- **Tooltips on every interactive control** — Every button, icon button, and control on the map (draw tools, zoom, pan, fullscreen, center, trash, layer toggles, legend collapse) MUST have a shadcn-style tooltip on hover so the user has context into what it does. When adding new controls, always include a tooltip.
+- **No transparent panels** — All panels (legend, selection summary, asset detail, controls) use solid white backgrounds (`#ffffff`), not translucent rgba values.
+- **Selected markers** — Keep the original fill color and add a dark border. Never turn markers white on selection.
+
+## Testing
+
+```bash
+pnpm test        # Run all tests
+pnpm test:watch  # Watch mode
+```
+
+Tests are colocated next to source:
+- `utils/__tests__/` — pure utility function tests
+- `machines/__tests__/` — XState machine event tests
+
+Always test new machine events and utility functions. Focus on pure logic, not React components.
+
 ## Formatting
 
 ```bash

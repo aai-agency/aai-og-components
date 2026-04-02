@@ -152,6 +152,8 @@ export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[
 // ── CSV Conversion ───────────────────────────────────────────────────────────
 
 /** Convert a CSV row into an Asset (type=well) */
+export { computeLassoSelection, extractPolygons } from "./lasso-selection";
+
 export function csvRowToAsset(row: Record<string, string>): Asset {
   const statusMap: Record<string, string> = {
     PRODUCING: "producing",
