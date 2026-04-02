@@ -136,7 +136,7 @@ export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggl
           All
         </button>
 
-        {Array.from(categories.entries()).map(([category, categoryChips], catIdx) => (
+        {Array.from(categories.entries()).map(([category, categoryChips]) => (
           <React.Fragment key={category}>
             {categoryChips.map((chip) => {
               const isActive = activeIds.has(chip.id);

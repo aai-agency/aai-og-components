@@ -120,8 +120,12 @@ export function getAssetColor(asset: Asset, scheme: ColorScheme, typeConfigs?: M
       const basin = (asset.properties?.basin as string) ?? "";
       return hashColor(basin);
     }
-    default:
+    default: {
+      // Dynamic property-based coloring: if scheme matches a string property key, hash it
+      const propVal = asset.properties?.[scheme];
+      if (typeof propVal === "string" && propVal) return hashColor(propVal);
       return config?.color ?? "#6366f1";
+    }
   }
 }
 

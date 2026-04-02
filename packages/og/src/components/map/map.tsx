@@ -7,7 +7,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapMachine } from "../../machines";
-import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
+import type { Asset, AssetTypeConfig, ColorScheme, MapViewState } from "../../types";
 import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
 import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
 import { AssetDetailCard } from "../asset-detail";
@@ -38,38 +38,8 @@ import { useClusters } from "./use-clusters";
 
 const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
 
-const LEGEND_ITEMS: Record<string, { label: string; items: { color: string; label: string }[] }> = {
-  status: {
-    label: "Asset Status",
-    items: [
-      { color: "#22c55e", label: "Producing / Active" },
-      { color: "#f59e0b", label: "Shut-in / Inactive" },
-      { color: "#6366f1", label: "Drilled" },
-      { color: "#8b5cf6", label: "Permitted" },
-      { color: "#6b7280", label: "Abandoned / Offline" },
-      { color: "#06b6d4", label: "Injection" },
-    ],
-  },
-  type: {
-    label: "Asset Type",
-    items: [
-      { color: "#22c55e", label: "Well" },
-      { color: "#06b6d4", label: "Meter" },
-      { color: "#f59e0b", label: "Pipeline" },
-      { color: "#8b5cf6", label: "Facility" },
-      { color: "#ef4444", label: "Tank" },
-      { color: "#6b7280", label: "Other" },
-    ],
-  },
-  wellType: {
-    label: "Well Type",
-    items: [
-      { color: "#22c55e", label: "Oil" },
-      { color: "#ef4444", label: "Gas" },
-      { color: "#06b6d4", label: "Injection" },
-      { color: "#8b5cf6", label: "Disposal" },
-    ],
-  },
+/** Static legend definitions for threshold-based schemes (not derivable from data) */
+const STATIC_LEGENDS: Record<string, { label: string; items: { color: string; label: string }[] }> = {
   production: {
     label: "Cum Production (BOE)",
     items: [
@@ -88,6 +58,75 @@ const LEGEND_ITEMS: Record<string, { label: string; items: { color: string; labe
     ],
   },
 };
+
+const SCHEME_LABELS: Record<string, string> = {
+  status: "Status",
+  type: "Asset Type",
+  wellType: "Well Type",
+  production: "Cum Production (BOE)",
+  waterCut: "Water Cut",
+  operator: "Operator",
+  basin: "Basin",
+};
+
+/** Build legend dynamically from the actual assets + color scheme */
+function buildLegend(
+  assets: Asset[],
+  colorBy: string,
+  typeConfigs?: Map<string, AssetTypeConfig>,
+): { label: string; items: { color: string; label: string }[] } | null {
+  if (assets.length === 0) return null;
+
+  // Use static legend for threshold-based schemes
+  if (STATIC_LEGENDS[colorBy]) return STATIC_LEGENDS[colorBy];
+
+  // For data-driven schemes, scan the assets and group by color
+  const colorGroups = new Map<string, { color: string; label: string; count: number }>();
+
+  for (const asset of assets) {
+    let value: string;
+    const color = getAssetColor(asset, colorBy as ColorScheme, typeConfigs);
+
+    switch (colorBy) {
+      case "status":
+        value = asset.status;
+        break;
+      case "type":
+        value = asset.type;
+        break;
+      case "wellType":
+        value = (asset.properties?.wellType as string) ?? "unknown";
+        break;
+      case "operator":
+        value = (asset.properties?.operator as string) ?? "unknown";
+        break;
+      case "basin":
+        value = (asset.properties?.basin as string) ?? "unknown";
+        break;
+      default:
+        value = asset.type;
+        break;
+    }
+
+    const existing = colorGroups.get(value);
+    if (existing) {
+      existing.count++;
+    } else {
+      colorGroups.set(value, { color, label: value, count: 1 });
+    }
+  }
+
+  // Sort by count descending, cap at 8 items
+  const items = Array.from(colorGroups.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+    .map(({ color, label }) => ({ color, label }));
+
+  return {
+    label: SCHEME_LABELS[colorBy] ?? colorBy,
+    items,
+  };
+}
 
 // ── Collapsible Map Legend ────────────────────────────────────────────────────
 
@@ -292,8 +331,29 @@ function OverlayFeatureTooltip({
   );
 }
 
-function MapLegend({ label, items }: { label: string; items: { color: string; label: string }[] }) {
+interface MapLegendProps {
+  label: string;
+  items: { color: string; label: string }[];
+  schemes: { value: string; label: string }[];
+  activeScheme: string;
+  onSchemeChange?: (scheme: string) => void;
+}
+
+function MapLegend({ label, items, schemes, activeScheme, onSchemeChange }: MapLegendProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [dropdownOpen]);
 
   return (
     <div
@@ -301,13 +361,15 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
         position: "absolute",
         bottom: 12,
         right: 12,
-        background: PANEL_BG_LIGHT,
+        background: "#ffffff",
         borderRadius: 8,
         padding: collapsed ? "6px 10px" : "10px 14px",
         color: TEXT_SECONDARY,
         fontSize: 11,
-        border: BORDER,
-        minWidth: collapsed ? undefined : 130,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+        zIndex: 10,
+        minWidth: collapsed ? undefined : 150,
         transition: "padding 0.15s",
       }}
     >
@@ -316,21 +378,91 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 12,
+          gap: 8,
           marginBottom: collapsed ? 0 : 6,
         }}
       >
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 11,
-            color: TEXT_MUTED,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {label}
-        </span>
+        {/* Scheme selector dropdown */}
+        <div ref={dropdownRef} style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => onSchemeChange && setDropdownOpen(!dropdownOpen)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontWeight: 600,
+              fontSize: 11,
+              color: TEXT_MUTED,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              background: "none",
+              border: "none",
+              cursor: onSchemeChange ? "pointer" : "default",
+              padding: 0,
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            {label}
+            {onSchemeChange && (
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            )}
+          </button>
+          {dropdownOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "100%",
+                right: 0,
+                marginBottom: 4,
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                padding: 4,
+                minWidth: 140,
+                zIndex: 20,
+              }}
+            >
+              {schemes.map((s) => (
+                <button
+                  type="button"
+                  key={s.value}
+                  onClick={() => {
+                    onSchemeChange?.(s.value);
+                    setDropdownOpen(false);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "6px 10px",
+                    borderRadius: 4,
+                    border: "none",
+                    background: activeScheme === s.value ? ACCENT_15 : "transparent",
+                    color: activeScheme === s.value ? ACCENT : TEXT_SECONDARY,
+                    fontSize: 11,
+                    fontWeight: activeScheme === s.value ? 600 : 400,
+                    fontFamily: FONT_FAMILY,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeScheme !== s.value) (e.currentTarget as HTMLElement).style.background = HOVER_BG;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = activeScheme === s.value ? ACCENT_15 : "transparent";
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <TooltipHint label={collapsed ? "Expand legend" : "Collapse legend"}>
         <button
           type="button"
@@ -343,23 +475,14 @@ function MapLegend({ label, items }: { label: string; items: { color: string; la
             height: 20,
             borderRadius: 4,
             border: BORDER,
-            background: "rgba(255,255,255,0.8)",
+            background: "#ffffff",
             cursor: "pointer",
             padding: 0,
             flexShrink: 0,
             color: TEXT_MUTED,
           }}
         >
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
             {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
           </svg>
         </button>
@@ -423,6 +546,7 @@ export function OGMap({
   renderDetailHeader,
   renderDetailBody,
   onDetailClose,
+  onColorByChange,
 }: OGMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -465,6 +589,7 @@ export function OGMap({
   }, [colorBy, send]);
 
   const assets = state.context.assets;
+  const activeColorBy = state.context.colorScheme;
   const viewState = state.context.viewState;
   const hovered = state.context.hovered;
   const hoveredRef = useRef(hovered);
@@ -525,7 +650,7 @@ export function OGMap({
             asset,
             index: c.assetIndex!,
             position: [c.lng, c.lat] as [number, number],
-            color: hexToRgba(getAssetColor(asset, colorBy, typeConfigMap)),
+            color: hexToRgba(getAssetColor(asset, activeColorBy, typeConfigMap)),
           };
         });
     }
@@ -547,7 +672,7 @@ export function OGMap({
       });
     }
     return result;
-  }, [clusterEnabled, clusters, assets, colorBy, typeConfigMap]);
+  }, [clusterEnabled, clusters, assets, activeColorBy, typeConfigMap]);
 
   // ── Cluster GeoJSON (for native Mapbox circle/symbol layers) ──
   const clusterGeoJSON = useMemo(() => {
@@ -580,14 +705,14 @@ export function OGMap({
           },
           properties: {
             id: asset.id,
-            color: getAssetColor(asset, colorBy, typeConfigMap),
+            color: getAssetColor(asset, activeColorBy, typeConfigMap),
             width: typeConfigMap.get(asset.type)?.lineWidth ?? 3,
           },
         });
       }
     }
     return { type: "FeatureCollection" as const, features };
-  }, [assets, colorBy, typeConfigMap]);
+  }, [assets, activeColorBy, typeConfigMap]);
 
   // ── Initialize Mapbox GL map (pure, no wrapper) ──
   useEffect(() => {
@@ -704,7 +829,7 @@ export function OGMap({
       autoHighlight: true,
       highlightColor: [255, 255, 0, 80],
       updateTriggers: {
-        getFillColor: [colorBy],
+        getFillColor: [activeColorBy],
         getLineColor: [selectedIds],
         getLineWidth: [selectedIds],
         getRadius: [selectedIds],
@@ -712,7 +837,7 @@ export function OGMap({
     });
 
     deckOverlayRef.current.setProps({ layers: [scatterLayer] });
-  }, [pointAssetData, colorBy, selectedIds, mapReady]);
+  }, [pointAssetData, activeColorBy, selectedIds, mapReady]);
 
   // ── Add/update native Mapbox sources & layers for clusters, lines, overlays ──
   useEffect(() => {
@@ -1191,7 +1316,45 @@ export function OGMap({
   }, [showSelectionSummary, selectedIds, assets]);
 
   const mapInstance = mapReady ? mapRef.current : null;
-  const legend = LEGEND_ITEMS[colorBy];
+  const legend = useMemo(() => buildLegend(assets, activeColorBy, typeConfigMap), [assets, activeColorBy, typeConfigMap]);
+
+  // Build available color schemes from the data
+  const availableSchemes = useMemo(() => {
+    const schemes: { value: string; label: string }[] = [
+      { value: "status", label: "Status" },
+      { value: "type", label: "Asset Type" },
+    ];
+    // Check for string properties with 2+ distinct values
+    const propKeys = new Set<string>();
+    for (const asset of assets) {
+      if (!asset.properties) continue;
+      for (const [key, val] of Object.entries(asset.properties)) {
+        if (typeof val === "string" && val) propKeys.add(key);
+      }
+    }
+    // Add well-known schemes if data supports them
+    if (propKeys.has("wellType")) schemes.push({ value: "wellType", label: "Well Type" });
+    if (propKeys.has("operator")) schemes.push({ value: "operator", label: "Operator" });
+    if (propKeys.has("basin")) schemes.push({ value: "basin", label: "Basin" });
+    if (propKeys.has("cumBOE") || propKeys.has("cumOil")) schemes.push({ value: "production", label: "Production" });
+    if (propKeys.has("cumOil") && propKeys.has("cumWater")) schemes.push({ value: "waterCut", label: "Water Cut" });
+    // Add any remaining string properties as dynamic schemes
+    const knownKeys = new Set(["wellType", "operator", "basin", "cumBOE", "cumOil", "cumWater", "cumGas", "api", "peakOil", "peakGas", "tvd", "md", "lateralLength", "firstProdDate", "spudDate", "coordinatesBH"]);
+    for (const key of propKeys) {
+      if (knownKeys.has(key)) continue;
+      // Check if property has 2+ distinct values
+      const vals = new Set<string>();
+      for (const a of assets) {
+        const v = a.properties?.[key];
+        if (typeof v === "string" && v) vals.add(v);
+        if (vals.size >= 2) break;
+      }
+      if (vals.size >= 2) {
+        schemes.push({ value: key, label: key.charAt(0).toUpperCase() + key.slice(1) });
+      }
+    }
+    return schemes;
+  }, [assets]);
 
   if (!mapboxAccessToken) {
     return (
@@ -1367,7 +1530,18 @@ export function OGMap({
       )}
 
       {/* Legend */}
-      {showLegend && legend && <MapLegend label={legend.label} items={legend.items} />}
+      {showLegend && legend && (
+        <MapLegend
+          label={legend.label}
+          items={legend.items}
+          schemes={availableSchemes}
+          activeScheme={activeColorBy}
+          onSchemeChange={(s) => {
+            send({ type: "SET_COLOR_SCHEME", scheme: s as ColorScheme });
+            onColorByChange?.(s as ColorScheme);
+          }}
+        />
+      )}
 
       {/* Drag-and-drop overlay indicator */}
       {enableOverlayUpload && isDragging && (

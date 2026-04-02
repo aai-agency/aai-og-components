@@ -14,6 +14,8 @@ export interface OGMapProps {
   initialViewState?: MapViewState;
   /** Color assets by this scheme */
   colorBy?: ColorScheme;
+  /** Called when the user changes the color scheme via the legend dropdown */
+  onColorByChange?: (scheme: ColorScheme) => void;
   /** Per-type display configuration (icons, colors, tooltip fields) */
   typeConfigs?: AssetTypeConfig[];
   /** Optional storage backend. Enables persistence + overlay saving. */

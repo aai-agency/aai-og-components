@@ -487,6 +487,7 @@ function HomePage() {
             mapboxAccessToken={MAPBOX_TOKEN}
             mapStyle="mapbox://styles/mapbox/light-v11"
             colorBy={colorBy}
+            onColorByChange={setColorBy}
             height="700px"
             cluster={false}
             enableOverlayUpload={true}
