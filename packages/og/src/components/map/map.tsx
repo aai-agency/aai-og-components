@@ -617,6 +617,7 @@ export function OGMap({
   const clearDrawRef = useRef<(() => void) | null>(null);
   const savedLassoRef = useRef<{ ids: string[]; overlayFeatures: typeof lassoSelectedOverlayFeatures } | null>(null);
   const shiftKeyRef = useRef(false);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { shiftKeyRef.current = e.shiftKey; };
@@ -826,7 +827,7 @@ export function OGMap({
       lineWidthMaxPixels: 3,
       stroked: true,
       filled: true,
-      pickable: true,
+      pickable: !isDrawingMode,
       autoHighlight: true,
       highlightColor: [255, 255, 0, 80],
       updateTriggers: {
@@ -838,7 +839,7 @@ export function OGMap({
     });
 
     deckOverlayRef.current.setProps({ layers: [scatterLayer] });
-  }, [pointAssetData, activeColorBy, selectedIds, mapReady]);
+  }, [pointAssetData, activeColorBy, selectedIds, mapReady, isDrawingMode]);
 
   // ── Add/update native Mapbox sources & layers for clusters, lines, overlays ──
   useEffect(() => {
@@ -1000,6 +1001,9 @@ export function OGMap({
     if (!map || !mapReady) return;
 
     const handleClick = (evt: mapboxgl.MapMouseEvent) => {
+      // Skip marker clicks when in draw mode
+      if (containerRef.current?.classList.contains("drawing-active")) return;
+
       // First: check deck.gl picking (asset points)
       if (deckOverlayRef.current) {
         const pickInfo = deckOverlayRef.current.pickObject({
@@ -1434,6 +1438,7 @@ export function OGMap({
           onDrawDelete={handleDrawDelete}
           onFitToAssets={handleFitToAssets}
           clearDrawRef={clearDrawRef}
+          onDrawingModeChange={setIsDrawingMode}
           overlay={
             enableOverlayUpload
               ? {

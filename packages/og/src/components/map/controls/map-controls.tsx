@@ -1008,6 +1008,8 @@ export interface MapControlsProps {
   overlay?: OverlayCallbacks;
   /** Ref that receives a function to programmatically clear the draw */
   clearDrawRef?: React.MutableRefObject<(() => void) | null>;
+  /** Called when draw mode changes (true = drawing active, false = not drawing) */
+  onDrawingModeChange?: (isDrawing: boolean) => void;
 }
 
 export function MapControls({
@@ -1021,12 +1023,15 @@ export function MapControls({
   onFitToAssets,
   overlay,
   clearDrawRef,
+  onDrawingModeChange,
 }: MapControlsProps) {
   const drawRef = useRef<MapboxDraw | null>(null);
   const onDrawCreateRef = useRef(onDrawCreate);
   onDrawCreateRef.current = onDrawCreate;
   const onDrawDeleteRef = useRef(onDrawDelete);
   onDrawDeleteRef.current = onDrawDelete;
+  const onDrawingModeChangeRef = useRef(onDrawingModeChange);
+  onDrawingModeChangeRef.current = onDrawingModeChange;
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const activeToolRef = useRef<string | null>(null);
   const [hasFeatures, setHasFeatures] = useState(false);
@@ -1041,6 +1046,11 @@ export function MapControls({
   const showCenter = controls.includes("center");
   const showLayers = controls.includes("layers") && (layers.length > 0 || overlay);
   const showDrawing = enabledDrawTools.length > 0;
+
+  // Notify parent when draw mode changes
+  useEffect(() => {
+    onDrawingModeChangeRef.current?.(isDrawing);
+  }, [isDrawing]);
 
   // ── Initialize MapboxDraw ──
   useEffect(() => {
