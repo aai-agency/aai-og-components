@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useState } from "react";
+import { GroupedVirtuoso } from "react-virtuoso";
 import type { Asset, AssetTypeConfig } from "../../../types";
 import { TooltipHint } from "../tooltip-hint";
 import {
@@ -42,7 +43,14 @@ export interface SelectionPanelProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Build filter chips dynamically from the selection metadata */
+/** Max chips per property category (top N by count) */
+const MAX_CHIPS_PER_PROPERTY = 6;
+
+/**
+ * Build filter chips dynamically from the selected assets' metadata.
+ * Scans asset.type, asset.status, and all string values in asset.properties.
+ * No hardcoded field names — fully driven by the data.
+ */
 function buildChips(
   assets: Asset[],
   overlayFeatures: SelectedOverlayFeature[],
@@ -50,7 +58,7 @@ function buildChips(
 ): FilterChip[] {
   const chips: FilterChip[] = [];
 
-  // Type chips
+  // Always chip on type (core field)
   const byType = groupBy(assets, (a) => a.type);
   for (const [type, items] of byType) {
     chips.push({
@@ -62,7 +70,7 @@ function buildChips(
     });
   }
 
-  // Status chips
+  // Always chip on status (core field)
   const byStatus = groupBy(assets, (a) => a.status);
   for (const [status, items] of byStatus) {
     chips.push({
@@ -74,24 +82,33 @@ function buildChips(
     });
   }
 
-  // Operator chips (top 5 by count)
-  const operatorMap = new Map<string, number>();
-  for (const a of assets) {
-    const op = a.properties.operator;
-    if (typeof op === "string" && op) {
-      operatorMap.set(op, (operatorMap.get(op) ?? 0) + 1);
+  // Dynamically chip on any string property with 2+ distinct values
+  const propCounts = new Map<string, Map<string, number>>();
+  for (const asset of assets) {
+    if (!asset.properties) continue;
+    for (const [key, val] of Object.entries(asset.properties)) {
+      if (typeof val !== "string" || !val) continue;
+      let valMap = propCounts.get(key);
+      if (!valMap) {
+        valMap = new Map();
+        propCounts.set(key, valMap);
+      }
+      valMap.set(val, (valMap.get(val) ?? 0) + 1);
     }
   }
-  const topOperators = Array.from(operatorMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  for (const [op, count] of topOperators) {
-    chips.push({
-      id: `operator:${op}`,
-      label: op,
-      count,
-      category: "operator",
-    });
+
+  for (const [propKey, valMap] of propCounts) {
+    // Only create chips for properties with 2+ distinct values (otherwise not useful as a filter)
+    if (valMap.size < 2) continue;
+    const sorted = Array.from(valMap.entries()).sort((a, b) => b[1] - a[1]);
+    for (const [val, count] of sorted.slice(0, MAX_CHIPS_PER_PROPERTY)) {
+      chips.push({
+        id: `prop.${propKey}:${val}`,
+        label: val,
+        count,
+        category: propKey,
+      });
+    }
   }
 
   // Overlay name chips
@@ -109,48 +126,52 @@ function buildChips(
   return chips;
 }
 
-/** Apply active filters to the items list */
+/** Apply active filters to the items list. Fully dynamic — parses category:value from chip IDs. */
 function applyFilters(items: MiniCardItem[], activeFilters: Set<string>): MiniCardItem[] {
   if (activeFilters.size === 0) return items;
 
-  // Parse active filters into categories
-  const typeFilters = new Set<string>();
-  const statusFilters = new Set<string>();
-  const operatorFilters = new Set<string>();
-  const overlayFilters = new Set<string>();
-
+  // Group active filters by category
+  const filtersByCategory = new Map<string, Set<string>>();
   for (const f of activeFilters) {
-    const [cat, val] = f.split(":");
-    if (cat === "type") typeFilters.add(val);
-    else if (cat === "status") statusFilters.add(val);
-    else if (cat === "operator") operatorFilters.add(val);
-    else if (cat === "overlay") overlayFilters.add(val);
+    const colonIdx = f.indexOf(":");
+    if (colonIdx === -1) continue;
+    const cat = f.slice(0, colonIdx);
+    const val = f.slice(colonIdx + 1);
+    let vals = filtersByCategory.get(cat);
+    if (!vals) {
+      vals = new Set();
+      filtersByCategory.set(cat, vals);
+    }
+    vals.add(val);
   }
 
+  const overlayFilters = filtersByCategory.get("overlay");
+  const hasAssetFilters = Array.from(filtersByCategory.keys()).some((k) => k !== "overlay");
+
   return items.filter((item) => {
-    // If item is an asset
     if (item.asset) {
       const a = item.asset;
-      if (typeFilters.size > 0 && !typeFilters.has(a.type)) return false;
-      if (statusFilters.size > 0 && !statusFilters.has(a.status)) return false;
-      if (operatorFilters.size > 0) {
-        const op = a.properties.operator;
-        if (typeof op !== "string" || !operatorFilters.has(op)) return false;
-      }
-      // If only overlay filters are active, don't show assets
-      if (overlayFilters.size > 0 && typeFilters.size === 0 && statusFilters.size === 0 && operatorFilters.size === 0) {
-        return false;
+      // If only overlay filters are active, hide assets
+      if (overlayFilters && !hasAssetFilters) return false;
+
+      for (const [cat, vals] of filtersByCategory) {
+        if (cat === "overlay") continue;
+        if (cat === "type") {
+          if (!vals.has(a.type)) return false;
+        } else if (cat === "status") {
+          if (!vals.has(a.status)) return false;
+        } else if (cat.startsWith("prop.")) {
+          const propKey = cat.slice(5);
+          const propVal = a.properties?.[propKey];
+          if (typeof propVal !== "string" || !vals.has(propVal)) return false;
+        }
       }
       return true;
     }
 
-    // If item is an overlay feature
     if (item.overlayInfo) {
-      if (overlayFilters.size > 0 && !overlayFilters.has(item.overlayInfo.overlayName)) return false;
-      // If only asset filters are active, don't show overlay features
-      if ((typeFilters.size > 0 || statusFilters.size > 0 || operatorFilters.size > 0) && overlayFilters.size === 0) {
-        return false;
-      }
+      if (overlayFilters && !overlayFilters.has(item.overlayInfo.overlayName)) return false;
+      if (hasAssetFilters && !overlayFilters) return false;
       return true;
     }
 
@@ -175,7 +196,7 @@ export const SelectionPanel = memo(function SelectionPanel({
   const totalCount = assets.length + overlayFeatures.length;
   if (totalCount === 0) return null;
 
-  // Build all mini card items
+  // Build all mini card items, sorted alphabetically
   const allItems = useMemo(() => {
     const items: MiniCardItem[] = [];
     for (const asset of assets) {
@@ -184,6 +205,7 @@ export const SelectionPanel = memo(function SelectionPanel({
     for (const f of overlayFeatures) {
       items.push(overlayFeatureToMiniCard(f.overlayId, f.overlayName, f.featureIndex, f.properties, f.geometryType));
     }
+    items.sort((a, b) => a.name.localeCompare(b.name));
     return items;
   }, [assets, overlayFeatures, typeConfigs]);
 
@@ -311,66 +333,68 @@ export const SelectionPanel = memo(function SelectionPanel({
         />
       </div>
 
-      {/* ── Item List (virtualized via overflow scroll) ── */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "4px 8px 8px",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
-      >
-        {Array.from(groupedItems.entries()).map(([category, items]) => (
-          <div key={category}>
-            {/* Category header */}
-            <div
-              style={{
-                position: "sticky",
-                top: 0,
-                padding: "8px 4px 4px",
-                fontSize: 10,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                color: TEXT_FAINT,
-                background: PANEL_BG,
-                zIndex: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span>{category}</span>
-              <span style={{ fontWeight: 400 }}>({items.length})</span>
-            </div>
-
-            {/* Cards */}
-            {items.map((item) => (
-              <MiniCard
-                key={item.id}
-                item={item}
-                active={activeItemId === item.id}
-                onClick={handleItemClick}
-                typeConfigs={typeConfigs}
-              />
-            ))}
-          </div>
-        ))}
-
-        {filteredItems.length === 0 && (
-          <div
-            style={{
-              padding: "40px 20px",
-              textAlign: "center",
-              color: TEXT_FAINT,
-              fontSize: 12,
-            }}
-          >
-            No items match the selected filters
-          </div>
-        )}
-      </div>
+      {/* ── Item List (virtualized) ── */}
+      {filteredItems.length === 0 ? (
+        <div
+          style={{
+            flex: 1,
+            padding: "40px 20px",
+            textAlign: "center",
+            color: TEXT_FAINT,
+            fontSize: 12,
+          }}
+        >
+          No items match the selected filters
+        </div>
+      ) : (
+        <GroupedVirtuoso
+          style={{ flex: 1, scrollbarWidth: "none" }}
+          groupCounts={Array.from(groupedItems.values()).map((items) => items.length)}
+          groupContent={(index) => {
+            const [category, items] = Array.from(groupedItems.entries())[index];
+            return (
+              <div
+                style={{
+                  padding: "8px 12px 4px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: TEXT_FAINT,
+                  background: PANEL_BG,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span>{category}</span>
+                <span style={{ fontWeight: 400 }}>({items.length})</span>
+              </div>
+            );
+          }}
+          itemContent={(index) => {
+            // Flatten grouped items to find the item at this flat index
+            let remaining = index;
+            for (const items of groupedItems.values()) {
+              if (remaining < items.length) {
+                const item = items[remaining];
+                return (
+                  <div style={{ padding: "0 8px" }}>
+                    <MiniCard
+                      item={item}
+                      active={activeItemId === item.id}
+                      onClick={handleItemClick}
+                      typeConfigs={typeConfigs}
+                    />
+                  </div>
+                );
+              }
+              remaining -= items.length;
+            }
+            return null;
+          }}
+        />
+      )}
 
       {/* ── Footer ── */}
       <div style={{ padding: "10px 12px", borderTop: BORDER_SUBTLE, flexShrink: 0 }}>

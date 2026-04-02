@@ -74,18 +74,6 @@ export const MiniCard = memo(function MiniCard({ item, active, onClick }: MiniCa
         if (!active) (e.currentTarget as HTMLElement).style.background = "transparent";
       }}
     >
-      {/* Color indicator */}
-      <div
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: item.color ?? "#6b7280",
-          flexShrink: 0,
-          marginTop: 4,
-        }}
-      />
-
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Name + type row */}
@@ -104,17 +92,6 @@ export const MiniCard = memo(function MiniCard({ item, active, onClick }: MiniCa
           >
             {item.name}
           </span>
-          {item.status && (
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: STATUS_COLORS[item.status] ?? "#6b7280",
-                flexShrink: 0,
-              }}
-            />
-          )}
         </div>
 
         {/* Type badge + category */}

@@ -1,5 +1,5 @@
-import React, { memo, useRef, useState, useCallback } from "react";
-import { ACCENT, BORDER, FONT_FAMILY, TEXT_FAINT, TEXT_MUTED, TEXT_SECONDARY } from "../theme";
+import React, { memo, useRef, useState, useCallback, useEffect } from "react";
+import { ACCENT, BORDER, FONT_FAMILY, HOVER_BG, TEXT_FAINT, TEXT_MUTED, TEXT_SECONDARY } from "../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,19 +22,62 @@ export interface FilterChipsProps {
   onClearAll?: () => void;
 }
 
+// ── Arrow Button ─────────────────────────────────────────────────────────────
+
+function ScrollArrow({ direction, onClick }: { direction: "left" | "right"; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 22,
+        height: 22,
+        borderRadius: 4,
+        border: BORDER,
+        background: "#ffffff",
+        cursor: "pointer",
+        flexShrink: 0,
+        color: TEXT_MUTED,
+        padding: 0,
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = HOVER_BG; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#ffffff"; }}
+    >
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+        {direction === "left" ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 6 15 12 9 18" />}
+      </svg>
+    </button>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggle, onClearAll }: FilterChipsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftFade, setShowLeftFade] = useState(false);
-  const [showRightFade, setShowRightFade] = useState(true);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const handleScroll = useCallback(() => {
+  const updateArrows = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setShowLeftFade(el.scrollLeft > 4);
-    setShowRightFade(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
   }, []);
+
+  const scroll = useCallback((direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction === "left" ? -150 : 150, behavior: "smooth" });
+    setTimeout(updateArrows, 200);
+  }, []);
+
+  // Check overflow on mount and when chips change
+  useEffect(() => {
+    updateArrows();
+  }, [chips, updateArrows]);
 
   if (chips.length === 0) return null;
 
@@ -49,52 +92,23 @@ export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggl
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      {/* Left fade */}
-      {showLeftFade && (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 24,
-            background: "linear-gradient(to right, rgba(255,255,255,0.95), transparent)",
-            zIndex: 2,
-            pointerEvents: "none",
-            borderRadius: "8px 0 0 8px",
-          }}
-        />
-      )}
-
-      {/* Right fade */}
-      {showRightFade && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 24,
-            background: "linear-gradient(to left, rgba(255,255,255,0.95), transparent)",
-            zIndex: 2,
-            pointerEvents: "none",
-            borderRadius: "0 8px 8px 0",
-          }}
-        />
-      )}
+    <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px" }}>
+      {canScrollLeft && <ScrollArrow direction="left" onClick={() => scroll("left")} />}
 
       <div
         ref={scrollRef}
-        onScroll={handleScroll}
+        onScroll={updateArrows}
+        onLoad={updateArrows}
         style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
           overflowX: "auto",
-          padding: "8px 12px",
+          padding: "4px 4px",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
+          flex: 1,
+          minWidth: 0,
         }}
       >
         {/* "All" chip */}
@@ -124,20 +138,6 @@ export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggl
 
         {Array.from(categories.entries()).map(([category, categoryChips], catIdx) => (
           <React.Fragment key={category}>
-            {/* Category separator (thin dot) */}
-            {catIdx > 0 && (
-              <div
-                style={{
-                  width: 3,
-                  height: 3,
-                  borderRadius: "50%",
-                  background: TEXT_FAINT,
-                  flexShrink: 0,
-                  margin: "0 2px",
-                }}
-              />
-            )}
-
             {categoryChips.map((chip) => {
               const isActive = activeIds.has(chip.id);
               return (
@@ -191,6 +191,8 @@ export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggl
           </React.Fragment>
         ))}
       </div>
+
+      {canScrollRight && <ScrollArrow direction="right" onClick={() => scroll("right")} />}
     </div>
   );
 });

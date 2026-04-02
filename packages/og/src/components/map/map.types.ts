@@ -1,7 +1,7 @@
 import type { Feature } from "geojson";
 import type { CSSProperties } from "react";
 import type { Asset, AssetStore, AssetTypeConfig, ColorScheme, MapViewState } from "../../types";
-import type { AssetDetailSection } from "./asset-detail";
+import type { AssetDetailSection } from "../asset-detail";
 import type { MapControlId, MapLayerId } from "./controls";
 import type { SelectedOverlayFeature } from "./selection-summary";
 

@@ -1,6 +1,7 @@
+import { createPortal } from "react-dom";
 import React, { memo, useCallback, useState, useEffect, useRef } from "react";
-import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../../types";
-import { formatNumber } from "../../../utils";
+import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../types";
+import { formatNumber } from "../../utils";
 import {
   BLUR_LG,
   BORDER,
@@ -14,9 +15,9 @@ import {
   TEXT_MUTED,
   TEXT_PRIMARY,
   TYPE_COLORS,
-} from "../theme";
-import { TooltipHint } from "../tooltip-hint";
-import { ProductionChart } from "./production-chart";
+} from "../../theme";
+import { TooltipHint } from "../shared/tooltip-hint";
+import { LineChart } from "../line-chart";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -270,6 +271,7 @@ MetadataView.displayName = "MetadataView";
 
 const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const timeSeries = asset.properties?.timeSeries as TimeSeries[] | undefined;
   if (!timeSeries || timeSeries.length === 0) return null;
 
@@ -301,23 +303,113 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
         >
           Production History
         </span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={TEXT_MUTED}
-          strokeWidth="2"
-          style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
-          aria-hidden="true"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {!collapsed && (
+            <TooltipHint label="Expand chart">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setExpanded(true); } }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                color: TEXT_MUTED,
+                cursor: "pointer",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            </span>
+            </TooltipHint>
+          )}
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={TEXT_MUTED}
+            strokeWidth="2"
+            style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
       </button>
       {!collapsed && (
         <div style={{ padding: "8px 0" }}>
-          <ProductionChart series={timeSeries} height={160} />
+          <LineChart series={timeSeries} height={160} />
         </div>
+      )}
+      {expanded && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 32,
+          }}
+          onClick={() => setExpanded(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: 24,
+              width: "100%",
+              maxWidth: 1200,
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
+              fontFamily: FONT_FAMILY,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
+                {asset.name} - Production History
+              </span>
+              <TooltipHint label="Close">
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                style={{
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: HOVER_BG,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  color: TEXT_MUTED,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              </TooltipHint>
+            </div>
+            <LineChart series={timeSeries} height={500} />
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

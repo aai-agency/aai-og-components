@@ -3,6 +3,7 @@ export {
   OGMap,
   MapControls,
   AssetDetailCard,
+  LineChart,
   ProductionChart,
   OverlayManager,
   SelectionSummaryCard,
@@ -21,8 +22,9 @@ export type {
   MapLayerId,
   AssetDetailCardProps,
   AssetDetailSection,
+  LineChartProps,
   ProductionChartProps,
-  ChartAnnotation,
+
   OverlayManagerProps,
   SelectionSummaryCardProps,
   SelectionPanelProps,

@@ -10,7 +10,7 @@ import { mapMachine } from "../../machines";
 import type { Asset, AssetTypeConfig, MapViewState } from "../../types";
 import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
 import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
-import { AssetDetailCard } from "./asset-detail";
+import { AssetDetailCard } from "../asset-detail";
 import { MapControls, type MapLayerId } from "./controls";
 import type { OGMapProps } from "./map.types";
 import { type SelectedOverlayFeature, SelectionPanel } from "./selection-summary";
