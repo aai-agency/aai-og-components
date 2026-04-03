@@ -1,6 +1,6 @@
 {
   "name": "@aai-agency/og-components",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Production-grade O&G React components for AI coding agents — maps, charts, detail cards, and more",
   "author": "Husam @ aai.agency <husam@aai.agency>",
   "type": "module",
