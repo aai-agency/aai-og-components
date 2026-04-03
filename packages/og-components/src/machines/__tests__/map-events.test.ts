@@ -57,7 +57,7 @@ describe("map machine view events", () => {
 
   it("FIT_TO_ASSETS recalculates viewState from visible assets", () => {
     const actor = createTestActor();
-    const before = actor.getSnapshot().context.viewState;
+    const _before = actor.getSnapshot().context.viewState;
     actor.send({ type: "FIT_TO_ASSETS" });
     const after = actor.getSnapshot().context.viewState;
     // ViewState should be recalculated (may or may not differ depending on assets)

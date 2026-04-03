@@ -285,7 +285,10 @@ export const mapMachine = setup({
     loading: {
       invoke: {
         src: "loadFromStore",
-        input: ({ context }) => ({ store: context.store! }),
+        input: ({ context }) => {
+          if (!context.store) throw new Error("store is required for loading");
+          return { store: context.store };
+        },
         onDone: {
           target: "ready",
           actions: assign(({ event }) => {
@@ -575,7 +578,9 @@ export const mapMachine = setup({
                   overlays = [...context.overlays, event.output];
                 }
                 // Auto-persist new/updated overlay
-                const savedOverlay = existing ? overlays.find((o) => o.id === existing.id)! : event.output;
+                const savedOverlay = existing
+                  ? (overlays.find((o) => o.id === existing.id) ?? event.output)
+                  : event.output;
                 if (context.store) context.store.saveOverlay(savedOverlay).catch(logStoreError);
                 return { overlays };
               }),

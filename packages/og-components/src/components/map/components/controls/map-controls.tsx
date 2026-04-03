@@ -1199,7 +1199,7 @@ export const MapControls = ({
       }
       drawRef.current = null;
     };
-  }, [map]);
+  }, [map, clearDrawRef]);
 
   // ── Fullscreen listener ──
   useEffect(() => {

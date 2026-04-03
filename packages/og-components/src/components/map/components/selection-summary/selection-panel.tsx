@@ -240,7 +240,7 @@ export const SelectionPanel = memo(function SelectionPanel({
         onSelectAsset?.(item.asset);
       } else if (item.overlayInfo) {
         const ovFeature = overlayFeatures.find(
-          (f) => f.overlayId === item.overlayInfo!.overlayId && f.featureIndex === item.overlayInfo!.featureIndex,
+          (f) => f.overlayId === item.overlayInfo?.overlayId && f.featureIndex === item.overlayInfo?.featureIndex,
         );
         if (ovFeature) onSelectOverlayFeature?.(ovFeature);
       }

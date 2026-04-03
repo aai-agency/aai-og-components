@@ -80,14 +80,18 @@ export const FilterChips = memo(function FilterChips({ chips, activeIds, onToggl
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
   }, []);
 
-  const scroll = useCallback((direction: "left" | "right") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: direction === "left" ? -150 : 150, behavior: "smooth" });
-    setTimeout(updateArrows, 200);
-  }, []);
+  const scroll = useCallback(
+    (direction: "left" | "right") => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollBy({ left: direction === "left" ? -150 : 150, behavior: "smooth" });
+      setTimeout(updateArrows, 200);
+    },
+    [updateArrows],
+  );
 
   // Check overflow on mount and when chips change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: chips triggers re-check of scroll overflow when chip list changes
   useEffect(() => {
     updateArrows();
   }, [chips, updateArrows]);

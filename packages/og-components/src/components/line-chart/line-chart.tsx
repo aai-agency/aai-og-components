@@ -266,12 +266,12 @@ export const LineChart = memo(
 
     const aligned = useMemo(
       () => (filteredSeries.length > 0 ? buildAlignedData(filteredSeries, rightAxisFluids, colorMap, labelMap) : null),
-      [filteredSeries, rightAxisFluids, colorMap],
+      [filteredSeries, rightAxisFluids, colorMap, labelMap],
     );
 
     useEffect(() => {
       if (aligned) setVisibility(aligned.meta.map(() => true));
-    }, [aligned?.meta.length]);
+    }, [aligned]);
 
     const handleToggle = useCallback((idx: number) => {
       setVisibility((prev) => {
@@ -377,7 +377,7 @@ export const LineChart = memo(
           chartRef.current = null;
         }
       };
-    }, [aligned, height, width, filteredSeries.length, hasRightAxis]);
+    }, [aligned, height, width, filteredSeries.length, hasRightAxis, resolvedFormatX, visibility, isTimeScale]);
 
     // ── Handle resize ──
     useEffect(() => {

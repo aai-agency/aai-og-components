@@ -670,10 +670,11 @@ export const OGMap = ({
       return clusters
         .filter((c) => !c.isCluster && c.assetIndex != null)
         .map((c) => {
-          const asset = assets[c.assetIndex!];
+          const idx = c.assetIndex as number;
+          const asset = assets[idx];
           return {
             asset,
-            index: c.assetIndex!,
+            index: idx,
             position: [c.lng, c.lat] as [number, number],
             color: hexToRgba(getAssetColor(asset, activeColorBy, typeConfigMap)),
           };
@@ -821,7 +822,7 @@ export const OGMap = ({
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [mapboxAccessToken, mapStyle, interactive]);
+  }, [mapboxAccessToken, mapStyle, interactive, initialViewState, onViewStateChange, send]);
 
   // ── Auto-fit bounds on first data load ──
   useEffect(() => {
@@ -978,7 +979,7 @@ export const OGMap = ({
         },
       });
     }
-  }, [labelGeoJSON, mapReady]);
+  }, [labelGeoJSON, mapReady, visibleLayers]);
 
   // ── Sync label layer visibility with visibleLayers state ──
   useEffect(() => {
@@ -1257,7 +1258,7 @@ export const OGMap = ({
         map.off("mouseout", handleMouseLeave);
       } catch {}
     };
-  }, [mapReady, assets, overlays, send, onAssetHover]);
+  }, [mapReady, overlays, send, onAssetHover]);
 
   // ── Drag-and-drop overlay upload ──
   const [isDragging, setIsDragging] = useState(false);
