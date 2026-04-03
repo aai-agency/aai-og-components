@@ -1153,7 +1153,7 @@ export function OGMap({
 
     map.on("click", handleClick);
     return () => {
-      if (mapRef.current) map.off("click", handleClick);
+      try { map.off("click", handleClick); } catch {}
     };
   }, [mapReady, assets, overlays, viewState.zoom, send, onAssetClick]);
 
@@ -1233,10 +1233,10 @@ export function OGMap({
     map.on("mousemove", handleMouseMove);
     map.on("mouseout", handleMouseLeave);
     return () => {
-      if (mapRef.current) {
+      try {
         map.off("mousemove", handleMouseMove);
         map.off("mouseout", handleMouseLeave);
-      }
+      } catch {}
     };
   }, [mapReady, assets, overlays, send, onAssetHover]);
 
