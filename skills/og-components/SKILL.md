@@ -56,11 +56,7 @@ Required Tailwind setup (in app CSS, after your `@import "tailwindcss"`):
 @import "@aai-agency/og-components/styles.css";
 ```
 
-For charts, also add:
-
-```ts
-import "uplot/dist/uPlot.min.css";
-```
+Chart CSS (uPlot) is bundled in styles.css — no separate import needed.
 
 ## Mapbox Token Setup
 
