@@ -2,7 +2,6 @@ import { LineChart } from "@aai-agency/og-components";
 import type { TimeSeries } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import "uplot/dist/uPlot.min.css";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
 
 const generateTimeSeries = (months: number, fluidType: "oil" | "gas" | "water", base: number): TimeSeries => {

@@ -52,7 +52,7 @@ Both accept the same `series: TimeSeries[]` prop.
 
 ```tsx
 import { LineChart } from "@aai-agency/og-components";
-import "uplot/dist/uPlot.min.css";
+
 
 <LineChart
   series={series}
@@ -72,7 +72,7 @@ Key props:
 
 ```tsx
 import { ProductionChart } from "@aai-agency/og-components";
-import "uplot/dist/uPlot.min.css";
+
 
 <ProductionChart
   series={series}
@@ -88,23 +88,9 @@ Additional props over LineChart:
 - `annotations: ChartAnnotation[]` — controlled annotations
 - `showVarianceFill: boolean` — fill between actual and forecast
 
-## CSS Import
+## CSS
 
-Charts require uPlot CSS. Without it, the chart renders but looks broken.
-
-### Incorrect
-
-```tsx
-// Forgot CSS import
-import { LineChart } from "@aai-agency/og-components";
-```
-
-### Correct
-
-```tsx
-import { LineChart } from "@aai-agency/og-components";
-import "uplot/dist/uPlot.min.css";
-```
+Chart CSS (uPlot) is bundled in `@aai-agency/og-components/styles.css`. No separate import needed — if the consumer has the styles.css import, charts work out of the box.
 
 ## Container Height
 
