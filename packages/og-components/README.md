@@ -75,15 +75,6 @@ const App = () => (
 - Tailwind CSS 4+
 - Mapbox access token ([get one here](https://account.mapbox.com/access-tokens/))
 
-## Development
-
-```bash
-pnpm install
-pnpm dev        # Run the interactive playground
-pnpm build      # Build the library
-pnpm typecheck  # Type check
-```
-
 ## Documentation
 
 - [skills/og-components/SKILL.md](./skills/og-components/SKILL.md) — Full agent skill with rules and workflow

@@ -20,21 +20,23 @@
       "tag": "component",
       "version": "0.1.0",
       "icon": "CreditCard"
-    }
-  ],
-  "roadmap": [
+    },
     {
       "name": "OverlayManager",
       "description": "Drag-and-drop file uploads for KMZ, KML, GeoJSON, and Shapefiles. Per-feature visibility and layer controls.",
       "tag": "component",
+      "version": "0.1.0",
       "icon": "Layers"
     },
     {
       "name": "MapControls",
       "description": "Toolbar with pan, zoom, fullscreen, center, drawing modes, and layer toggle controls.",
       "tag": "component",
+      "version": "0.1.0",
       "icon": "MousePointer2"
-    },
+    }
+  ],
+  "roadmap": [
     {
       "name": "AssetStore",
       "description": "Three storage backends: InMemory, LocalStorage, and SQLite (WASM). Full import/export and migration utilities.",

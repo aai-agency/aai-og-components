@@ -486,8 +486,8 @@
     }
   },
   {
-    "id": "25-083-23421",
-    "name": "SUNDANCE KID 2H 2H",
+    "id": "25-083-23421-2",
+    "name": "SUNDANCE KID 2H 2H #2",
     "type": "well",
     "status": "producing",
     "coordinates": { "lat": 47.89745, "lng": -104.17016 },
@@ -2644,8 +2644,8 @@
     }
   },
   {
-    "id": "33-053-03828",
-    "name": "FLATLAND 11X-2F",
+    "id": "33-053-03828-2",
+    "name": "FLATLAND 11X-2F #2",
     "type": "well",
     "status": "p-&-a",
     "coordinates": { "lat": 48.109839, "lng": -103.126158 },
@@ -3699,8 +3699,8 @@
     }
   },
   {
-    "id": "05-123-41337",
-    "name": "MAVERICK STATE 5N-B16HZ",
+    "id": "05-123-41337-2",
+    "name": "MAVERICK STATE 5N-B16HZ #2",
     "type": "well",
     "status": "producing",
     "coordinates": { "lat": 40.22937, "lng": -104.88351 },
@@ -5132,8 +5132,8 @@
     }
   },
   {
-    "id": "05-123-24141",
-    "name": "BARNEY 35-14",
+    "id": "05-123-24141-2",
+    "name": "BARNEY 35-14 #2",
     "type": "well",
     "status": "inactive-producer",
     "coordinates": { "lat": 40.21923, "lng": -104.74616 },
@@ -5252,8 +5252,8 @@
     }
   },
   {
-    "id": "05-123-24141",
-    "name": "BARNEY 35-14",
+    "id": "05-123-24141-3",
+    "name": "BARNEY 35-14 #3",
     "type": "well",
     "status": "inactive-producer",
     "coordinates": { "lat": 40.21923, "lng": -104.74616 },

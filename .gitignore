@@ -28,5 +28,6 @@ Thumbs.db
 
 # Build artifacts
 *.tsbuildinfo
-apps/docs/src/routes/playground.tsx
+.tanstack/
+*.gen.ts
 .gstack/

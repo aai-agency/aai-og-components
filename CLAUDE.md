@@ -65,7 +65,7 @@ Uses tsup with these entry points:
 
 ## Sample Data
 
-The `apps/playground/public/data/` directory contains sample well datasets (Bakken and DJ basins) for the playground. These are loaded by the docs app at runtime.
+The `apps/playground/public/data/` directory contains sample well datasets (Bakken and DJ basins) for the playground. These are loaded by the playground app at runtime.
 
 ## UI Conventions
 

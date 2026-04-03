@@ -44,6 +44,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".vinxi", ".output", "*.gen.*", "data/*.json", "apps/docs/public/data/*.json"]
+    "ignore": ["node_modules", "dist", ".vinxi", ".output", "*.gen.*", "data/*.json", "apps/playground/public/data/*.json"]
   }
 }
