@@ -26,19 +26,29 @@ const makePolygon = (coords: [number, number][]): Feature<Polygon> => {
   };
 };
 
-const assets: Asset[] = [
-  makeAsset("a", 0, 0),
-  makeAsset("b", 3, 0),
-  makeAsset("c", 6, 0),
-  makeAsset("d", 9, 0),
-];
+const assets: Asset[] = [makeAsset("a", 0, 0), makeAsset("b", 3, 0), makeAsset("c", 6, 0), makeAsset("d", 9, 0)];
 
 // Polygon covering a and b (x: -1 to 4)
-const POLY_LEFT = makePolygon([[-1, -1], [4, -1], [4, 1], [-1, 1]]);
+const POLY_LEFT = makePolygon([
+  [-1, -1],
+  [4, -1],
+  [4, 1],
+  [-1, 1],
+]);
 // Polygon covering c and d (x: 5 to 10)
-const POLY_RIGHT = makePolygon([[5, -1], [10, -1], [10, 1], [5, 1]]);
+const POLY_RIGHT = makePolygon([
+  [5, -1],
+  [10, -1],
+  [10, 1],
+  [5, 1],
+]);
 // Polygon covering b and c (x: 2 to 7) — overlaps both
-const POLY_MIDDLE = makePolygon([[2, -1], [7, -1], [7, 1], [2, 1]]);
+const POLY_MIDDLE = makePolygon([
+  [2, -1],
+  [7, -1],
+  [7, 1],
+  [2, 1],
+]);
 
 describe("lasso workflow: draw, clear, redraw", () => {
   it("first lasso selects markers in the polygon", () => {

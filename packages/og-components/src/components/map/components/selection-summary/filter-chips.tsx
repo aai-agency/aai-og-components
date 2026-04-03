@@ -43,10 +43,23 @@ const ScrollArrow = ({ direction, onClick }: { direction: "left" | "right"; onCl
         color: TEXT_MUTED,
         padding: 0,
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = HOVER_BG; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#ffffff"; }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background = HOVER_BG;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "#ffffff";
+      }}
     >
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
         {direction === "left" ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 6 15 12 9 18" />}
       </svg>
     </button>

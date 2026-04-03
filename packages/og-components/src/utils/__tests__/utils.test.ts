@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Asset, AssetTypeConfig } from "../../types";
 import {
-  isValidCoordinates,
-  filterPlottable,
   computeBounds,
+  filterPlottable,
   fitBounds,
-  getAssetColor,
   formatNumber,
+  getAssetColor,
   groupBy,
+  isValidCoordinates,
 } from "..";
+import type { Asset, AssetTypeConfig } from "../../types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,8 +46,8 @@ describe("isValidCoordinates", () => {
   });
 
   it("rejects NaN values", () => {
-    expect(isValidCoordinates({ lat: NaN, lng: 0 })).toBe(false);
-    expect(isValidCoordinates({ lat: 0, lng: NaN })).toBe(false);
+    expect(isValidCoordinates({ lat: Number.NaN, lng: 0 })).toBe(false);
+    expect(isValidCoordinates({ lat: 0, lng: Number.NaN })).toBe(false);
   });
 
   it("rejects null and undefined", () => {
@@ -64,7 +64,7 @@ describe("filterPlottable", () => {
       makeAsset("valid", 31, -103),
       makeAsset("bad-lat", 2020, 40),
       makeAsset("valid2", 48, -103),
-      makeAsset("nan", NaN, NaN),
+      makeAsset("nan", Number.NaN, Number.NaN),
     ];
     const result = filterPlottable(assets);
     expect(result.map((a) => a.id)).toEqual(["valid", "valid2"]);

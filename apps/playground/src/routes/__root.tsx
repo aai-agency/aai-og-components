@@ -39,7 +39,9 @@ const Sidebar = () => {
                 key={item.to}
                 to={item.to}
                 className="block px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                activeProps={{ className: "block px-3 py-1.5 rounded-md text-sm font-medium text-foreground bg-accent" }}
+                activeProps={{
+                  className: "block px-3 py-1.5 rounded-md text-sm font-medium text-foreground bg-accent",
+                }}
               >
                 {item.label}
               </Link>
@@ -56,7 +58,9 @@ const Sidebar = () => {
                     key={child.to}
                     to={child.to}
                     className="block px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                    activeProps={{ className: "block px-3 py-1.5 rounded-md text-sm font-medium text-foreground bg-accent" }}
+                    activeProps={{
+                      className: "block px-3 py-1.5 rounded-md text-sm font-medium text-foreground bg-accent",
+                    }}
                   >
                     {child.label}
                   </Link>

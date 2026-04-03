@@ -256,7 +256,7 @@ export const LineChart = memo(
     }, [colors]);
 
     const labelMap = useMemo((): Record<string, string> => {
-      return labelsProp ? { ...labelsProp } as Record<string, string> : {};
+      return labelsProp ? ({ ...labelsProp } as Record<string, string>) : {};
     }, [labelsProp]);
 
     const filteredSeries = useMemo(

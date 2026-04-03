@@ -79,7 +79,11 @@ const hashColor = (str: string): string => {
 };
 
 /** Get color for any asset based on scheme and optional type configs */
-export const getAssetColor = (asset: Asset, scheme: ColorScheme, typeConfigs?: Map<string, AssetTypeConfig>): string => {
+export const getAssetColor = (
+  asset: Asset,
+  scheme: ColorScheme,
+  typeConfigs?: Map<string, AssetTypeConfig>,
+): string => {
   // Check user-provided type config first
   const config = typeConfigs?.get(asset.type);
 

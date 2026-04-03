@@ -4,11 +4,46 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
 
 const SAMPLE_ASSETS: Asset[] = [
-  { id: "w1", name: "Pioneer 14-2H", type: "well", status: "producing", coordinates: { lat: 31.9, lng: -102.1 }, properties: { operator: "Pioneer", wellType: "oil", cumBOE: 395000 } },
-  { id: "w2", name: "Devon 8-1H", type: "well", status: "shut-in", coordinates: { lat: 35.2, lng: -97.8 }, properties: { operator: "Devon", wellType: "gas", cumBOE: 180000 } },
-  { id: "w3", name: "EOG 22-4H", type: "well", status: "producing", coordinates: { lat: 28.8, lng: -98.5 }, properties: { operator: "EOG", wellType: "oil", cumBOE: 520000 } },
-  { id: "w4", name: "Hess 3-7H", type: "well", status: "abandoned", coordinates: { lat: 47.8, lng: -103.5 }, properties: { operator: "Hess", wellType: "oil", cumBOE: 85000 } },
-  { id: "w5", name: "Oxy 11-9H", type: "well", status: "permitted", coordinates: { lat: 40.2, lng: -104.5 }, properties: { operator: "Oxy", wellType: "gas", cumBOE: 0 } },
+  {
+    id: "w1",
+    name: "Pioneer 14-2H",
+    type: "well",
+    status: "producing",
+    coordinates: { lat: 31.9, lng: -102.1 },
+    properties: { operator: "Pioneer", wellType: "oil", cumBOE: 395000 },
+  },
+  {
+    id: "w2",
+    name: "Devon 8-1H",
+    type: "well",
+    status: "shut-in",
+    coordinates: { lat: 35.2, lng: -97.8 },
+    properties: { operator: "Devon", wellType: "gas", cumBOE: 180000 },
+  },
+  {
+    id: "w3",
+    name: "EOG 22-4H",
+    type: "well",
+    status: "producing",
+    coordinates: { lat: 28.8, lng: -98.5 },
+    properties: { operator: "EOG", wellType: "oil", cumBOE: 520000 },
+  },
+  {
+    id: "w4",
+    name: "Hess 3-7H",
+    type: "well",
+    status: "abandoned",
+    coordinates: { lat: 47.8, lng: -103.5 },
+    properties: { operator: "Hess", wellType: "oil", cumBOE: 85000 },
+  },
+  {
+    id: "w5",
+    name: "Oxy 11-9H",
+    type: "well",
+    status: "permitted",
+    coordinates: { lat: 40.2, lng: -104.5 },
+    properties: { operator: "Oxy", wellType: "gas", cumBOE: 0 },
+  },
 ];
 
 const SelectionPanelPage = () => {
@@ -19,11 +54,7 @@ const SelectionPanelPage = () => {
     >
       <DemoCard title="5 Selected Wells">
         <div className="relative" style={{ height: 500 }}>
-          <SelectionPanel
-            assets={SAMPLE_ASSETS}
-            overlayFeatures={[]}
-            onClose={() => {}}
-          />
+          <SelectionPanel assets={SAMPLE_ASSETS} overlayFeatures={[]} onClose={() => {}} />
         </div>
       </DemoCard>
 

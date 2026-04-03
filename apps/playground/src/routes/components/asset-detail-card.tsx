@@ -64,7 +64,11 @@ const AssetDetailCardPage = () => {
       <PropTable
         props={[
           { name: "asset", type: "Asset", description: "The asset to display" },
-          { name: "sections", type: "AssetDetailSection[]", description: "Custom sections (auto-generated if omitted)" },
+          {
+            name: "sections",
+            type: "AssetDetailSection[]",
+            description: "Custom sections (auto-generated if omitted)",
+          },
           { name: "onClose", type: "() => void", description: "Close button callback" },
         ]}
       />

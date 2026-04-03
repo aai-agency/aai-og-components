@@ -1,17 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageWrapper, DemoCard } from "../../lib/page-wrapper";
+import { DemoCard, PageWrapper } from "../../lib/page-wrapper";
 
 const SchemasPage = () => {
   return (
-    <PageWrapper
-      title="Schemas"
-      description="Zod schemas for runtime validation at data boundaries."
-    >
+    <PageWrapper title="Schemas" description="Zod schemas for runtime validation at data boundaries.">
       <DemoCard title="Available Schemas">
         <div className="p-4 space-y-4 text-sm">
           <div>
             <h4 className="font-medium">AssetSchema</h4>
-            <p className="text-muted-foreground mt-1">Validates a single Asset object (id, name, type, status, coordinates, properties).</p>
+            <p className="text-muted-foreground mt-1">
+              Validates a single Asset object (id, name, type, status, coordinates, properties).
+            </p>
           </div>
           <div>
             <h4 className="font-medium">AssetArraySchema</h4>
@@ -34,7 +33,7 @@ const SchemasPage = () => {
 
       <DemoCard title="Usage">
         <pre className="p-4 text-sm font-mono overflow-x-auto">
-{`import { parseAssets, safeParseAssets } from "@aai-agency/og-components/schemas";
+          {`import { parseAssets, safeParseAssets } from "@aai-agency/og-components/schemas";
 
 // Throws on invalid data
 const assets = parseAssets(rawData);

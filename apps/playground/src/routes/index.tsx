@@ -29,7 +29,7 @@ const GettingStarted = () => {
         <section>
           <h2 className="text-xl font-semibold">Quick Example</h2>
           <pre className="mt-3 rounded-lg border border-border bg-muted px-4 py-3 text-sm font-mono overflow-x-auto">
-{`import { Map } from "@aai-agency/og-components";
+            {`import { Map } from "@aai-agency/og-components";
 
 <Map
   assets={wells}
@@ -42,15 +42,23 @@ const GettingStarted = () => {
 
         <section>
           <h2 className="text-xl font-semibold">Components</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Browse the sidebar to see live demos of each component.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">Browse the sidebar to see live demos of each component.</p>
           <ul className="mt-3 space-y-1 text-sm">
-            <li><strong>Map</strong> — Interactive asset map with clustering, overlays, and drawing tools</li>
-            <li><strong>LineChart</strong> — High-performance time series chart (uPlot)</li>
-            <li><strong>AssetDetailCard</strong> — Expandable detail card for any asset</li>
-            <li><strong>SelectionPanel</strong> — Multi-select panel with filters</li>
-            <li><strong>OverlayManager</strong> — KMZ/KML/GeoJSON/Shapefile overlay management</li>
+            <li>
+              <strong>Map</strong> — Interactive asset map with clustering, overlays, and drawing tools
+            </li>
+            <li>
+              <strong>LineChart</strong> — High-performance time series chart (uPlot)
+            </li>
+            <li>
+              <strong>AssetDetailCard</strong> — Expandable detail card for any asset
+            </li>
+            <li>
+              <strong>SelectionPanel</strong> — Multi-select panel with filters
+            </li>
+            <li>
+              <strong>OverlayManager</strong> — KMZ/KML/GeoJSON/Shapefile overlay management
+            </li>
           </ul>
         </section>
       </div>

@@ -2,7 +2,12 @@ import JSZip from "jszip";
 import type { MapOverlay, OverlayType } from "../types";
 
 /** Shared factory — eliminates duplicate MapOverlay construction across parsers */
-const buildOverlay = (file: File, type: OverlayType, geojson: GeoJSON.FeatureCollection, extRegex: RegExp): MapOverlay => {
+const buildOverlay = (
+  file: File,
+  type: OverlayType,
+  geojson: GeoJSON.FeatureCollection,
+  extRegex: RegExp,
+): MapOverlay => {
   return {
     id: crypto.randomUUID(),
     name: file.name.replace(extRegex, ""),

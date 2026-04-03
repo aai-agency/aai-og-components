@@ -59,11 +59,11 @@ const SQUARE_C = makePolygon([
 // ── Assets at known positions ────────────────────────────────────────────────
 
 const assets: Asset[] = [
-  makeAsset("only-A", -1, 0),      // Inside A only
+  makeAsset("only-A", -1, 0), // Inside A only
   makeAsset("overlap-AB", 1.5, 0), // Inside both A and B
-  makeAsset("only-B", 3, 0),       // Inside B only
-  makeAsset("only-C", 12, 0),      // Inside C only
-  makeAsset("outside", 8, 0),      // Outside all polygons
+  makeAsset("only-B", 3, 0), // Inside B only
+  makeAsset("only-C", 12, 0), // Inside C only
+  makeAsset("outside", 8, 0), // Outside all polygons
 ];
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -139,7 +139,13 @@ describe("extractPolygons", () => {
       {
         type: "Feature",
         properties: {},
-        geometry: { type: "LineString", coordinates: [[0, 0], [1, 1]] },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [0, 0],
+            [1, 1],
+          ],
+        },
       },
     ];
     const result = extractPolygons(features);

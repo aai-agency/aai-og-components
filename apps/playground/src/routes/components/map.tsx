@@ -1,4 +1,4 @@
-import { type Asset, type ColorScheme, Map } from "@aai-agency/og-components";
+import { type Asset, type ColorScheme, Map as OGMap } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -78,14 +78,24 @@ const MapPage = () => {
       </div>
 
       <DemoCard title={loading ? "Loading..." : `${displayAssets.length.toLocaleString()} wells`} fullWidth>
-        <Map
+        <OGMap
           assets={displayAssets}
           mapboxAccessToken={MAPBOX_TOKEN}
           colorBy={colorBy}
           height="calc(100vh - 300px)"
           cluster={false}
           enableOverlayUpload={true}
-          controls={["pan", "zoom", "fullscreen", "center", "draw-polygon", "draw-rectangle", "draw-circle", "layers", "labels"]}
+          controls={[
+            "pan",
+            "zoom",
+            "fullscreen",
+            "center",
+            "draw-polygon",
+            "draw-rectangle",
+            "draw-circle",
+            "layers",
+            "labels",
+          ]}
           layers={["assets", "overlays"]}
           showDetailCard={true}
         />
@@ -101,8 +111,17 @@ const MapPage = () => {
           { name: "controls", type: "MapControlId[]", description: "Which controls to show" },
           { name: "layers", type: "MapLayerId[]", description: "Which layers to enable" },
           { name: "showDetailCard", type: "boolean", default: "false", description: "Show asset detail card on click" },
-          { name: "enableOverlayUpload", type: "boolean", default: "false", description: "Allow KMZ/KML/GeoJSON/Shapefile uploads" },
-          { name: "onSelectionChange", type: "(ids: string[]) => void", description: "Callback when selection changes" },
+          {
+            name: "enableOverlayUpload",
+            type: "boolean",
+            default: "false",
+            description: "Allow KMZ/KML/GeoJSON/Shapefile uploads",
+          },
+          {
+            name: "onSelectionChange",
+            type: "(ids: string[]) => void",
+            description: "Callback when selection changes",
+          },
         ]}
       />
     </PageWrapper>

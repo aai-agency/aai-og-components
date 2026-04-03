@@ -376,9 +376,7 @@ export const mapMachine = setup({
         },
         LASSO_SELECT: {
           actions: assign(({ context, event }) => {
-            const newIds = event.additive
-              ? new Set([...context.selectedIds, ...event.ids])
-              : new Set(event.ids);
+            const newIds = event.additive ? new Set([...context.selectedIds, ...event.ids]) : new Set(event.ids);
             const overlayFeatures = event.additive
               ? [...context.lassoOverlayFeatures, ...event.overlayFeatures]
               : event.overlayFeatures;

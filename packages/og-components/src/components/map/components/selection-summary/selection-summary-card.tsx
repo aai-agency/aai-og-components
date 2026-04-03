@@ -48,7 +48,6 @@ export interface SelectionSummaryCardProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-
 const sumProp = (assets: Asset[], prop: string): number => {
   let total = 0;
   for (const a of assets) {

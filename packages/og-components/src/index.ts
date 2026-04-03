@@ -27,7 +27,6 @@ export type {
   AssetDetailSection,
   LineChartProps,
   ProductionChartProps,
-
   OverlayManagerProps,
   SelectionSummaryCardProps,
   SelectionPanelProps,

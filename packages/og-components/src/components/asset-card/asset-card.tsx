@@ -1,7 +1,5 @@
-import { createPortal } from "react-dom";
 import React, { memo, useCallback, useState, useEffect, useRef } from "react";
-import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../types";
-import { formatNumber } from "../../utils";
+import { createPortal } from "react-dom";
 import {
   BLUR_LG,
   BORDER,
@@ -16,8 +14,10 @@ import {
   TEXT_PRIMARY,
   TYPE_COLORS,
 } from "../../theme";
-import { Tooltip, TooltipProvider } from "../ui/tooltip";
+import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../types";
+import { formatNumber } from "../../utils";
 import { LineChart } from "../line-chart";
+import { Tooltip, TooltipProvider } from "../ui/tooltip";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -299,29 +299,42 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {!collapsed && (
             <Tooltip label="Expand chart">
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setExpanded(true); } }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                color: TEXT_MUTED,
-                cursor: "pointer",
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <polyline points="15 3 21 3 21 9" />
-                <polyline points="9 21 3 21 3 15" />
-                <line x1="21" y1="3" x2="14" y2="10" />
-                <line x1="3" y1="21" x2="10" y2="14" />
-              </svg>
-            </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(true);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  color: TEXT_MUTED,
+                  cursor: "pointer",
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              </button>
             </Tooltip>
           )}
           <svg
@@ -343,67 +356,76 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
           <LineChart series={timeSeries} height={160} />
         </div>
       )}
-      {expanded && createPortal(
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 32,
-          }}
-          onClick={() => setExpanded(false)}
-        >
+      {expanded &&
+        createPortal(
           <div
             style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              padding: 24,
-              width: "100%",
-              maxWidth: 1200,
-              maxHeight: "90vh",
-              overflow: "auto",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
-              fontFamily: FONT_FAMILY,
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              background: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 32,
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setExpanded(false)}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
-                {asset.name} - Production History
-              </span>
-              <Tooltip label="Close">
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                style={{
-                  width: 28,
-                  height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: HOVER_BG,
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  color: TEXT_MUTED,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              </Tooltip>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: 24,
+                width: "100%",
+                maxWidth: 1200,
+                maxHeight: "90vh",
+                overflow: "auto",
+                boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
+                fontFamily: FONT_FAMILY,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
+                  {asset.name} - Production History
+                </span>
+                <Tooltip label="Close">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(false)}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: HOVER_BG,
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      color: TEXT_MUTED,
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      aria-hidden="true"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              </div>
+              <LineChart series={timeSeries} height={500} />
             </div>
-            <LineChart series={timeSeries} height={500} />
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 });
@@ -507,28 +529,37 @@ export const AssetDetailCard = memo(
           <div style={{ padding: "16px 16px 12px", borderBottom: BORDER_SUBTLE }}>
             {onBack && (
               <Tooltip label="Back to selection">
-              <button
-                type="button"
-                onClick={onBack}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "0 0 8px",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: TEXT_MUTED,
-                  fontFamily: FONT_FAMILY,
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-                Back to selection
-              </button>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "0 0 8px",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: TEXT_MUTED,
+                    fontFamily: FONT_FAMILY,
+                  }}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  Back to selection
+                </button>
               </Tooltip>
             )}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
@@ -588,36 +619,36 @@ export const AssetDetailCard = memo(
               </div>
               {/* Close button */}
               <Tooltip label="Close">
-              <button
-                type="button"
-                onClick={handleClose}
-                style={{
-                  width: 28,
-                  height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: HOVER_BG,
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  color: TEXT_MUTED,
-                  flexShrink: 0,
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  aria-hidden="true"
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: HOVER_BG,
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: TEXT_MUTED,
+                    flexShrink: 0,
+                  }}
                 >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    aria-hidden="true"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </Tooltip>
             </div>
           </div>
@@ -648,44 +679,44 @@ export const AssetDetailCard = memo(
     if (isMobile) {
       return (
         <TooltipProvider delayDuration={300}>
-        <div
-          ref={drawerRef}
-          className={className}
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: drawerHeight,
-            background: PANEL_BG,
-            backdropFilter: BLUR_LG,
-            borderTop: BORDER,
-            borderRadius: "16px 16px 0 0",
-            fontFamily: FONT_FAMILY,
-            color: TEXT_PRIMARY,
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 15,
-            transition: "height 0.05s linear",
-            ...style,
-          }}
-        >
-          {/* Drag handle */}
           <div
-            onTouchStart={handleDragStart}
-            onMouseDown={handleDragStart}
+            ref={drawerRef}
+            className={className}
             style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: drawerHeight,
+              background: PANEL_BG,
+              backdropFilter: BLUR_LG,
+              borderTop: BORDER,
+              borderRadius: "16px 16px 0 0",
+              fontFamily: FONT_FAMILY,
+              color: TEXT_PRIMARY,
               display: "flex",
-              justifyContent: "center",
-              padding: "8px 0 4px",
-              cursor: "grab",
-              flexShrink: 0,
+              flexDirection: "column",
+              zIndex: 15,
+              transition: "height 0.05s linear",
+              ...style,
             }}
           >
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(148, 163, 184, 0.25)" }} />
+            {/* Drag handle */}
+            <div
+              onTouchStart={handleDragStart}
+              onMouseDown={handleDragStart}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "8px 0 4px",
+                cursor: "grab",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(148, 163, 184, 0.25)" }} />
+            </div>
+            {cardContent}
           </div>
-          {cardContent}
-        </div>
         </TooltipProvider>
       );
     }
@@ -693,30 +724,30 @@ export const AssetDetailCard = memo(
     // ── Desktop: Left Side Panel ──
     return (
       <TooltipProvider delayDuration={300}>
-      <div
-        className={className}
-        style={{
-          position: "absolute",
-          top: 12,
-          left: 12,
-          bottom: 12,
-          width: 340,
-          background: PANEL_BG,
-          backdropFilter: BLUR_LG,
-          border: BORDER,
-          borderRadius: 12,
-          fontFamily: FONT_FAMILY,
-          color: TEXT_PRIMARY,
-          display: "flex",
-          flexDirection: "column",
-          zIndex: 15,
-          overflow: "hidden",
-          boxShadow: SHADOW_SM,
-          ...style,
-        }}
-      >
-        {cardContent}
-      </div>
+        <div
+          className={className}
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            bottom: 12,
+            width: 340,
+            background: PANEL_BG,
+            backdropFilter: BLUR_LG,
+            border: BORDER,
+            borderRadius: 12,
+            fontFamily: FONT_FAMILY,
+            color: TEXT_PRIMARY,
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 15,
+            overflow: "hidden",
+            boxShadow: SHADOW_SM,
+            ...style,
+          }}
+        >
+          {cardContent}
+        </div>
       </TooltipProvider>
     );
   },

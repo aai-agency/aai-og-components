@@ -4,7 +4,6 @@ import type { Map as MapboxMap } from "mapbox-gl";
 import type React from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { MapOverlay, OverlayStyle } from "../../../../types";
-import { CustomDrawModeKeys, CustomDrawModes } from "../draw-modes";
 import { Tooltip } from "../../../ui/tooltip";
 import {
   ACCENT,
@@ -25,6 +24,7 @@ import {
   TEXT_PRIMARY,
   TEXT_SECONDARY,
 } from "../../theme";
+import { CustomDrawModeKeys, CustomDrawModes } from "../draw-modes";
 
 // ── SVG Icons (inline, no external deps) ────────────────────────────────────
 
@@ -904,7 +904,11 @@ const MiniAction = ({
   );
 };
 
-const MiniColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => {
+const MiniColorField = ({
+  label,
+  value,
+  onChange,
+}: { label: string; value: string; onChange: (v: string) => void }) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 9, color: TEXT_FAINT, marginBottom: 2 }}>{label}</div>

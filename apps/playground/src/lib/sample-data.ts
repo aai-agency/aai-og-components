@@ -4,8 +4,16 @@ import { filterPlottable } from "@aai-agency/og-components";
 const STATUSES: Asset["status"][] = ["producing", "shut-in", "abandoned", "permitted", "drilled", "injection"];
 const WELL_TYPES = ["oil", "gas", "injection", "disposal"];
 const OPERATORS = [
-  "Pioneer", "Devon", "EOG", "Diamondback", "ConocoPhillips",
-  "Marathon", "Continental", "Hess", "Oxy", "Apache",
+  "Pioneer",
+  "Devon",
+  "EOG",
+  "Diamondback",
+  "ConocoPhillips",
+  "Marathon",
+  "Continental",
+  "Hess",
+  "Oxy",
+  "Apache",
 ];
 
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
@@ -47,7 +55,10 @@ export const generateSyntheticAssets = (count: number): Asset[] => {
       let r = Math.random();
       for (let b = 0; b < basins.length; b++) {
         r -= basins[b].weight;
-        if (r <= 0) { basinIdx = b; break; }
+        if (r <= 0) {
+          basinIdx = b;
+          break;
+        }
       }
       basinAlloc = Math.floor(basins[basinIdx].weight * 200) + 1;
     }
@@ -74,7 +85,10 @@ export const generateSyntheticAssets = (count: number): Asset[] => {
       status,
       coordinates: { lat, lng },
       properties: {
-        operator, wellType, basin: basin.name, cumBOE,
+        operator,
+        wellType,
+        basin: basin.name,
+        cumBOE,
         cumOil: Math.floor(cumBOE * 0.6),
         cumGas: Math.floor(cumBOE * 0.3),
         cumWater: Math.floor(cumBOE * 0.4),

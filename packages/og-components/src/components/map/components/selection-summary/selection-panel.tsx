@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
 import type { Asset, AssetTypeConfig } from "../../../../types";
+import { groupBy } from "../../../../utils";
 import { Tooltip } from "../../../ui/tooltip";
 import {
   ACCENT,
@@ -19,7 +20,6 @@ import {
 } from "../../theme";
 import { type FilterChip, FilterChips } from "./filter-chips";
 import { MiniCard, type MiniCardItem, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
-import { groupBy } from "../../../../utils";
 import type { SelectedOverlayFeature } from "./selection-summary-card";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -289,36 +289,36 @@ export const SelectionPanel = memo(function SelectionPanel({
             </span>
           </div>
           <Tooltip label="Close">
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              width: 26,
-              height: 26,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: HOVER_BG,
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              color: TEXT_MUTED,
-              flexShrink: 0,
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              aria-hidden="true"
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: 26,
+                height: 26,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: HOVER_BG,
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                color: TEXT_MUTED,
+                flexShrink: 0,
+              }}
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </Tooltip>
         </div>
       </div>

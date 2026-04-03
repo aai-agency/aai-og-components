@@ -34,11 +34,7 @@
       "import": "./dist/sample-data/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src/styles.css",
-    "README.md"
-  ],
+  "files": ["dist", "src/styles.css", "README.md"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

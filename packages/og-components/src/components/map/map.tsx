@@ -2,7 +2,7 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { booleanIntersects, booleanPointInPolygon, point } from "@turf/turf";
 import { useMachine } from "@xstate/react";
-import type { Feature, Polygon as GeoPolygon } from "geojson";
+import type { Feature } from "geojson";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,10 +11,11 @@ import type { Asset, AssetTypeConfig, ColorScheme, MapViewState } from "../../ty
 import { computeBounds, filterPlottable, getAssetColor } from "../../utils";
 import { computeLassoSelection, extractPolygons } from "../../utils/lasso-selection";
 import { AssetDetailCard } from "../asset-card";
-import { MapControls, type MapLayerId } from "./components/controls";
-import type { MapProps } from "./map.types";
-import { type SelectedOverlayFeature, SelectionPanel } from "./components/selection-summary";
 import { Tooltip, TooltipProvider } from "../ui/tooltip";
+import { MapControls, type MapLayerId } from "./components/controls";
+import { type SelectedOverlayFeature, SelectionPanel } from "./components/selection-summary";
+import { useClusters } from "./hooks/use-clusters";
+import type { MapProps } from "./map.types";
 import {
   ACCENT,
   ACCENT_15,
@@ -34,7 +35,6 @@ import {
   TEXT_SECONDARY,
 } from "./theme";
 import { MapTooltip } from "./tooltip";
-import { useClusters } from "./hooks/use-clusters";
 
 const MAPBOX_LIGHT = "mapbox://styles/mapbox/light-v11";
 
@@ -405,7 +405,16 @@ const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapL
           >
             {label}
             {onSchemeChange && (
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             )}
@@ -453,7 +462,8 @@ const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapL
                     if (activeScheme !== s.value) (e.currentTarget as HTMLElement).style.background = HOVER_BG;
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = activeScheme === s.value ? ACCENT_15 : "transparent";
+                    (e.currentTarget as HTMLElement).style.background =
+                      activeScheme === s.value ? ACCENT_15 : "transparent";
                   }}
                 >
                   {s.label}
@@ -464,28 +474,37 @@ const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapL
         </div>
 
         <Tooltip label={collapsed ? "Expand legend" : "Collapse legend"}>
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 20,
-            height: 20,
-            borderRadius: 4,
-            border: BORDER,
-            background: "#ffffff",
-            cursor: "pointer",
-            padding: 0,
-            flexShrink: 0,
-            color: TEXT_MUTED,
-          }}
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-            {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
-          </svg>
-        </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              borderRadius: 4,
+              border: BORDER,
+              background: "#ffffff",
+              cursor: "pointer",
+              padding: 0,
+              flexShrink: 0,
+              color: TEXT_MUTED,
+            }}
+          >
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              {collapsed ? <polyline points="6 9 12 15 18 9" /> : <line x1="5" y1="12" x2="19" y2="12" />}
+            </svg>
+          </button>
         </Tooltip>
       </div>
       {!collapsed &&
@@ -620,8 +639,12 @@ export const OGMap = ({
   const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { shiftKeyRef.current = e.shiftKey; };
-    const up = (e: KeyboardEvent) => { shiftKeyRef.current = e.shiftKey; };
+    const down = (e: KeyboardEvent) => {
+      shiftKeyRef.current = e.shiftKey;
+    };
+    const up = (e: KeyboardEvent) => {
+      shiftKeyRef.current = e.shiftKey;
+    };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     return () => {
@@ -670,7 +693,7 @@ export const OGMap = ({
         asset,
         index: i,
         position: [asset.coordinates.lng, asset.coordinates.lat],
-        color: hexToRgba(getAssetColor(asset, colorBy, typeConfigMap)),
+        color: hexToRgba(getAssetColor(asset, activeColorBy, typeConfigMap)),
       });
     }
     return result;
@@ -928,9 +951,7 @@ export const OGMap = ({
     if (!map || !mapReady) return;
 
     if (map.getSource("og-labels-source")) {
-      (map.getSource("og-labels-source") as mapboxgl.GeoJSONSource).setData(
-        labelGeoJSON as GeoJSON.FeatureCollection,
-      );
+      (map.getSource("og-labels-source") as mapboxgl.GeoJSONSource).setData(labelGeoJSON as GeoJSON.FeatureCollection);
     } else {
       map.addSource("og-labels-source", { type: "geojson", data: labelGeoJSON as GeoJSON.FeatureCollection });
       map.addLayer({
@@ -964,11 +985,7 @@ export const OGMap = ({
     const map = mapRef.current;
     if (!map || !mapReady) return;
     if (map.getLayer("og-asset-labels")) {
-      map.setLayoutProperty(
-        "og-asset-labels",
-        "visibility",
-        visibleLayers.has("labels") ? "visible" : "none",
-      );
+      map.setLayoutProperty("og-asset-labels", "visibility", visibleLayers.has("labels") ? "visible" : "none");
     }
   }, [visibleLayers, mapReady]);
 
@@ -1153,7 +1170,9 @@ export const OGMap = ({
 
     map.on("click", handleClick);
     return () => {
-      try { map.off("click", handleClick); } catch {}
+      try {
+        map.off("click", handleClick);
+      } catch {}
     };
   }, [mapReady, assets, overlays, viewState.zoom, send, onAssetClick]);
 
@@ -1362,7 +1381,10 @@ export const OGMap = ({
       if (newIds.length > 0 || overlayHits.length > 0) {
         setSelectedOverlayFeature(null);
         const idSet = new Set(newIds);
-        onLassoSelect?.(assets.filter((a) => idSet.has(a.id)), overlayHits);
+        onLassoSelect?.(
+          assets.filter((a) => idSet.has(a.id)),
+          overlayHits,
+        );
       }
 
       onDrawCreate?.(features);
@@ -1400,7 +1422,10 @@ export const OGMap = ({
   }, [showSelectionSummary, selectedIds, assets]);
 
   const mapInstance = mapReady ? mapRef.current : null;
-  const legend = useMemo(() => buildLegend(assets, activeColorBy, typeConfigMap), [assets, activeColorBy, typeConfigMap]);
+  const legend = useMemo(
+    () => buildLegend(assets, activeColorBy, typeConfigMap),
+    [assets, activeColorBy, typeConfigMap],
+  );
 
   // Build available color schemes from the data
   const availableSchemes = useMemo(() => {
@@ -1423,7 +1448,24 @@ export const OGMap = ({
     if (propKeys.has("cumBOE") || propKeys.has("cumOil")) schemes.push({ value: "production", label: "Production" });
     if (propKeys.has("cumOil") && propKeys.has("cumWater")) schemes.push({ value: "waterCut", label: "Water Cut" });
     // Add any remaining string properties as dynamic schemes
-    const knownKeys = new Set(["wellType", "operator", "basin", "cumBOE", "cumOil", "cumWater", "cumGas", "api", "peakOil", "peakGas", "tvd", "md", "lateralLength", "firstProdDate", "spudDate", "coordinatesBH"]);
+    const knownKeys = new Set([
+      "wellType",
+      "operator",
+      "basin",
+      "cumBOE",
+      "cumOil",
+      "cumWater",
+      "cumGas",
+      "api",
+      "peakOil",
+      "peakGas",
+      "tvd",
+      "md",
+      "lateralLength",
+      "firstProdDate",
+      "spudDate",
+      "coordinatesBH",
+    ]);
     for (const key of propKeys) {
       if (knownKeys.has(key)) continue;
       // Check if property has 2+ distinct values
@@ -1461,9 +1503,7 @@ export const OGMap = ({
         }}
       >
         <div>
-          <p style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-            Mapbox token required
-          </p>
+          <p style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.5rem" }}>Mapbox token required</p>
           <p style={{ fontSize: "0.875rem", color: TEXT_MUTED }}>
             Pass your token via the mapboxAccessToken prop. Get a free token at mapbox.com/account/access-tokens
           </p>
@@ -1474,184 +1514,184 @@ export const OGMap = ({
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div
-      className={className}
-      onDragOver={enableOverlayUpload ? handleDragOver : undefined}
-      onDragLeave={enableOverlayUpload ? handleDragLeave : undefined}
-      onDrop={enableOverlayUpload ? handleDrop : undefined}
-      style={{
-        position: "relative",
-        width,
-        height,
-        borderRadius: 12,
-        overflow: "hidden",
-        border: BORDER,
-        fontFamily: FONT_FAMILY,
-        ...style,
-      }}
-    >
-      {/* Pure Mapbox GL container */}
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      <div
+        className={className}
+        onDragOver={enableOverlayUpload ? handleDragOver : undefined}
+        onDragLeave={enableOverlayUpload ? handleDragLeave : undefined}
+        onDrop={enableOverlayUpload ? handleDrop : undefined}
+        style={{
+          position: "relative",
+          width,
+          height,
+          borderRadius: 12,
+          overflow: "hidden",
+          border: BORDER,
+          fontFamily: FONT_FAMILY,
+          ...style,
+        }}
+      >
+        {/* Pure Mapbox GL container */}
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Map Controls */}
-      {showControls && interactive && (
-        <MapControls
-          map={mapInstance}
-          controls={controlIds}
-          layers={layerIds}
-          visibleLayers={visibleLayers}
-          onLayerToggle={handleLayerToggle}
-          onDrawCreate={handleDrawCreate}
-          onDrawDelete={handleDrawDelete}
-          onFitToAssets={handleFitToAssets}
-          clearDrawRef={clearDrawRef}
-          onDrawingModeChange={setIsDrawingMode}
-          labelsActive={visibleLayers.has("labels")}
-          onLabelsToggle={() => handleLayerToggle("labels")}
-          overlay={
-            enableOverlayUpload
-              ? {
-                  overlays,
-                  enableUpload: enableOverlayUpload,
-                  onUpload: (file, files) => send({ type: "UPLOAD_FILE", file, files }),
-                  onToggle: (id) => send({ type: "TOGGLE_OVERLAY", id }),
-                  onRemove: (id) => send({ type: "REMOVE_OVERLAY", id }),
-                  onRename: (id, name) => send({ type: "RENAME_OVERLAY", id, name }),
-                  onUpdateStyle: (id, updateStyle) => send({ type: "UPDATE_OVERLAY_STYLE", id, style: updateStyle }),
-                  onUpdateFeature: (id, featureIndex, visible, featureStyle) =>
-                    send({ type: "UPDATE_FEATURE_OVERRIDE", id, featureIndex, visible, style: featureStyle }),
-                  onReupload: (id, file) => send({ type: "REUPLOAD_OVERLAY", id, file }),
-                }
-              : undefined
-          }
-        />
-      )}
+        {/* Map Controls */}
+        {showControls && interactive && (
+          <MapControls
+            map={mapInstance}
+            controls={controlIds}
+            layers={layerIds}
+            visibleLayers={visibleLayers}
+            onLayerToggle={handleLayerToggle}
+            onDrawCreate={handleDrawCreate}
+            onDrawDelete={handleDrawDelete}
+            onFitToAssets={handleFitToAssets}
+            clearDrawRef={clearDrawRef}
+            onDrawingModeChange={setIsDrawingMode}
+            labelsActive={visibleLayers.has("labels")}
+            onLabelsToggle={() => handleLayerToggle("labels")}
+            overlay={
+              enableOverlayUpload
+                ? {
+                    overlays,
+                    enableUpload: enableOverlayUpload,
+                    onUpload: (file, files) => send({ type: "UPLOAD_FILE", file, files }),
+                    onToggle: (id) => send({ type: "TOGGLE_OVERLAY", id }),
+                    onRemove: (id) => send({ type: "REMOVE_OVERLAY", id }),
+                    onRename: (id, name) => send({ type: "RENAME_OVERLAY", id, name }),
+                    onUpdateStyle: (id, updateStyle) => send({ type: "UPDATE_OVERLAY_STYLE", id, style: updateStyle }),
+                    onUpdateFeature: (id, featureIndex, visible, featureStyle) =>
+                      send({ type: "UPDATE_FEATURE_OVERRIDE", id, featureIndex, visible, style: featureStyle }),
+                    onReupload: (id, file) => send({ type: "REUPLOAD_OVERLAY", id, file }),
+                  }
+                : undefined
+            }
+          />
+        )}
 
-      {/* Lasso Selection Panel (multi-select) */}
-      {showSelectionSummary && (lassoSelectedAssets.length > 0 || lassoSelectedOverlayFeatures.length > 0) && (
-        <SelectionPanel
-          assets={lassoSelectedAssets}
-          overlayFeatures={lassoSelectedOverlayFeatures}
-          typeConfigs={typeConfigMap}
-          onClose={handleSelectionSummaryClose}
-          onSelectAsset={handleSelectAssetFromSummary}
-        />
-      )}
+        {/* Lasso Selection Panel (multi-select) */}
+        {showSelectionSummary && (lassoSelectedAssets.length > 0 || lassoSelectedOverlayFeatures.length > 0) && (
+          <SelectionPanel
+            assets={lassoSelectedAssets}
+            overlayFeatures={lassoSelectedOverlayFeatures}
+            typeConfigs={typeConfigMap}
+            onClose={handleSelectionSummaryClose}
+            onSelectAsset={handleSelectAssetFromSummary}
+          />
+        )}
 
-      {/* Asset Detail Card (single select — hidden when summary is showing) */}
-      {showDetailCard && !showSelectionSummary && (
-        <AssetDetailCard
-          asset={selectedAsset}
-          typeConfigs={typeConfigMap}
-          sections={detailSections}
-          onClose={handleDetailClose}
-          onBack={savedLassoRef.current ? handleDetailClose : undefined}
-          renderHeader={renderDetailHeader}
-          renderBody={renderDetailBody}
-        />
-      )}
+        {/* Asset Detail Card (single select — hidden when summary is showing) */}
+        {showDetailCard && !showSelectionSummary && (
+          <AssetDetailCard
+            asset={selectedAsset}
+            typeConfigs={typeConfigMap}
+            sections={detailSections}
+            onClose={handleDetailClose}
+            onBack={savedLassoRef.current ? handleDetailClose : undefined}
+            renderHeader={renderDetailHeader}
+            renderBody={renderDetailBody}
+          />
+        )}
 
-      {/* Overlay Feature Detail Card */}
-      {selectedOverlayFeature && !selectedAsset && !showSelectionSummary && (
-        <OverlayFeatureDetail
-          overlayName={selectedOverlayFeature.overlayName}
-          properties={selectedOverlayFeature.properties}
-          geometryType={selectedOverlayFeature.geometryType}
-          onClose={() => setSelectedOverlayFeature(null)}
-        />
-      )}
+        {/* Overlay Feature Detail Card */}
+        {selectedOverlayFeature && !selectedAsset && !showSelectionSummary && (
+          <OverlayFeatureDetail
+            overlayName={selectedOverlayFeature.overlayName}
+            properties={selectedOverlayFeature.properties}
+            geometryType={selectedOverlayFeature.geometryType}
+            onClose={() => setSelectedOverlayFeature(null)}
+          />
+        )}
 
-      {/* Tooltip */}
-      {hovered && (
-        <MapTooltip
-          asset={hovered.asset}
-          x={hovered.x}
-          y={hovered.y}
-          typeConfigs={typeConfigMap}
-          renderTooltip={renderTooltip}
-        />
-      )}
+        {/* Tooltip */}
+        {hovered && (
+          <MapTooltip
+            asset={hovered.asset}
+            x={hovered.x}
+            y={hovered.y}
+            typeConfigs={typeConfigMap}
+            renderTooltip={renderTooltip}
+          />
+        )}
 
-      {/* Overlay Feature Tooltip */}
-      {overlayHover && !hovered && (
-        <OverlayFeatureTooltip
-          name={overlayHover.name}
-          properties={overlayHover.properties}
-          x={overlayHover.x}
-          y={overlayHover.y}
-        />
-      )}
+        {/* Overlay Feature Tooltip */}
+        {overlayHover && !hovered && (
+          <OverlayFeatureTooltip
+            name={overlayHover.name}
+            properties={overlayHover.properties}
+            x={overlayHover.x}
+            y={overlayHover.y}
+          />
+        )}
 
-      {/* Asset count badge */}
-      {showCount && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 12,
-            left: 12,
-            background: PANEL_BG_LIGHT,
-            backdropFilter: BLUR_SM,
-            borderRadius: 6,
-            padding: "6px 12px",
-            color: TEXT_SECONDARY,
-            fontSize: 12,
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            border: BORDER,
-          }}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            aria-hidden="true"
+        {/* Asset count badge */}
+        {showCount && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 12,
+              left: 12,
+              background: PANEL_BG_LIGHT,
+              backdropFilter: BLUR_SM,
+              borderRadius: 6,
+              padding: "6px 12px",
+              color: TEXT_SECONDARY,
+              fontSize: 12,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              border: BORDER,
+            }}
           >
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          {assets.length.toLocaleString()} assets
-        </div>
-      )}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden="true"
+            >
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {assets.length.toLocaleString()} assets
+          </div>
+        )}
 
-      {/* Legend */}
-      {showLegend && legend && (
-        <MapLegend
-          label={legend.label}
-          items={legend.items}
-          schemes={availableSchemes}
-          activeScheme={activeColorBy}
-          onSchemeChange={(s) => {
-            send({ type: "SET_COLOR_SCHEME", scheme: s as ColorScheme });
-            onColorByChange?.(s as ColorScheme);
-          }}
-        />
-      )}
+        {/* Legend */}
+        {showLegend && legend && (
+          <MapLegend
+            label={legend.label}
+            items={legend.items}
+            schemes={availableSchemes}
+            activeScheme={activeColorBy}
+            onSchemeChange={(s) => {
+              send({ type: "SET_COLOR_SCHEME", scheme: s as ColorScheme });
+              onColorByChange?.(s as ColorScheme);
+            }}
+          />
+        )}
 
-      {/* Drag-and-drop overlay indicator */}
-      {enableOverlayUpload && isDragging && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: ACCENT_15,
-            border: "2px dashed rgba(99, 102, 241, 0.6)",
-            borderRadius: 12,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 20,
-            pointerEvents: "none",
-          }}
-        >
-          <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>Drop KMZ, KML, or GeoJSON file</div>
-        </div>
-      )}
-    </div>
+        {/* Drag-and-drop overlay indicator */}
+        {enableOverlayUpload && isDragging && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: ACCENT_15,
+              border: "2px dashed rgba(99, 102, 241, 0.6)",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 20,
+              pointerEvents: "none",
+            }}
+          >
+            <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>Drop KMZ, KML, or GeoJSON file</div>
+          </div>
+        )}
+      </div>
     </TooltipProvider>
   );
 };

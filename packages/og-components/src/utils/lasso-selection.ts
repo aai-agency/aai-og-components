@@ -9,10 +9,7 @@ import type { Asset } from "../types";
  * A marker inside an even number of overlapping polygons is deselected.
  * This allows users to "subtract" regions by drawing overlapping lassos.
  */
-export const computeLassoSelection = (
-  assets: Asset[],
-  polygons: Feature<Polygon>[],
-): string[] => {
+export const computeLassoSelection = (assets: Asset[], polygons: Feature<Polygon>[]): string[] => {
   const selectedIds: string[] = [];
 
   for (const asset of assets) {
@@ -33,7 +30,5 @@ export const computeLassoSelection = (
  * Extract polygon features from a list of GeoJSON features.
  */
 export const extractPolygons = (features: Feature[]): Feature<Polygon>[] => {
-  return features.filter(
-    (f): f is Feature<Polygon> => f.geometry.type === "Polygon",
-  );
+  return features.filter((f): f is Feature<Polygon> => f.geometry.type === "Polygon");
 };

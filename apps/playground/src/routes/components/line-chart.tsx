@@ -5,11 +5,7 @@ import { useMemo } from "react";
 import "uplot/dist/uPlot.min.css";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
 
-const generateTimeSeries = (
-  months: number,
-  fluidType: "oil" | "gas" | "water",
-  base: number,
-): TimeSeries => {
+const generateTimeSeries = (months: number, fluidType: "oil" | "gas" | "water", base: number): TimeSeries => {
   const data: { date: string; value: number }[] = [];
   const now = new Date();
   for (let i = months; i >= 0; i--) {
@@ -59,12 +55,26 @@ const LineChartPage = () => {
 
       <PropTable
         props={[
-          { name: "series", type: "TimeSeries[]", description: "Array of { id, fluidType, curveType, unit, frequency, data: DataPoint[] }" },
+          {
+            name: "series",
+            type: "TimeSeries[]",
+            description: "Array of { id, fluidType, curveType, unit, frequency, data: DataPoint[] }",
+          },
           { name: "height", type: "number", default: "220", description: "Chart height in pixels" },
           { name: "width", type: "number", description: "Chart width (fills container if omitted)" },
-          { name: "showForecast", type: "boolean", default: "true", description: "Show forecast series with dashed lines" },
+          {
+            name: "showForecast",
+            type: "boolean",
+            default: "true",
+            description: "Show forecast series with dashed lines",
+          },
           { name: "colors", type: "Record<string, string>", description: "Custom color map by fluidType" },
-          { name: "rightAxisFluids", type: "string[]", default: '["gas"]', description: "Which fluid types use the right axis" },
+          {
+            name: "rightAxisFluids",
+            type: "string[]",
+            default: '["gas"]',
+            description: "Which fluid types use the right axis",
+          },
         ]}
       />
     </PageWrapper>
