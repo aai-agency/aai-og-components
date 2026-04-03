@@ -7,6 +7,7 @@ export default defineConfig({
     "utils/index": "src/utils/index.ts",
     "services/index": "src/services/index.ts",
     "machines/index": "src/machines/index.ts",
+    "sample-data/index": "src/sample-data/index.ts",
   },
   format: ["esm"],
   dts: true,

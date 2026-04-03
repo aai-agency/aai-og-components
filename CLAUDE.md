@@ -52,6 +52,7 @@ Uses tsup with these entry points:
 | `src/utils/index.ts` | `@aai-agency/og-components/utils` |
 | `src/services/index.ts` | `@aai-agency/og-components/services` |
 | `src/machines/index.ts` | `@aai-agency/og-components/machines` |
+| `src/sample-data/index.ts` | `@aai-agency/og-components/sample-data` |
 
 ## Key Design Decisions
 

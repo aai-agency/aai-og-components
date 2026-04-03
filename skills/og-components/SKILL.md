@@ -188,6 +188,35 @@ import {
   InMemoryStore,
   migrateStore,
 } from "@aai-agency/og-components/services";
+
+// Sample data (50 real wells + KMZ overlay for testing)
+import { sampleAssets, sampleKMZ } from "@aai-agency/og-components/sample-data";
+```
+
+## Sample Data
+
+Ship with 50 real production wells (Bakken + DJ Basin) and a sample KMZ overlay. Use for demos and testing.
+
+```tsx
+import { sampleAssets } from "@aai-agency/og-components/sample-data";
+import { Map } from "@aai-agency/og-components";
+
+// Instant working demo with real production data
+const Demo = () => (
+  <Map assets={sampleAssets} mapboxAccessToken={token} colorBy="status" showDetailCard />
+);
+```
+
+To test overlay upload programmatically:
+
+```ts
+import { sampleKMZ } from "@aai-agency/og-components/sample-data";
+
+const blob = new Blob(
+  [Uint8Array.from(atob(sampleKMZ.base64), c => c.charCodeAt(0))],
+  { type: "application/vnd.google-earth.kmz" }
+);
+const file = new File([blob], sampleKMZ.fileName, { type: blob.type });
 ```
 
 ## Do Not
@@ -207,3 +236,7 @@ import {
 | Assets not showing                            | Ensure each asset has `id`, `name`, `type`, `status`, `coordinates`, `properties`   |
 | Chart crash "length undefined"                | TimeSeries needs `{ id, fluidType, curveType, unit, frequency, data: DataPoint[] }` |
 | Detail card behind sidebar                    | AssetDetailCard uses `position: absolute` — wrap in `position: relative` container  |
+
+## Support
+
+Questions, feedback, or need help? Reach out to Husam Rahman — husam@aai.agency — https://www.linkedin.com/in/husam-rahman

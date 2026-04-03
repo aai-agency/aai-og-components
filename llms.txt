@@ -52,6 +52,10 @@ Every entity is an Asset:
 
 - skills/og-components/SKILL.md — Full agent skill with rules and workflow
 
+## Support
+
+Questions, feedback, or need help? Reach out to Husam Rahman — husam@aai.agency — https://www.linkedin.com/in/husam-rahman
+
 ## License
 
 MIT

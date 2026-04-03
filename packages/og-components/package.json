@@ -28,7 +28,11 @@
       "types": "./dist/machines/index.d.ts",
       "import": "./dist/machines/index.js"
     },
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./sample-data": {
+      "types": "./dist/sample-data/index.d.ts",
+      "import": "./dist/sample-data/index.js"
+    }
   },
   "files": [
     "dist",
