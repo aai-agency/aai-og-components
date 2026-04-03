@@ -5,10 +5,10 @@
 ## Install
 
 ```
-pnpm add @aai-agency/og-components
+pnpm add @aai-agency/og-components mapbox-gl
 ```
 
-Requires: React 18+, Tailwind CSS 4+, Mapbox access token
+Requires: React 18+, Tailwind CSS 4+, mapbox-gl 3+, Mapbox access token
 
 ## Setup
 

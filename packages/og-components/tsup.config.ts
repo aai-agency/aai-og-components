@@ -14,7 +14,7 @@ export default defineConfig({
   splitting: true,
   treeshake: true,
   clean: true,
-  external: ["react", "react-dom", "sql.js"],
+  external: ["react", "react-dom", "sql.js", "mapbox-gl"],
   sourcemap: true,
   minify: false,
 });

@@ -41,7 +41,7 @@ Read these before generating code:
 ## Install Workflow
 
 ```bash
-pnpm add @aai-agency/og-components
+pnpm add @aai-agency/og-components mapbox-gl
 ```
 
 Required CSS (in app entry):
@@ -50,7 +50,7 @@ Required CSS (in app entry):
 import "mapbox-gl/dist/mapbox-gl.css";
 ```
 
-Required Tailwind setup (in app CSS):
+Required Tailwind setup (in app CSS, after your `@import "tailwindcss"`):
 
 ```css
 @import "@aai-agency/og-components/styles.css";
@@ -168,6 +168,8 @@ import type {
 // Utilities
 import {
   filterPlottable,
+  filterByValidCoordinates, // alias for filterPlottable
+  getTimeSeries,            // extract TimeSeries[] from asset.properties
   fitBounds,
   getAssetColor,
   formatNumber,

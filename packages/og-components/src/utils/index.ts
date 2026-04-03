@@ -1,5 +1,5 @@
 import { TYPE_COLORS as ASSET_TYPE_COLORS, STATUS_COLORS, WELL_TYPE_COLORS } from "../constants/colors";
-import type { Asset, AssetTypeConfig, ColorScheme, Coordinates, MapViewState } from "../types";
+import type { Asset, AssetTypeConfig, ColorScheme, Coordinates, MapViewState, TimeSeries } from "../types";
 
 // ── Data Validation ──────────────────────────────────────────────────────────
 
@@ -19,9 +19,21 @@ export const isValidCoordinates = (coords: Coordinates | null | undefined): bool
   );
 };
 
-/** Filter assets to only those with plottable coordinates */
+/**
+ * Filter assets to only those with valid coordinates.
+ * Alias: `filterByValidCoordinates`
+ */
 export const filterPlottable = <T extends { coordinates: Coordinates }>(items: T[]): T[] => {
   return items.filter((item) => isValidCoordinates(item.coordinates));
+};
+
+/** Alias for filterPlottable — filters items with valid lat/lng coordinates */
+export const filterByValidCoordinates = filterPlottable;
+
+/** Extract timeSeries from an asset's properties (avoids manual casting) */
+export const getTimeSeries = (asset: Asset): TimeSeries[] => {
+  const ts = asset.properties?.timeSeries;
+  return Array.isArray(ts) ? (ts as TimeSeries[]) : [];
 };
 
 // ── Bounds & View ────────────────────────────────────────────────────────────

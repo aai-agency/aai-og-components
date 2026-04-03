@@ -92,6 +92,8 @@ export {
 export {
   isValidCoordinates,
   filterPlottable,
+  filterByValidCoordinates,
+  getTimeSeries,
   computeBounds,
   fitBounds,
   getAssetColor,
