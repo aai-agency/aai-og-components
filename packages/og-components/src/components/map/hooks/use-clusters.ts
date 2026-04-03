@@ -18,12 +18,12 @@ export interface ClusterResult {
   expansionZoom?: number;
 }
 
-export function useClusters(
+export const useClusters = (
   assets: Asset[],
   zoom: number,
   bounds: [number, number, number, number] | null,
   options: { radius?: number; maxZoom?: number; enabled?: boolean },
-): ClusterResult[] {
+): ClusterResult[] => {
   const { radius = 50, maxZoom = 10, enabled = true } = options;
 
   // When clustering is disabled, return empty array — the map component
@@ -113,4 +113,4 @@ export function useClusters(
       };
     });
   }, [assets, pointAssets, indexMap, bounds, zoom, enabled, scIndex]);
-}
+};

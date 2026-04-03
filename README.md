@@ -1,10 +1,11 @@
 # @aai-agency/og-components
 
-[![npm](https://img.shields.io/npm/v/@aai-agency/og-components)](https://www.npmjs.com/package/@aai-agency/og-components) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/) [![CI](https://github.com/aai-agency/aai-og-components/actions/workflows/ci.yml/badge.svg)](https://github.com/aai-agency/aai-og-components/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@aai-agency/og-components)](https://www.npmjs.com/package/@aai-agency/og-components) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
 
-Interactive map components for Oil & Gas assets. One component gets you an interactive map with wells, pipelines, production charts, overlay uploads, drawing tools, and detail cards.
+Production-grade O&G React components that your coding AI agent can use. Interactive maps, production charts, asset detail cards, and much more. Free, open source, and ready for Claude Code, ChatGPT, Codex, or any AI coding agent.
 
-Built by [AAI Agency](https://aai.agency) in Dallas, TX.
+Built by [AAI Agency](https://aai.agency)
+Contact: Husam Rahman | husam@aai.agency | https://www.linkedin.com/in/husam-rahman
 
 ## Install
 
@@ -12,11 +13,24 @@ Built by [AAI Agency](https://aai.agency) in Dallas, TX.
 pnpm add @aai-agency/og-components
 ```
 
+## Setup
+
+Import the Tailwind theme tokens in your CSS:
+
+```css
+@import "@aai-agency/og-components/styles.css";
+```
+
+Import Mapbox CSS in your app entry:
+
+```ts
+import "mapbox-gl/dist/mapbox-gl.css";
+```
+
 ## Quick Start
 
 ```tsx
 import { Map, type Asset } from "@aai-agency/og-components";
-import "mapbox-gl/dist/mapbox-gl.css";
 
 const assets: Asset[] = [
   {
@@ -33,45 +47,39 @@ const assets: Asset[] = [
   },
 ];
 
-function App() {
-  return (
-    <Map
-      assets={assets}
-      mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
-      colorBy="status"
-      enableOverlayUpload
-      showDetailCard
-    />
-  );
-}
+const App = () => (
+  <Map
+    assets={assets}
+    mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+    colorBy="status"
+    enableOverlayUpload
+    showDetailCard
+  />
+);
 ```
 
 ## What You Get
 
-- **Interactive Asset Map** - Plot wells, meters, pipelines, facilities on a map
-- **Smart Clustering** - Nearby dots group together at low zoom, expand on click
-- **Color Schemes** - Color by status, type, production volume, water cut, operator, or basin
-- **Production Charts** - Time series charts with dual Y-axis and zoom
-- **Drawing Tools** - Draw polygons, rectangles, and circles to select assets
-- **Overlay Upload** - Drag and drop KMZ, KML, GeoJSON, and Shapefile files onto the map
-- **Detail Cards** - Click any asset to see its data, production chart, and custom fields
-- **Data Persistence** - Save to browser storage so data survives page refreshes
+- **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
+- **Production Charts** — Time series with dual Y-axis, powered by uPlot for 10,000+ data points
+- **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
+- **Selection Panel** — Multi-asset selection with filter chips and summary stats
+- **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
+- **Color Schemes** — Color by status, type, production, water cut, operator, or basin
+- **Data Persistence** — LocalStorage or in-browser SQLite for large datasets
+- **Validation Schemas** — Zod schemas for assets, production records, overlays, and configuration
 
 ## Requirements
 
 - React 18+
+- Tailwind CSS 4+
 - Mapbox access token ([get one here](https://account.mapbox.com/access-tokens/))
 
 ## Documentation
 
-For the full guide with examples, data formats, and all available options, see [AGENTS.md](./AGENTS.md). This file is written so that AI coding assistants (Claude, Cursor, Copilot) can help you set everything up.
-
-## Support
-
-If you have any questions or need additional support, reach out to Husam Rahman:
-
-- Email: husam@aai.agency
-- LinkedIn: [linkedin.com/in/husam-rahman](https://www.linkedin.com/in/husam-rahman)
+- [skills/og-components/SKILL.md](./skills/og-components/SKILL.md) — Full agent skill with rules and workflow
+- [CLAUDE.md](./CLAUDE.md) — Dev setup and contributing guide
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to contribute
 
 ## License
 

@@ -63,21 +63,21 @@ const DATE_FMT_FULL = new Intl.DateTimeFormat("en-US", { month: "short", day: "n
  * Epoch seconds for dates are typically > 946684800 (Jan 1, 2000).
  * Returns a formatter appropriate for the data.
  */
-function autoFormatX(value: number, isTime: boolean): string {
+const autoFormatX = (value: number, isTime: boolean): string => {
   if (isTime) {
     return DATE_FMT_FULL.format(new Date(value * 1000));
   }
   return formatNumber(value, 1);
-}
+};
 
 /** Detect if x-axis data represents time (epoch seconds) */
-function detectTimeScale(timestamps: ArrayLike<number>): boolean {
+const detectTimeScale = (timestamps: ArrayLike<number>): boolean => {
   if (timestamps.length === 0) return true;
   const first = timestamps[0];
   // Epoch seconds for year 2000+ are > 946684800
   // Raw day counts, cumulative values, etc. would be much smaller
   return first > 946684800;
-}
+};
 
 const DEFAULT_RIGHT_AXIS_FLUIDS = ["gas"];
 
@@ -93,16 +93,16 @@ interface SeriesMeta {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function dateToEpoch(date: string): number {
+const dateToEpoch = (date: string): number => {
   return new Date(date).getTime() / 1000;
-}
+};
 
-function buildAlignedData(
+const buildAlignedData = (
   seriesList: TimeSeries[],
   rightAxisFluids: string[],
   colorMap: Record<string, string>,
   labelMap: Record<string, string>,
-): { data: uPlot.AlignedData; meta: SeriesMeta[] } {
+): { data: uPlot.AlignedData; meta: SeriesMeta[] } => {
   // Collect all timestamps into a sorted array
   const tsSet = new Set<number>();
   for (const s of seriesList) {
@@ -136,14 +136,14 @@ function buildAlignedData(
   }
 
   return { data: [timestamps, ...aligned] as uPlot.AlignedData, meta };
-}
+};
 
 // ── Tooltip Plugin ───────────────────────────────────────────────────────────
 
-function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): uPlot.Plugin {
+const tooltipPlugin = (meta: SeriesMeta[], formatX: (value: number) => string): uPlot.Plugin => {
   let tooltip: HTMLDivElement;
 
-  function init(_u: uPlot) {
+  const init = (_u: uPlot) => {
     tooltip = document.createElement("div");
     Object.assign(tooltip.style, {
       display: "none",
@@ -162,9 +162,9 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
       boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     });
     document.body.appendChild(tooltip);
-  }
+  };
 
-  function setCursor(u: uPlot) {
+  const setCursor = (u: uPlot) => {
     const idx = u.cursor.idx;
     if (idx == null || idx < 0) {
       tooltip.style.display = "none";
@@ -213,7 +213,7 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
 
     tooltip.style.left = `${xPos}px`;
     tooltip.style.top = `${yPos}px`;
-  }
+  };
 
   return {
     hooks: {
@@ -224,7 +224,7 @@ function tooltipPlugin(meta: SeriesMeta[], formatX: (value: number) => string): 
       },
     },
   };
-}
+};
 
 // ── Main Component ───────────────────────────────────────────────────────────
 

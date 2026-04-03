@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import type { MapOverlay, OverlayType } from "../types";
 
 /** Shared factory — eliminates duplicate MapOverlay construction across parsers */
-function buildOverlay(file: File, type: OverlayType, geojson: GeoJSON.FeatureCollection, extRegex: RegExp): MapOverlay {
+const buildOverlay = (file: File, type: OverlayType, geojson: GeoJSON.FeatureCollection, extRegex: RegExp): MapOverlay => {
   return {
     id: crypto.randomUUID(),
     name: file.name.replace(extRegex, ""),
@@ -13,10 +13,10 @@ function buildOverlay(file: File, type: OverlayType, geojson: GeoJSON.FeatureCol
     version: 1,
     uploadedAt: new Date().toISOString(),
   };
-}
+};
 
 /** Parse a KMZ file (zipped KML) into a MapOverlay */
-export async function parseKMZ(file: File): Promise<MapOverlay> {
+export const parseKMZ = async (file: File): Promise<MapOverlay> => {
   const buffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buffer);
 
@@ -25,26 +25,26 @@ export async function parseKMZ(file: File): Promise<MapOverlay> {
 
   const kmlText = await kmlEntry.async("text");
   return buildOverlay(file, "kmz", kmlToGeoJSON(kmlText), /\.kmz$/i);
-}
+};
 
 /** Parse a KML file into a MapOverlay */
-export async function parseKML(file: File): Promise<MapOverlay> {
+export const parseKML = async (file: File): Promise<MapOverlay> => {
   const text = await file.text();
   return buildOverlay(file, "kml", kmlToGeoJSON(text), /\.kml$/i);
-}
+};
 
 /** Parse a GeoJSON file into a MapOverlay */
-export async function parseGeoJSONFile(file: File): Promise<MapOverlay> {
+export const parseGeoJSONFile = async (file: File): Promise<MapOverlay> => {
   const text = await file.text();
   const geojson = JSON.parse(text) as GeoJSON.FeatureCollection;
   if (geojson.type !== "FeatureCollection") {
     throw new Error("Expected a GeoJSON FeatureCollection");
   }
   return buildOverlay(file, "geojson", geojson, /\.(geojson|json)$/i);
-}
+};
 
 /** Parse a Shapefile (.zip containing .shp, .dbf, .shx, .prj) into a MapOverlay */
-export async function parseShapefile(file: File): Promise<MapOverlay> {
+export const parseShapefile = async (file: File): Promise<MapOverlay> => {
   const { default: shp } = await import("shpjs");
   const buffer = await file.arrayBuffer();
   const result = await shp(buffer);
@@ -54,18 +54,18 @@ export async function parseShapefile(file: File): Promise<MapOverlay> {
     : result;
 
   return buildOverlay(file, "shapefile", geojson, /\.zip$/i);
-}
+};
 
 /** Shapefile component extensions that shpjs needs bundled together */
 const SHP_EXTENSIONS = [".shp", ".dbf", ".prj", ".shx", ".cpg", ".sbn", ".sbx"];
 
 /** Check if a set of files looks like loose shapefile components */
-export function isShapefileBundle(files: File[]): boolean {
+export const isShapefileBundle = (files: File[]): boolean => {
   return files.some((f) => f.name.toLowerCase().endsWith(".shp"));
-}
+};
 
 /** Parse loose shapefile components (.shp, .dbf, .prj, .shx, etc.) by bundling them into a zip first */
-export async function parseShapefileBundle(files: File[]): Promise<MapOverlay> {
+export const parseShapefileBundle = async (files: File[]): Promise<MapOverlay> => {
   const shpFile = files.find((f) => f.name.toLowerCase().endsWith(".shp"));
   if (!shpFile) throw new Error("No .shp file found in the selected files");
 
@@ -98,11 +98,11 @@ export async function parseShapefileBundle(files: File[]): Promise<MapOverlay> {
     version: 1,
     uploadedAt: new Date().toISOString(),
   };
-}
+};
 
 // ── KML → GeoJSON converter ─────────────────────────────────────────────────
 
-function kmlToGeoJSON(kmlText: string): GeoJSON.FeatureCollection {
+const kmlToGeoJSON = (kmlText: string): GeoJSON.FeatureCollection => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(kmlText, "application/xml");
   const features: GeoJSON.Feature[] = [];
@@ -116,9 +116,9 @@ function kmlToGeoJSON(kmlText: string): GeoJSON.FeatureCollection {
   }
 
   return { type: "FeatureCollection", features };
-}
+};
 
-function placemarkToFeature(pm: Element): GeoJSON.Feature | null {
+const placemarkToFeature = (pm: Element): GeoJSON.Feature | null => {
   const name = getTextContent(pm, "name");
   const description = getTextContent(pm, "description");
 
@@ -223,10 +223,10 @@ function placemarkToFeature(pm: Element): GeoJSON.Feature | null {
   }
 
   return null;
-}
+};
 
 /** Parse KML coordinate string: "lng,lat,alt lng,lat,alt ..." → [lng, lat][] */
-function parseCoordinateString(str: string): number[][] {
+const parseCoordinateString = (str: string): number[][] => {
   return str
     .trim()
     .split(/\s+/)
@@ -237,9 +237,9 @@ function parseCoordinateString(str: string): number[][] {
       return [parts[0], parts[1]];
     })
     .filter(([lng, lat]) => !Number.isNaN(lng) && !Number.isNaN(lat));
-}
+};
 
-function getTextContent(parent: Element, tagName: string): string | null {
+const getTextContent = (parent: Element, tagName: string): string | null => {
   const el = parent.getElementsByTagName(tagName)[0];
   return el?.textContent ?? null;
-}
+};

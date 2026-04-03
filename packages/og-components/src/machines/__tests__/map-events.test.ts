@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { mapMachine } from "..";
 import type { Asset } from "../../types";
 
-function makeAsset(id: string, overrides?: Partial<Asset>): Asset {
+const makeAsset = (id: string, overrides?: Partial<Asset>): Asset => {
   return {
     id,
     name: id,
@@ -13,7 +13,7 @@ function makeAsset(id: string, overrides?: Partial<Asset>): Asset {
     properties: {},
     ...overrides,
   };
-}
+};
 
 const testAssets = [
   makeAsset("w1", { type: "well", status: "producing", name: "Alpha Well" }),
@@ -22,7 +22,7 @@ const testAssets = [
   makeAsset("w4", { type: "well", status: "drilled", name: "Delta Well" }),
 ];
 
-function createTestActor() {
+const createTestActor = () => {
   const actor = createActor(mapMachine, {
     input: {
       assets: testAssets,
@@ -35,7 +35,7 @@ function createTestActor() {
   actor.start();
   actor.send({ type: "LOAD_ASSETS", assets: testAssets });
   return actor;
-}
+};
 
 describe("map machine view events", () => {
   it("PAN_ZOOM updates viewState", () => {

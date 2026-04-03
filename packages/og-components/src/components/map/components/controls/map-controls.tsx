@@ -858,12 +858,12 @@ LayerToggle.displayName = "LayerToggle";
 
 // ── Mini sub-components for overlay panel ────────────────────────────────────
 
-function MiniAction({
+const MiniAction = ({
   children,
   label,
   onClick,
   danger,
-}: { children: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+}: { children: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => {
   const baseColor = danger ? DANGER : TEXT_MUTED;
   return (
     <button
@@ -902,9 +902,9 @@ function MiniAction({
       {label}
     </button>
   );
-}
+};
 
-function MiniColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+const MiniColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 9, color: TEXT_FAINT, marginBottom: 2 }}>{label}</div>
@@ -943,9 +943,9 @@ function MiniColorField({ label, value, onChange }: { label: string; value: stri
       </div>
     </div>
   );
-}
+};
 
-function MiniSlider({
+const MiniSlider = ({
   label,
   value,
   min,
@@ -961,7 +961,7 @@ function MiniSlider({
   step: number;
   display: string;
   onChange: (v: number) => void;
-}) {
+}) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
@@ -988,7 +988,7 @@ function MiniSlider({
       />
     </div>
   );
-}
+};
 
 // ── MapControls (main export) ────────────────────────────────────────────────
 
@@ -1024,7 +1024,7 @@ export interface MapControlsProps {
   onLabelsToggle?: () => void;
 }
 
-export function MapControls({
+export const MapControls = ({
   map,
   controls = ["pan", "zoom", "fullscreen", "center", "draw-polygon", "draw-rectangle", "draw-circle", "layers"],
   layers = [],
@@ -1038,7 +1038,7 @@ export function MapControls({
   onDrawingModeChange,
   labelsActive,
   onLabelsToggle,
-}: MapControlsProps) {
+}: MapControlsProps) => {
   const drawRef = useRef<MapboxDraw | null>(null);
   const onDrawCreateRef = useRef(onDrawCreate);
   onDrawCreateRef.current = onDrawCreate;
@@ -1369,6 +1369,6 @@ export function MapControls({
       </div>
     </div>
   );
-}
+};
 
 MapControls.displayName = "MapControls";

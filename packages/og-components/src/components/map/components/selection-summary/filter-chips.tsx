@@ -24,7 +24,7 @@ export interface FilterChipsProps {
 
 // ── Arrow Button ─────────────────────────────────────────────────────────────
 
-function ScrollArrow({ direction, onClick }: { direction: "left" | "right"; onClick: () => void }) {
+const ScrollArrow = ({ direction, onClick }: { direction: "left" | "right"; onClick: () => void }) => {
   return (
     <button
       type="button"
@@ -51,7 +51,7 @@ function ScrollArrow({ direction, onClick }: { direction: "left" | "right"; onCl
       </svg>
     </button>
   );
-}
+};
 
 // ── Component ────────────────────────────────────────────────────────────────
 

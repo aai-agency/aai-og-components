@@ -4,7 +4,7 @@ import { mapMachine } from "..";
 import type { LassoOverlayFeature } from "..";
 import type { Asset } from "../../types";
 
-function makeAsset(id: string): Asset {
+const makeAsset = (id: string): Asset => {
   return {
     id,
     name: id,
@@ -13,11 +13,11 @@ function makeAsset(id: string): Asset {
     coordinates: { lat: 31, lng: -103 },
     properties: {},
   };
-}
+};
 
 const testAssets = [makeAsset("w1"), makeAsset("w2"), makeAsset("w3"), makeAsset("w4")];
 
-function createTestActor() {
+const createTestActor = () => {
   const actor = createActor(mapMachine, {
     input: {
       assets: testAssets,
@@ -31,7 +31,7 @@ function createTestActor() {
   // Transition from idle to ready
   actor.send({ type: "LOAD_ASSETS", assets: testAssets });
   return actor;
-}
+};
 
 describe("map machine selection events", () => {
   it("SELECT replaces selection by default", () => {

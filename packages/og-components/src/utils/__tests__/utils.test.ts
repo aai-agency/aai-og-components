@@ -12,7 +12,7 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeAsset(id: string, lat: number, lng: number, overrides?: Partial<Asset>): Asset {
+const makeAsset = (id: string, lat: number, lng: number, overrides?: Partial<Asset>): Asset => {
   return {
     id,
     name: id,
@@ -22,7 +22,7 @@ function makeAsset(id: string, lat: number, lng: number, overrides?: Partial<Ass
     properties: {},
     ...overrides,
   };
-}
+};
 
 // ── isValidCoordinates ───────────────────────────────────────────────────────
 

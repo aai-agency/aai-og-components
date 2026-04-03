@@ -13,7 +13,7 @@ import type { AssetStore } from "../types";
  * await migrateStore(sqliteStore, postgresStore);
  * ```
  */
-export async function migrateStore(source: AssetStore, target: AssetStore): Promise<void> {
+export const migrateStore = async (source: AssetStore, target: AssetStore): Promise<void> => {
   const data = await source.exportAll();
   await target.importAll(data);
-}
+};

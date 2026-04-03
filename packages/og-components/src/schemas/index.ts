@@ -88,11 +88,11 @@ export const MapOverlaySchema = z.object({
 // ── Parse helpers ────────────────────────────────────────────────────────────
 
 /** Parse and validate asset data — throws on invalid */
-export function parseAssets(data: unknown) {
+export const parseAssets = (data: unknown) => {
   return AssetArraySchema.parse(data);
-}
+};
 
 /** Safely parse assets — returns result with errors */
-export function safeParseAssets(data: unknown) {
+export const safeParseAssets = (data: unknown) => {
   return AssetArraySchema.safeParse(data);
-}
+};

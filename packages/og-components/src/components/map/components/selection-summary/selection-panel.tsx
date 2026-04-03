@@ -51,11 +51,11 @@ const MAX_CHIPS_PER_PROPERTY = 6;
  * Scans asset.type, asset.status, and all string values in asset.properties.
  * No hardcoded field names — fully driven by the data.
  */
-function buildChips(
+const buildChips = (
   assets: Asset[],
   overlayFeatures: SelectedOverlayFeature[],
   typeConfigs?: Map<string, AssetTypeConfig>,
-): FilterChip[] {
+): FilterChip[] => {
   const chips: FilterChip[] = [];
 
   // Always chip on type (core field)
@@ -124,10 +124,10 @@ function buildChips(
   }
 
   return chips;
-}
+};
 
 /** Apply active filters to the items list. Fully dynamic — parses category:value from chip IDs. */
-function applyFilters(items: MiniCardItem[], activeFilters: Set<string>): MiniCardItem[] {
+const applyFilters = (items: MiniCardItem[], activeFilters: Set<string>): MiniCardItem[] => {
   if (activeFilters.size === 0) return items;
 
   // Group active filters by category
@@ -177,7 +177,7 @@ function applyFilters(items: MiniCardItem[], activeFilters: Set<string>): MiniCa
 
     return true;
   });
-}
+};
 
 // ── Component ────────────────────────────────────────────────────────────────
 

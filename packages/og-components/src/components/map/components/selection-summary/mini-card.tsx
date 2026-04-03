@@ -145,7 +145,7 @@ export const MiniCard = memo(function MiniCard({ item, active, onClick }: MiniCa
 
 // ── Helpers to build MiniCardItems from assets/overlay features ──────────────
 
-export function assetToMiniCard(asset: Asset, typeConfigs?: Map<string, AssetTypeConfig>): MiniCardItem {
+export const assetToMiniCard = (asset: Asset, typeConfigs?: Map<string, AssetTypeConfig>): MiniCardItem => {
   const color = typeConfigs?.get(asset.type)?.color ?? TYPE_COLORS[asset.type] ?? "#6b7280";
   const meta: { label: string; value: string }[] = [];
 
@@ -170,15 +170,15 @@ export function assetToMiniCard(asset: Asset, typeConfigs?: Map<string, AssetTyp
     meta,
     asset,
   };
-}
+};
 
-export function overlayFeatureToMiniCard(
+export const overlayFeatureToMiniCard = (
   overlayId: string,
   overlayName: string,
   featureIndex: number,
   properties: Record<string, unknown>,
   geometryType: string,
-): MiniCardItem {
+): MiniCardItem => {
   const featureName = (properties.name ??
     properties.Name ??
     properties.NAME ??
@@ -207,4 +207,4 @@ export function overlayFeatureToMiniCard(
       geometryType,
     },
   };
-}
+};

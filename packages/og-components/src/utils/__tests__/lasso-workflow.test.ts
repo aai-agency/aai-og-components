@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Asset } from "../../types";
 import { computeLassoSelection, extractPolygons } from "../lasso-selection";
 
-function makeAsset(id: string, lng: number, lat: number): Asset {
+const makeAsset = (id: string, lng: number, lat: number): Asset => {
   return {
     id,
     name: id,
@@ -12,9 +12,9 @@ function makeAsset(id: string, lng: number, lat: number): Asset {
     coordinates: { lat, lng },
     properties: {},
   };
-}
+};
 
-function makePolygon(coords: [number, number][]): Feature<Polygon> {
+const makePolygon = (coords: [number, number][]): Feature<Polygon> => {
   const ring =
     coords[0][0] === coords[coords.length - 1][0] && coords[0][1] === coords[coords.length - 1][1]
       ? coords
@@ -24,7 +24,7 @@ function makePolygon(coords: [number, number][]): Feature<Polygon> {
     properties: {},
     geometry: { type: "Polygon", coordinates: [ring] },
   };
-}
+};
 
 const assets: Asset[] = [
   makeAsset("a", 0, 0),

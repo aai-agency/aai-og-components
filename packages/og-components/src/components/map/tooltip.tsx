@@ -3,7 +3,7 @@ import { formatNumber } from "../../utils";
 import type { MapTooltipProps } from "./map.types";
 import { ACCENT, BLUR_SM, BORDER, FONT_FAMILY, PANEL_BG, SHADOW_MD, TEXT_MUTED, TEXT_PRIMARY } from "./theme";
 
-export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapTooltipProps) {
+export const MapTooltip = ({ asset, x, y, typeConfigs, renderTooltip }: MapTooltipProps) => {
   if (renderTooltip) {
     return (
       <div
@@ -89,19 +89,19 @@ export function MapTooltip({ asset, x, y, typeConfigs, renderTooltip }: MapToolt
       </div>
     </div>
   );
-}
+};
 
-function Row({ label, value }: { label: string; value: string }) {
+const Row = ({ label, value }: { label: string; value: string }) => {
   return (
     <>
       <span style={{ color: TEXT_MUTED, fontSize: 11 }}>{label}</span>
       <span style={{ color: TEXT_PRIMARY, fontSize: 11, fontWeight: 500, textTransform: "capitalize" }}>{value}</span>
     </>
   );
-}
+};
 
 /** Resolve a dot-path field from the asset */
-function resolveField(asset: Record<string, unknown>, field: FieldConfig): string | null {
+const resolveField = (asset: Record<string, unknown>, field: FieldConfig): string | null => {
   const parts = field.key.split(".");
   let current: unknown = asset;
   for (const part of parts) {
@@ -115,14 +115,14 @@ function resolveField(asset: Record<string, unknown>, field: FieldConfig): strin
     return field.unit ? `${formatted} ${field.unit}` : formatted;
   }
   return String(current);
-}
+};
 
-function getProp(asset: { properties?: Record<string, unknown> }, key: string): string | undefined {
+const getProp = (asset: { properties?: Record<string, unknown> }, key: string): string | undefined => {
   const val = asset.properties?.[key];
   return val != null ? String(val) : undefined;
-}
+};
 
-function getNumProp(asset: { properties?: Record<string, unknown> }, key: string): number | undefined {
+const getNumProp = (asset: { properties?: Record<string, unknown> }, key: string): number | undefined => {
   const val = asset.properties?.[key];
   return typeof val === "number" ? val : undefined;
-}
+};

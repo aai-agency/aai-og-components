@@ -5,7 +5,7 @@ import { computeLassoSelection, extractPolygons } from "../lasso-selection";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeAsset(id: string, lng: number, lat: number): Asset {
+const makeAsset = (id: string, lng: number, lat: number): Asset => {
   return {
     id,
     name: id,
@@ -14,9 +14,9 @@ function makeAsset(id: string, lng: number, lat: number): Asset {
     coordinates: { lat, lng },
     properties: {},
   };
-}
+};
 
-function makePolygon(coords: [number, number][]): Feature<Polygon> {
+const makePolygon = (coords: [number, number][]): Feature<Polygon> => {
   // Close the ring if not already closed
   const ring =
     coords[0][0] === coords[coords.length - 1][0] && coords[0][1] === coords[coords.length - 1][1]
@@ -30,7 +30,7 @@ function makePolygon(coords: [number, number][]): Feature<Polygon> {
       coordinates: [ring],
     },
   };
-}
+};
 
 // A simple square: (-2,-2) to (2,2)
 const SQUARE_A = makePolygon([

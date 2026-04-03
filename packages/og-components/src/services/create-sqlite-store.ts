@@ -27,9 +27,9 @@ interface CreateSqliteStoreOptions {
  * <Map store={store} />
  * ```
  */
-export async function createSqliteStore(
+export const createSqliteStore = async (
   options?: CreateSqliteStoreOptions,
-): Promise<SqliteStore & { persist(): Promise<void> }> {
+): Promise<SqliteStore & { persist(): Promise<void> }> => {
   const dbName = options?.dbName ?? DEFAULT_IDB_NAME;
   const autoPersist = options?.autoPersist ?? true;
 
@@ -120,11 +120,11 @@ export async function createSqliteStore(
   }
 
   return Object.assign(store, { persist });
-}
+};
 
 // ── IndexedDB helpers ─────────────────────────────────────────────────────────
 
-function openIDB(dbName: string): Promise<IDBDatabase> {
+const openIDB = (dbName: string): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
     request.onupgradeneeded = () => {
@@ -133,9 +133,9 @@ function openIDB(dbName: string): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
-}
+};
 
-async function idbSave(dbName: string, data: Uint8Array): Promise<void> {
+const idbSave = async (dbName: string, data: Uint8Array): Promise<void> => {
   const idb = await openIDB(dbName);
   return new Promise((resolve, reject) => {
     const tx = idb.transaction(DEFAULT_IDB_STORE, "readwrite");
@@ -149,9 +149,9 @@ async function idbSave(dbName: string, data: Uint8Array): Promise<void> {
       reject(tx.error);
     };
   });
-}
+};
 
-async function idbLoad(dbName: string): Promise<Uint8Array | null> {
+const idbLoad = async (dbName: string): Promise<Uint8Array | null> => {
   try {
     const idb = await openIDB(dbName);
     return new Promise((resolve, reject) => {
@@ -169,4 +169,4 @@ async function idbLoad(dbName: string): Promise<Uint8Array | null> {
   } catch {
     return null;
   }
-}
+};

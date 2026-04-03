@@ -49,16 +49,16 @@ export interface SelectionSummaryCardProps {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-function sumProp(assets: Asset[], prop: string): number {
+const sumProp = (assets: Asset[], prop: string): number => {
   let total = 0;
   for (const a of assets) {
     const val = a.properties[prop];
     if (typeof val === "number") total += val;
   }
   return total;
-}
+};
 
-function avgProp(assets: Asset[], prop: string): number | null {
+const avgProp = (assets: Asset[], prop: string): number | null => {
   let total = 0;
   let count = 0;
   for (const a of assets) {
@@ -69,11 +69,11 @@ function avgProp(assets: Asset[], prop: string): number | null {
     }
   }
   return count > 0 ? total / count : null;
-}
+};
 
 // ── Stat Row ─────────────────────────────────────────────────────────────────
 
-function StatRow({ label, value, unit }: { label: string; value: string; unit?: string }) {
+const StatRow = ({ label, value, unit }: { label: string; value: string; unit?: string }) => {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
       <span style={{ fontSize: 12, color: TEXT_MUTED }}>{label}</span>
@@ -83,11 +83,11 @@ function StatRow({ label, value, unit }: { label: string; value: string; unit?: 
       </span>
     </div>
   );
-}
+};
 
 // ── Count Badge ──────────────────────────────────────────────────────────────
 
-function CountBadge({ label, count, color }: { label: string; count: number; color: string }) {
+const CountBadge = ({ label, count, color }: { label: string; count: number; color: string }) => {
   return (
     <div
       style={{
@@ -105,11 +105,11 @@ function CountBadge({ label, count, color }: { label: string; count: number; col
       <span style={{ fontSize: 11, color: TEXT_MUTED }}>{label}</span>
     </div>
   );
-}
+};
 
 // ── Section Header ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title, collapsed, onToggle }: { title: string; collapsed: boolean; onToggle: () => void }) {
+const SectionHeader = ({ title, collapsed, onToggle }: { title: string; collapsed: boolean; onToggle: () => void }) => {
   return (
     <button
       type="button"
@@ -151,7 +151,7 @@ function SectionHeader({ title, collapsed, onToggle }: { title: string; collapse
       </svg>
     </button>
   );
-}
+};
 
 // ── Main Component ───────────────────────────────────────────────────────────
 

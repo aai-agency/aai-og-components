@@ -93,7 +93,7 @@ export type MapEvent =
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function computeVisibleIndices(ctx: MapContext): number[] {
+const computeVisibleIndices = (ctx: MapContext): number[] => {
   const indices: number[] = [];
   for (let i = 0; i < ctx.assets.length; i++) {
     const asset = ctx.assets[i];
@@ -115,27 +115,27 @@ function computeVisibleIndices(ctx: MapContext): number[] {
     indices.push(i);
   }
   return indices;
-}
+};
 
 const US_CENTER_VIEW: MapViewState = { longitude: -98.5, latitude: 39.8, zoom: 4 };
 
-function fitBoundsFromAssets(assets: Asset[]): MapViewState {
+const fitBoundsFromAssets = (assets: Asset[]): MapViewState => {
   if (assets.length === 0) return US_CENTER_VIEW;
   return fitBounds(assets);
-}
+};
 
 // ── Side-effect helpers ──────────────────────────────────────────────────────
 
 /** Swallow promise rejection with a console warning */
-function logStoreError(err: unknown) {
+const logStoreError = (err: unknown) => {
   console.warn("[og-map] store operation failed:", err);
-}
+};
 
 /** Fire-and-forget delete overlay from store */
-function removeOverlayFromStore(store: AssetStore | null, id: string) {
+const removeOverlayFromStore = (store: AssetStore | null, id: string) => {
   if (!store) return;
   store.deleteOverlay(id).catch(logStoreError);
-}
+};
 
 // ── Actors (async services) ──────────────────────────────────────────────────
 

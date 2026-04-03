@@ -29,3 +29,4 @@ Thumbs.db
 # Build artifacts
 *.tsbuildinfo
 apps/docs/src/routes/playground.tsx
+.gstack/

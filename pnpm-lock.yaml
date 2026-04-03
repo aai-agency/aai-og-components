@@ -18,7 +18,7 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@25.4.0)(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0))
 
-  apps/docs:
+  apps/playground:
     dependencies:
       '@aai-agency/og-components':
         specifier: workspace:*
@@ -84,9 +84,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tailwindcss/vite':
-        specifier: ^4.0.14
-        version: 4.2.1(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0))
       '@turf/turf':
         specifier: ^7.3.4
         version: 7.3.4
@@ -123,9 +120,6 @@ importers:
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
-      tailwindcss:
-        specifier: ^4.0.14
-        version: 4.2.1
       uplot:
         specifier: ^1.6.32
         version: 1.6.32
@@ -136,6 +130,9 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.0.14
+        version: 4.2.1(vite@7.3.1(@types/node@25.4.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0))
       '@types/geojson':
         specifier: ^7946.0.16
         version: 7946.0.16
@@ -163,6 +160,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
+      tailwindcss:
+        specifier: ^4.0.14
+        version: 4.2.1
       tsup:
         specifier: ^8.3.6
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)

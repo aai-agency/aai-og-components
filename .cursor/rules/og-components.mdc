@@ -1,0 +1,47 @@
+---
+description: Rules for working with @aai-agency/og-components
+globs: packages/og-components/**/*
+---
+
+# @aai-agency/og-components Rules
+
+## Code Style
+
+- Arrow functions only: `const foo = () => {}`, never `function foo() {}`
+- Biome for formatting: `pnpm lint`
+- TypeScript strict mode, no `any`
+- ESM only
+
+## Component Conventions
+
+- Tailwind CSS with shadcn tokens (bg-background, text-foreground, border-border)
+- Use `cn()` from `@/lib/utils` for conditional class merging
+- Every interactive control needs a `<Tooltip>` wrapper
+- All panels use solid white backgrounds, no transparency
+- Selected markers keep original fill color with dark border
+
+## Data
+
+- Every Asset needs: id, name, type, status, coordinates, properties
+- Domain fields (operator, cumOil) go in `properties`, not top-level
+- Use Zod schemas at data boundaries
+- TimeSeries: `{ id, fluidType, curveType, unit, frequency, data: DataPoint[] }`
+
+## Map Component
+
+- Requires `mapboxAccessToken` prop (from env var, never hardcoded)
+- Needs `<TooltipProvider>` ancestor
+- Uses mapbox-gl directly, not react-map-gl
+- XState machine manages all map interactions
+
+## Charts
+
+- Both LineChart and ProductionChart use `TimeSeries[]`
+- Require `import "uplot/dist/uPlot.min.css"`
+- Need explicit container height
+
+## Files
+
+- Components: `[feature].comp.tsx` or `[feature].tsx`
+- Types: `[feature].types.ts`
+- Tests colocated: `__tests__/[feature].test.ts`

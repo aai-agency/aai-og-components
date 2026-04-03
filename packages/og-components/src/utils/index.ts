@@ -4,7 +4,7 @@ import type { Asset, AssetTypeConfig, ColorScheme, Coordinates, MapViewState } f
 // ── Data Validation ──────────────────────────────────────────────────────────
 
 /** Check if coordinates are plottable on a map (within WGS84 bounds, non-NaN) */
-export function isValidCoordinates(coords: Coordinates | null | undefined): boolean {
+export const isValidCoordinates = (coords: Coordinates | null | undefined): boolean => {
   if (!coords) return false;
   const { lat, lng } = coords;
   return (
@@ -17,20 +17,20 @@ export function isValidCoordinates(coords: Coordinates | null | undefined): bool
     lng >= -180 &&
     lng <= 180
   );
-}
+};
 
 /** Filter assets to only those with plottable coordinates */
-export function filterPlottable<T extends { coordinates: Coordinates }>(items: T[]): T[] {
+export const filterPlottable = <T extends { coordinates: Coordinates }>(items: T[]): T[] => {
   return items.filter((item) => isValidCoordinates(item.coordinates));
-}
+};
 
 // ── Bounds & View ────────────────────────────────────────────────────────────
 
 /** Compute bounding box for a set of assets (loop-based, stack-overflow safe) */
-export function computeBounds(
+export const computeBounds = (
   items: (Asset | { coordinates: Coordinates })[],
   padding = 0.5,
-): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+): { minLat: number; maxLat: number; minLng: number; maxLng: number } => {
   if (items.length === 0) {
     return { minLat: 30, maxLat: 35, minLng: -105, maxLng: -95 };
   }
@@ -51,10 +51,10 @@ export function computeBounds(
     minLng: minLng - padding,
     maxLng: maxLng + padding,
   };
-}
+};
 
 /** Compute initial view state that fits all items */
-export function fitBounds(items: (Asset | { coordinates: Coordinates })[]): MapViewState {
+export const fitBounds = (items: (Asset | { coordinates: Coordinates })[]): MapViewState => {
   const bounds = computeBounds(items, 0.1);
   const centerLat = (bounds.minLat + bounds.maxLat) / 2;
   const centerLng = (bounds.minLng + bounds.maxLng) / 2;
@@ -63,12 +63,12 @@ export function fitBounds(items: (Asset | { coordinates: Coordinates })[]): MapV
   const maxDiff = Math.max(latDiff, lngDiff);
   const zoom = Math.max(1, Math.min(15, Math.floor(8 - Math.log2(maxDiff))));
   return { longitude: centerLng, latitude: centerLat, zoom };
-}
+};
 
 // ── Color Functions ──────────────────────────────────────────────────────────
 
 /** Generate a deterministic color from a string (for operator/basin coloring) */
-function hashColor(str: string): string {
+const hashColor = (str: string): string => {
   if (!str) return "#94a3b8";
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -76,10 +76,10 @@ function hashColor(str: string): string {
   }
   const hue = ((hash % 360) + 360) % 360;
   return `hsl(${hue}, 65%, 55%)`;
-}
+};
 
 /** Get color for any asset based on scheme and optional type configs */
-export function getAssetColor(asset: Asset, scheme: ColorScheme, typeConfigs?: Map<string, AssetTypeConfig>): string {
+export const getAssetColor = (asset: Asset, scheme: ColorScheme, typeConfigs?: Map<string, AssetTypeConfig>): string => {
   // Check user-provided type config first
   const config = typeConfigs?.get(asset.type);
 
@@ -127,22 +127,22 @@ export function getAssetColor(asset: Asset, scheme: ColorScheme, typeConfigs?: M
       return config?.color ?? "#6366f1";
     }
   }
-}
+};
 
 // ── Formatting ───────────────────────────────────────────────────────────────
 
 /** Format large numbers for display (e.g., 1234567 -> "1.23M") */
-export function formatNumber(value: number, decimals = 1): string {
+export const formatNumber = (value: number, decimals = 1): string => {
   if (Math.abs(value) >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(decimals)}B`;
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(decimals)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(decimals)}K`;
   return value.toFixed(decimals);
-}
+};
 
 // ── Collection Helpers ──────────────────────────────────────────────────────
 
 /** Group items by a key function */
-export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
+export const groupBy = <T>(items: T[], key: (item: T) => string): Map<string, T[]> => {
   const map = new Map<string, T[]>();
   for (const item of items) {
     const k = key(item);
@@ -151,14 +151,14 @@ export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[
     else map.set(k, [item]);
   }
   return map;
-}
+};
 
 // ── CSV Conversion ───────────────────────────────────────────────────────────
 
 /** Convert a CSV row into an Asset (type=well) */
 export { computeLassoSelection, extractPolygons } from "./lasso-selection";
 
-export function csvRowToAsset(row: Record<string, string>): Asset {
+export const csvRowToAsset = (row: Record<string, string>): Asset => {
   const statusMap: Record<string, string> = {
     PRODUCING: "producing",
     "SHUT-IN": "shut-in",
@@ -226,4 +226,4 @@ export function csvRowToAsset(row: Record<string, string>): Asset {
         : undefined,
     },
   };
-}
+};

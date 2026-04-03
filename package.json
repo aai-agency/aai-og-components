@@ -1,10 +1,10 @@
 {
-  "name": "aai-components",
+  "name": "aai-og-components",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter docs dev",
+    "dev": "pnpm --filter playground dev",
     "build": "pnpm --filter @aai-agency/og-components build",
-    "build:docs": "pnpm --filter docs build",
+    "build:docs": "pnpm --filter playground build",
     "lint": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @aai-agency/og-components test",

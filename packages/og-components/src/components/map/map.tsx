@@ -70,11 +70,11 @@ const SCHEME_LABELS: Record<string, string> = {
 };
 
 /** Build legend dynamically from the actual assets + color scheme */
-function buildLegend(
+const buildLegend = (
   assets: Asset[],
   colorBy: string,
   typeConfigs?: Map<string, AssetTypeConfig>,
-): { label: string; items: { color: string; label: string }[] } | null {
+): { label: string; items: { color: string; label: string }[] } | null => {
   if (assets.length === 0) return null;
 
   // Use static legend for threshold-based schemes
@@ -126,7 +126,7 @@ function buildLegend(
     label: SCHEME_LABELS[colorBy] ?? colorBy,
     items,
   };
-}
+};
 
 // ── Collapsible Map Legend ────────────────────────────────────────────────────
 
@@ -135,7 +135,7 @@ function buildLegend(
 /** Properties to exclude from overlay feature detail display */
 const HIDDEN_PROPS = new Set(["_idx", "layer", "source", "sourceLayer"]);
 
-function OverlayFeatureDetail({
+const OverlayFeatureDetail = ({
   overlayName,
   properties,
   geometryType,
@@ -145,7 +145,7 @@ function OverlayFeatureDetail({
   properties: Record<string, unknown>;
   geometryType: string;
   onClose: () => void;
-}) {
+}) => {
   const entries = Object.entries(properties).filter(([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k));
   const featureName = (properties.name ?? properties.Name ?? properties.NAME ?? overlayName) as string;
 
@@ -273,9 +273,9 @@ function OverlayFeatureDetail({
       </div>
     </div>
   );
-}
+};
 
-function OverlayFeatureTooltip({
+const OverlayFeatureTooltip = ({
   name,
   properties,
   x,
@@ -285,7 +285,7 @@ function OverlayFeatureTooltip({
   properties: Record<string, unknown>;
   x: number;
   y: number;
-}) {
+}) => {
   const entries = Object.entries(properties).filter(
     ([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k) && k !== "name" && k !== "Name" && k !== "NAME",
   );
@@ -329,7 +329,7 @@ function OverlayFeatureTooltip({
       )}
     </div>
   );
-}
+};
 
 interface MapLegendProps {
   label: string;
@@ -339,7 +339,7 @@ interface MapLegendProps {
   onSchemeChange?: (scheme: string) => void;
 }
 
-function MapLegend({ label, items, schemes, activeScheme, onSchemeChange }: MapLegendProps) {
+const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapLegendProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -497,22 +497,22 @@ function MapLegend({ label, items, schemes, activeScheme, onSchemeChange }: MapL
         ))}
     </div>
   );
-}
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Parse hex color string to [r, g, b, a] tuple for deck.gl */
-function hexToRgba(hex: string, alpha = 230): [number, number, number, number] {
+const hexToRgba = (hex: string, alpha = 230): [number, number, number, number] => {
   const h = hex.replace("#", "");
   const r = Number.parseInt(h.substring(0, 2), 16);
   const g = Number.parseInt(h.substring(2, 4), 16);
   const b = Number.parseInt(h.substring(4, 6), 16);
   return [r, g, b, alpha];
-}
+};
 
 // ── Map ─────────────────────────────────────────────────────────────────────
 
-export function OGMap({
+export const OGMap = ({
   assets: assetsProp,
   mapboxAccessToken,
   initialViewState,
@@ -547,7 +547,7 @@ export function OGMap({
   renderDetailBody,
   onDetailClose,
   onColorByChange,
-}: MapProps) {
+}: MapProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const deckOverlayRef = useRef<MapboxOverlay | null>(null);
@@ -1654,6 +1654,6 @@ export function OGMap({
     </div>
     </TooltipProvider>
   );
-}
+};
 
 OGMap.displayName = "Map";

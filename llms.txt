@@ -1,64 +1,56 @@
 # @aai-agency/og-components
 
-> Oil & Gas asset map components for React. By AAI Agency.
-
-## What this is
-
-A React component library for visualizing O&G assets (wells, pipelines, facilities) on interactive Mapbox maps with production charts, overlay uploads, drawing tools, and detail cards.
+> Production-grade O&G React components, agent-first. Maps, charts, detail cards, selection panels, overlay management, validation schemas, and data persistence. Free, open source, MIT. By AAI Agency.
 
 ## Install
 
-```bash
+```
 pnpm add @aai-agency/og-components
 ```
 
-## Key import
+Requires: React 18+, Tailwind CSS 4+, Mapbox access token
+
+## Setup
+
+```css
+@import "@aai-agency/og-components/styles.css";
+```
 
 ```ts
-import { OGMap, type Asset } from "@aai-agency/og-components";
 import "mapbox-gl/dist/mapbox-gl.css";
 ```
 
-## Minimal usage
+## Components
 
-```tsx
-<OGMap assets={assets} mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN} />
-```
+- Map — Interactive asset map with deck.gl, clustering, overlays, drawing tools, lasso selection
+- LineChart — High-performance time series chart with dual Y-axis
+- ProductionChart — Oil/gas/water production chart with annotations and brush zoom
+- AssetDetailCard — Expandable detail panel for any asset, auto-generates sections
+- SelectionPanel — Multi-select panel with filter chips and summary stats
+- OverlayManager — Upload and style KMZ/KML/GeoJSON/Shapefile overlays
+- MapControls — Toolbar with pan, zoom, fullscreen, center, draw, layer controls
+- Tooltip — Radix-based tooltip (shadcn pattern)
 
-## Data model
+## Data Model
 
-Every entity is an Asset with these required fields:
+Every entity is an Asset:
 
 ```ts
 { id, name, type, status, coordinates: { lat, lng }, properties: {} }
 ```
 
-## Agent docs
+## Subpath Exports
 
-- [AGENTS.md](./AGENTS.md) - Full usage guide with examples, options, and data formats
-- [registry.json](./registry.json) - Component catalog with descriptions, dependencies, and metadata
-- [.claude/SKILL.md](./.claude/SKILL.md) - Claude Code auto-discovery skill
-- [llms.txt](./llms.txt) - This file
-- [llms-full.txt](./llms-full.txt) - Complete API reference with all TypeScript interfaces and code examples
+- @aai-agency/og-components — Components and types
+- @aai-agency/og-components/schemas — Zod validation schemas
+- @aai-agency/og-components/utils — Data helpers (formatting, geo, CSV)
+- @aai-agency/og-components/services — Storage backends (localStorage, SQLite, in-memory)
+- @aai-agency/og-components/machines — XState map state machine
+- @aai-agency/og-components/styles.css — Tailwind theme tokens
 
-## Available components
+## Agent Integration
 
-- OGMap - Interactive asset map with clustering, color schemes, overlays, drawing tools
-- ProductionChart - Oil/gas/water time series chart with dual Y-axis and zoom
-- AssetDetailCard - Detail panel showing asset info on click
-- OverlayManager - Upload and manage KMZ/KML/GeoJSON/Shapefile overlays
-- SelectionPanel - Multi-select assets by drawing shapes
-- LocalStorageStore - Save data to browser storage
-- InMemoryStore - Temporary in-memory storage (useful for testing)
-- SqliteStore / createSqliteStore - Save data to in-browser SQLite for large datasets (10,000+ assets)
-
-## Requirements
-
-React 18+, Mapbox access token
-
-## Support
-
-Husam Rahman - husam@aai.agency - https://linkedin.com/in/husam-rahman
+- skills/og-components/SKILL.md — Full agent skill with rules and workflow
 
 ## License
 

@@ -56,17 +56,17 @@ export interface AssetDetailCardProps {
 
 const SCROLLBAR_CLASS = "og-hide-scrollbar";
 let styleInjected = false;
-function injectScrollbarStyle() {
+const injectScrollbarStyle = () => {
   if (styleInjected || typeof document === "undefined") return;
   const style = document.createElement("style");
   style.textContent = `.${SCROLLBAR_CLASS}::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}.${SCROLLBAR_CLASS}{scrollbar-width:none;-ms-overflow-style:none;overflow:-moz-scrollbars-none}`;
   document.head.appendChild(style);
   styleInjected = true;
-}
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function resolveField(asset: Asset, key: string): unknown {
+const resolveField = (asset: Asset, key: string): unknown => {
   const parts = key.split(".");
   let val: unknown = asset;
   for (const part of parts) {
@@ -74,9 +74,9 @@ function resolveField(asset: Asset, key: string): unknown {
     val = (val as Record<string, unknown>)[part];
   }
   return val;
-}
+};
 
-function formatFieldValue(value: unknown, format?: string, unit?: string): string {
+const formatFieldValue = (value: unknown, format?: string, unit?: string): string => {
   if (value == null) return "—";
   if (format === "number" && typeof value === "number") {
     return formatNumber(value, 1) + (unit ? ` ${unit}` : "");
@@ -95,27 +95,27 @@ function formatFieldValue(value: unknown, format?: string, unit?: string): strin
     }
   }
   return String(value) + (unit ? ` ${unit}` : "");
-}
+};
 
 // ── Dynamic Section Builder ──────────────────────────────────────────────────
 
 /** Convert a camelCase or snake_case key to a human-readable label */
-function humanize(key: string): string {
+const humanize = (key: string): string => {
   return key
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
-}
+};
 
 /** Infer format from key name and value type */
-function inferFormat(_key: string, value: unknown): { format?: string; unit?: string } {
+const inferFormat = (_key: string, value: unknown): { format?: string; unit?: string } => {
   if (typeof value === "number") return { format: "number" };
   if (typeof value === "string" && /^\d{4}-\d{2}/.test(value)) return { format: "date" };
   return {};
-}
+};
 
 /** Build sections dynamically from the asset's actual data */
-function buildSectionsFromAsset(asset: Asset): AssetDetailSection[] {
+const buildSectionsFromAsset = (asset: Asset): AssetDetailSection[] => {
   const sections: AssetDetailSection[] = [];
 
   // Properties section — all key/value pairs from asset.properties
@@ -146,7 +146,7 @@ function buildSectionsFromAsset(asset: Asset): AssetDetailSection[] {
   }
 
   return sections;
-}
+};
 
 // ── SectionView ──────────────────────────────────────────────────────────────
 

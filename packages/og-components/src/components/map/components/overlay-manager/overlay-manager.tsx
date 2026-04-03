@@ -52,7 +52,7 @@ export interface OverlayManagerProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function OverlayManager({
+export const OverlayManager = ({
   overlays,
   enableUpload = true,
   onUpload,
@@ -64,7 +64,7 @@ export function OverlayManager({
   onReupload,
   className,
   style: styleProp,
-}: OverlayManagerProps) {
+}: OverlayManagerProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
@@ -391,19 +391,19 @@ export function OverlayManager({
       />
     </div>
   );
-}
+};
 
 OverlayManager.displayName = "OverlayManager";
 
 // ── Style Editor ─────────────────────────────────────────────────────────────
 
-function StyleEditor({
+const StyleEditor = ({
   overlay,
   onUpdateStyle,
 }: {
   overlay: MapOverlay;
   onUpdateStyle?: (id: string, style: Partial<OverlayStyle>) => void;
-}) {
+}) => {
   const fillColor = overlay.style?.fillColor ?? ACCENT;
   const strokeColor = overlay.style?.strokeColor ?? ACCENT;
   const fillOpacity = overlay.style?.fillOpacity ?? 0.3;
@@ -457,17 +457,17 @@ function StyleEditor({
       </div>
     </div>
   );
-}
+};
 
 // ── Feature List ─────────────────────────────────────────────────────────────
 
-function FeatureList({
+const FeatureList = ({
   overlay,
   onUpdateFeature,
 }: {
   overlay: MapOverlay;
   onUpdateFeature?: (id: string, featureIndex: number, visible?: boolean, style?: Partial<OverlayStyle>) => void;
-}) {
+}) => {
   const features = overlay.geojson?.features ?? [];
 
   return (
@@ -586,11 +586,11 @@ function FeatureList({
       </div>
     </div>
   );
-}
+};
 
 // ── Shared sub-components ────────────────────────────────────────────────────
 
-function ActionButton({
+const ActionButton = ({
   children,
   label,
   onClick,
@@ -600,7 +600,7 @@ function ActionButton({
   label: string;
   onClick: () => void;
   danger?: boolean;
-}) {
+}) => {
   const baseColor = danger ? DANGER : TEXT_MUTED;
   return (
     <button
@@ -639,9 +639,9 @@ function ActionButton({
       {label}
     </button>
   );
-}
+};
 
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 10, color: TEXT_FAINT, marginBottom: 3 }}>{label}</div>
@@ -680,9 +680,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
       </div>
     </div>
   );
-}
+};
 
-function SliderField({
+const SliderField = ({
   label,
   value,
   min,
@@ -698,7 +698,7 @@ function SliderField({
   step: number;
   displayValue: string;
   onChange: (v: number) => void;
-}) {
+}) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -725,11 +725,11 @@ function SliderField({
       />
     </div>
   );
-}
+};
 
 // ── Icons (inline SVGs) ──────────────────────────────────────────────────────
 
-function LayersIcon() {
+const LayersIcon = () => {
   return (
     <svg
       width="14"
@@ -747,9 +747,9 @@ function LayersIcon() {
       <polyline points="2 12 12 17 22 12" />
     </svg>
   );
-}
+};
 
-function UploadIcon() {
+const UploadIcon = () => {
   return (
     <svg
       width="11"
@@ -767,9 +767,9 @@ function UploadIcon() {
       <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
     </svg>
   );
-}
+};
 
-function CheckIcon({ size = 10 }: { size?: number }) {
+const CheckIcon = ({ size = 10 }: { size?: number }) => {
   return (
     <svg
       width={size}
@@ -785,9 +785,9 @@ function CheckIcon({ size = 10 }: { size?: number }) {
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
-}
+};
 
-function ChevronIcon({ rotated }: { rotated: boolean }) {
+const ChevronIcon = ({ rotated }: { rotated: boolean }) => {
   return (
     <svg
       width="12"
@@ -808,9 +808,9 @@ function ChevronIcon({ rotated }: { rotated: boolean }) {
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
-}
+};
 
-function EditIcon() {
+const EditIcon = () => {
   return (
     <svg
       width="10"
@@ -827,9 +827,9 @@ function EditIcon() {
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
-}
+};
 
-function ReuploadIcon() {
+const ReuploadIcon = () => {
   return (
     <svg
       width="10"
@@ -846,9 +846,9 @@ function ReuploadIcon() {
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
   );
-}
+};
 
-function TrashIcon() {
+const TrashIcon = () => {
   return (
     <svg
       width="10"
@@ -865,4 +865,4 @@ function TrashIcon() {
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   );
-}
+};
