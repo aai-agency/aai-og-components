@@ -1,0 +1,142 @@
+# Chart Rules
+
+## TimeSeries Format
+
+Both LineChart and ProductionChart require the `TimeSeries` type. This is the most common mistake agents make.
+
+### Incorrect
+
+```ts
+// Wrong format — this is NOT how TimeSeries works
+const series = [
+  { label: "Oil", timestamps: ["2023-01", "2023-02"], values: [12000, 11200] },
+];
+
+// Missing required fields
+const series = [
+  { data: [{ date: "2023-01-01", value: 12000 }] },
+];
+```
+
+### Correct
+
+```ts
+import type { TimeSeries } from "@aai-agency/og-components";
+
+const series: TimeSeries[] = [
+  {
+    id: "oil-actual",
+    fluidType: "oil",        // "oil" | "gas" | "water"
+    curveType: "actual",     // "actual" | "forecast"
+    unit: "BBL",             // "BBL" | "MSCF" | "BOE" | "MCFE"
+    frequency: "monthly",   // "daily" | "monthly"
+    data: [
+      { date: "2023-01-01", value: 12000 },
+      { date: "2023-02-01", value: 11200 },
+      { date: "2023-03-01", value: 10500 },
+    ],
+  },
+];
+```
+
+## LineChart vs ProductionChart
+
+| Component | Use when |
+|-----------|----------|
+| `LineChart` | Standalone chart, simple time series display |
+| `ProductionChart` | Full-featured with brush zoom, annotations, forecast drag |
+
+Both accept the same `series: TimeSeries[]` prop.
+
+## LineChart
+
+```tsx
+import { LineChart } from "@aai-agency/og-components";
+import "uplot/dist/uPlot.min.css";
+
+<LineChart
+  series={series}
+  height={300}
+  colors={{ oil: "#22c55e", gas: "#ef4444", water: "#3b82f6" }}
+/>
+```
+
+Key props:
+- `series: TimeSeries[]` — required
+- `height: number` — default 220
+- `colors: Record<string, string>` — custom colors by fluidType
+- `rightAxisFluids: string[]` — default `["gas"]`
+- `showForecast: boolean` — default true
+
+## ProductionChart
+
+```tsx
+import { ProductionChart } from "@aai-agency/og-components";
+import "uplot/dist/uPlot.min.css";
+
+<ProductionChart
+  series={series}
+  height={200}
+  showBrush
+  enableAnnotations
+/>
+```
+
+Additional props over LineChart:
+- `showBrush: boolean` — overview scrubber for zoom
+- `enableAnnotations: boolean` — allow users to add annotations
+- `annotations: ChartAnnotation[]` — controlled annotations
+- `showVarianceFill: boolean` — fill between actual and forecast
+
+## CSS Import
+
+Charts require uPlot CSS. Without it, the chart renders but looks broken.
+
+### Incorrect
+
+```tsx
+// Forgot CSS import
+import { LineChart } from "@aai-agency/og-components";
+```
+
+### Correct
+
+```tsx
+import { LineChart } from "@aai-agency/og-components";
+import "uplot/dist/uPlot.min.css";
+```
+
+## Container Height
+
+Charts need a container with explicit height. They fill their container width but need height.
+
+### Incorrect
+
+```tsx
+// Chart will have 0 height
+<LineChart series={series} />
+```
+
+### Correct
+
+```tsx
+<div style={{ height: 400 }}>
+  <LineChart series={series} height={380} />
+</div>
+```
+
+## Production Charts in Detail Card
+
+When a well's `properties.timeSeries` array is populated, the AssetDetailCard automatically shows a production chart. No extra work needed.
+
+```ts
+const well: Asset = {
+  // ...
+  properties: {
+    timeSeries: [
+      { id: "oil", fluidType: "oil", curveType: "actual", unit: "BBL", frequency: "monthly", data: [...] },
+      { id: "gas", fluidType: "gas", curveType: "actual", unit: "MSCF", frequency: "monthly", data: [...] },
+    ],
+  },
+};
+```

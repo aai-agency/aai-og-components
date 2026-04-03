@@ -1,0 +1,77 @@
+{
+  "available": [
+    {
+      "name": "Map",
+      "description": "Interactive Mapbox map with smart clustering, 7 color schemes, tooltips, lasso selection, and drawing tools. Handles 25,000+ assets.",
+      "tag": "component",
+      "version": "0.1.0",
+      "icon": "Map"
+    },
+    {
+      "name": "ProductionChart",
+      "description": "Canvas-based time series with dual Y-axis, zoom, brush controls, and annotation markers. 10K+ data points at 60fps.",
+      "tag": "component",
+      "version": "0.1.0",
+      "icon": "BarChart3"
+    },
+    {
+      "name": "AssetDetailCard",
+      "description": "Auto-generated detail panel from asset properties. Production chart, custom sections, mobile drawer.",
+      "tag": "component",
+      "version": "0.1.0",
+      "icon": "CreditCard"
+    },
+    {
+      "name": "OverlayManager",
+      "description": "Drag-and-drop file uploads for KMZ, KML, GeoJSON, and Shapefiles. Per-feature visibility and layer controls.",
+      "tag": "component",
+      "version": "0.1.0",
+      "icon": "Layers"
+    },
+    {
+      "name": "MapControls",
+      "description": "Toolbar with pan, zoom, fullscreen, center, drawing modes, and layer toggle controls.",
+      "tag": "component",
+      "version": "0.1.0",
+      "icon": "MousePointer2"
+    }
+  ],
+  "roadmap": [
+    {
+      "name": "AssetStore",
+      "description": "Three storage backends: InMemory, LocalStorage, and SQLite (WASM). Full import/export and migration utilities.",
+      "tag": "service",
+      "icon": "Database"
+    },
+    {
+      "name": "DeclineCurve",
+      "description": "Decline curve analysis with Arps, Duong, and stretched exponential models. Interactive forecast dragging.",
+      "tag": "component",
+      "icon": "TrendingUp"
+    },
+    {
+      "name": "FilterPanel",
+      "description": "Smart filtering by operator, basin, status, well type, and production ranges with real-time map updates.",
+      "tag": "component",
+      "icon": "Filter"
+    },
+    {
+      "name": "TypeCurves",
+      "description": "Multi-well type curves with P10/P50/P90 percentile bands and production comparison mode.",
+      "tag": "component",
+      "icon": "Gauge"
+    },
+    {
+      "name": "AssetTable",
+      "description": "Sortable, filterable data table with inline editing, CSV export, and map selection sync.",
+      "tag": "component",
+      "icon": "Table2"
+    },
+    {
+      "name": "PipelineViewer",
+      "description": "Pipeline network visualization with flow direction, pressure gradients, and facility connections.",
+      "tag": "component",
+      "icon": "Workflow"
+    }
+  ]
+}

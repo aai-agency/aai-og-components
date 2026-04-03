@@ -1,0 +1,61 @@
+# @aai-agency/og-components
+
+> Production-grade O&G React components, agent-first. Maps, charts, detail cards, selection panels, overlay management, validation schemas, and data persistence. Free, open source, MIT. By AAI Agency.
+
+## Install
+
+```
+pnpm add @aai-agency/og-components
+```
+
+Requires: React 18+, Tailwind CSS 4+, Mapbox access token
+
+## Setup
+
+```css
+@import "@aai-agency/og-components/styles.css";
+```
+
+```ts
+import "mapbox-gl/dist/mapbox-gl.css";
+```
+
+## Components
+
+- Map — Interactive asset map with deck.gl, clustering, overlays, drawing tools, lasso selection
+- LineChart — High-performance time series chart with dual Y-axis
+- ProductionChart — Oil/gas/water production chart with annotations and brush zoom
+- AssetDetailCard — Expandable detail panel for any asset, auto-generates sections
+- SelectionPanel — Multi-select panel with filter chips and summary stats
+- OverlayManager — Upload and style KMZ/KML/GeoJSON/Shapefile overlays
+- MapControls — Toolbar with pan, zoom, fullscreen, center, draw, layer controls
+- Tooltip — Radix-based tooltip (shadcn pattern)
+
+## Data Model
+
+Every entity is an Asset:
+
+```ts
+{ id, name, type, status, coordinates: { lat, lng }, properties: {} }
+```
+
+## Subpath Exports
+
+- @aai-agency/og-components — Components and types
+- @aai-agency/og-components/schemas — Zod validation schemas
+- @aai-agency/og-components/utils — Data helpers (formatting, geo, CSV)
+- @aai-agency/og-components/services — Storage backends (localStorage, SQLite, in-memory)
+- @aai-agency/og-components/machines — XState map state machine
+- @aai-agency/og-components/styles.css — Tailwind theme tokens
+
+## Agent Integration
+
+- skills/og-components/SKILL.md — Full agent skill with rules and workflow
+
+## Support
+
+Questions, feedback, or need help? Reach out to Husam Rahman — husam@aai.agency — https://www.linkedin.com/in/husam-rahman
+
+## License
+
+MIT

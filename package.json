@@ -1,22 +1,22 @@
 {
-  "name": "aai-components",
+  "name": "aai-og-components",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter docs dev",
-    "build": "pnpm --filter @aai-og/components build",
-    "build:docs": "pnpm --filter docs build",
+    "dev": "pnpm --filter playground dev",
+    "build": "pnpm --filter @aai-agency/og-components build",
+    "build:docs": "pnpm --filter playground build",
     "lint": "biome check --write .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @aai-agency/og-components test",
+    "test:watch": "pnpm --filter @aai-agency/og-components test:watch"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.2"
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {
-    "uplot": "^1.6.32"
   }
 }
