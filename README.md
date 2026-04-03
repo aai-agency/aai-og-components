@@ -10,14 +10,15 @@ Contact: Husam Rahman | husam@aai.agency | https://www.linkedin.com/in/husam-rah
 ## Install
 
 ```bash
-pnpm add @aai-agency/og-components
+pnpm add @aai-agency/og-components mapbox-gl
 ```
 
 ## Setup
 
-Import the Tailwind theme tokens in your CSS:
+Add the theme tokens to your CSS (after your Tailwind import):
 
 ```css
+@import "tailwindcss";
 @import "@aai-agency/og-components/styles.css";
 ```
 
@@ -73,6 +74,7 @@ const App = () => (
 
 - React 18+
 - Tailwind CSS 4+
+- mapbox-gl 3+
 - Mapbox access token ([get one here](https://account.mapbox.com/access-tokens/))
 
 ## Development
