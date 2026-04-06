@@ -4,6 +4,8 @@
 
 Production-grade O&G React components that your coding AI agent can use. Interactive maps, production charts, asset detail cards, and much more. Free, open source, and ready for Claude Code, ChatGPT, Codex, or any AI coding agent.
 
+Built by [Husam Rahman](https://www.linkedin.com/in/husam-rahman) at [AAI Agency](https://aai.agency)
+
 ## Install
 
 ```bash
