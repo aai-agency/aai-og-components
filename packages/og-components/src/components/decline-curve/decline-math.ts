@@ -72,7 +72,41 @@ export type HyperbolicParams = Pick<SegmentParams, "qi" | "di" | "b">;
 
 // ── Annotations ──────────────────────────────────────────────────────────────
 
-export type AnnotationType = "note" | "issue" | "win" | "plan" | "maintenance" | "other";
+export type AnnotationType =
+  // Operations
+  | "flowback"
+  | "shutInOffset"
+  | "shutInWorkover"
+  | "chokeChange"
+  | "trim"
+  | "fracJob"
+  | "workover"
+  // Failures
+  | "pumpFail"
+  | "espFail"
+  | "tubingLeak"
+  | "casingFailure"
+  | "compressorDown"
+  // Plans / general
+  | "plan"
+  | "note"
+  | "other";
+
+/** Logical grouping for the dropdown — keep in sync with ANNOTATION_TYPE_META. */
+export const ANNOTATION_TYPE_GROUPS: Array<{ label: string; types: AnnotationType[] }> = [
+  {
+    label: "Operations",
+    types: ["flowback", "shutInOffset", "shutInWorkover", "chokeChange", "trim", "fracJob", "workover"],
+  },
+  {
+    label: "Failures",
+    types: ["pumpFail", "espFail", "tubingLeak", "casingFailure", "compressorDown"],
+  },
+  {
+    label: "Other",
+    types: ["plan", "note", "other"],
+  },
+];
 
 export interface Annotation {
   id: string;
@@ -97,12 +131,24 @@ export interface AnnotationTypeMeta {
 }
 
 export const ANNOTATION_TYPE_META: Record<AnnotationType, AnnotationTypeMeta> = {
-  note: { label: "Note", color: "#64748b", description: "General observation" },
-  issue: { label: "Issue", color: "#ef4444", description: "Underperformance or problem" },
-  win: { label: "Win", color: "#10b981", description: "Outperformance" },
+  // Operations — blues / cool tones
+  flowback: { label: "Flowback", color: "#0ea5e9", description: "Initial flowback period" },
+  shutInOffset: { label: "Shut-in (offset frac)", color: "#06b6d4", description: "Shut-in due to nearby completion" },
+  shutInWorkover: { label: "Shut-in (workover)", color: "#0891b2", description: "Shut-in for workover" },
+  chokeChange: { label: "Choke change", color: "#14b8a6", description: "Choke size adjustment" },
+  trim: { label: "Trim", color: "#10b981", description: "Production optimization" },
+  fracJob: { label: "Frac job", color: "#6366f1", description: "Hydraulic fracturing event" },
+  workover: { label: "Workover", color: "#8b5cf6", description: "Major workover operation" },
+  // Failures — red / amber tones
+  pumpFail: { label: "Pump fail", color: "#ef4444", description: "Pump failure event" },
+  espFail: { label: "ESP fail", color: "#dc2626", description: "ESP failure event" },
+  tubingLeak: { label: "Tubing leak", color: "#f43f5e", description: "Tubing integrity issue" },
+  casingFailure: { label: "Casing failure", color: "#e11d48", description: "Casing integrity issue" },
+  compressorDown: { label: "Compressor down", color: "#f59e0b", description: "Surface compressor outage" },
+  // General
   plan: { label: "Plan", color: "#6366f1", description: "Planned event" },
-  maintenance: { label: "Maintenance", color: "#f59e0b", description: "Downtime / workover" },
-  other: { label: "Other", color: "#8b5cf6", description: "Uncategorised" },
+  note: { label: "Note", color: "#64748b", description: "General observation" },
+  other: { label: "Other", color: "#94a3b8", description: "Uncategorised" },
 };
 
 let annotationIdCounter = 0;

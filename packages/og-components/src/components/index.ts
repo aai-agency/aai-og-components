@@ -19,6 +19,7 @@ export type {
   SegmentParams,
 } from "./decline-curve";
 export {
+  ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
   DEFAULT_SEGMENT_PARAMS,
   adjustQiFromDrag,

@@ -15,6 +15,7 @@ import {
   type Segment,
   type SegmentParams,
   EQUATION_META,
+  ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
   type Annotation,
   type AnnotationType,
@@ -1525,6 +1526,118 @@ const SegmentEditorBody = ({
   );
 };
 
+// ── Annotation editor helpers ───────────────────────────────────────────────
+
+const StatRow = ({
+  label,
+  value,
+  tone,
+  alt,
+}: {
+  label: string;
+  value: string;
+  tone?: "pos" | "neg";
+  alt?: boolean;
+}) => (
+  <tr className={cn(alt && "bg-muted/40")}>
+    <td className="px-3 py-1.5 text-muted-foreground">{label}</td>
+    <td
+      className={cn(
+        "px-3 py-1.5 text-right font-mono font-semibold",
+        tone === "pos" ? "text-emerald-600" : tone === "neg" ? "text-rose-600" : "text-foreground",
+      )}
+    >
+      {value}
+    </td>
+  </tr>
+);
+
+const SwatchButton = ({ color, name, active, onClick }: { color: string; name: string; active: boolean; onClick: () => void }) => (
+  <button
+    type="button"
+    title={name}
+    onClick={onClick}
+    className={cn(
+      "h-5 w-5 rounded-md border transition-transform hover:scale-110",
+      active ? "border-foreground ring-2 ring-offset-1 ring-foreground/30" : "border-border/60",
+    )}
+    style={{ background: color }}
+  />
+);
+
+/** A compact color picker — single swatch button that pops a small palette grid below. */
+const ColorPickerInline = ({
+  value,
+  defaultColor,
+  onChange,
+  onReset,
+}: {
+  value?: string;
+  defaultColor: string;
+  onChange: (color: string) => void;
+  onReset: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [open]);
+  const current = value ?? defaultColor;
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-7 items-center gap-2 rounded-md border border-border bg-background px-2 text-[11px] font-medium hover:bg-muted"
+      >
+        <span className="h-3.5 w-3.5 rounded-sm" style={{ background: current }} />
+        <span>{value ? "Custom" : "Default"}</span>
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+      </button>
+      {open && (
+        <div
+          className={cn(
+            "absolute right-0 z-[100003] mt-1 min-w-[180px] rounded-md border border-border bg-popover p-2 shadow-lg",
+            "animate-in fade-in-0 zoom-in-95",
+          )}
+        >
+          <div className="grid grid-cols-7 gap-1.5">
+            {SEGMENT_PALETTE.map((c) => (
+              <SwatchButton
+                key={c.value}
+                color={c.value}
+                name={c.name}
+                active={(value ?? "").toLowerCase() === c.value.toLowerCase()}
+                onClick={() => {
+                  onChange(c.value);
+                  setOpen(false);
+                }}
+              />
+            ))}
+          </div>
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onReset();
+                setOpen(false);
+              }}
+              className="mt-2 w-full rounded-md border border-border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              Reset to type default
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Annotation editor popover ───────────────────────────────────────────────
 
 interface AnnotationEditorProps {
@@ -1623,58 +1736,42 @@ const AnnotationEditorPopover = ({
         </button>
       </div>
 
-      {/* Stats summary at the top — always visible when popover is open */}
-      <div className="border-b border-border px-3 py-2.5">
-        {stats.samples === 0 ? (
-          <div className="text-[11px] text-muted-foreground">No actual data in this range.</div>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground/80">Avg actual</span>
-              <span className="font-mono font-semibold tabular-nums">{stats.avgActual?.toFixed(0)}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground/80">Avg forecast</span>
-              <span className="font-mono font-semibold tabular-nums">{stats.avgForecast?.toFixed(0)}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground/80">Avg Δ</span>
-              <span
-                className={cn(
-                  "font-mono font-semibold tabular-nums",
-                  (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
-                )}
-              >
-                {(stats.avgDelta ?? 0) >= 0 ? "+" : ""}{stats.avgDelta?.toFixed(0)}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground/80">Δ%</span>
-              <span
-                className={cn(
-                  "font-mono font-semibold tabular-nums",
-                  (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
-                )}
-              >
-                {stats.avgForecast && stats.avgForecast !== 0
-                  ? `${((stats.avgDelta ?? 0) / stats.avgForecast) * 100 >= 0 ? "+" : ""}${(((stats.avgDelta ?? 0) / stats.avgForecast) * 100).toFixed(1)}%`
-                  : "—"}
-              </span>
-            </div>
-            <div className="col-span-2 mt-0.5 flex items-baseline justify-between border-t border-border pt-1.5">
-              <span className="text-muted-foreground/80">Cumulative Δ ({unit})</span>
-              <span
-                className={cn(
-                  "font-mono font-semibold tabular-nums",
-                  (stats.cumulativeDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
-                )}
-              >
-                {(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}{stats.cumulativeDelta?.toFixed(0)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Stats table — always visible when popover is open */}
+      {stats.samples === 0 ? (
+        <div className="border-b border-border px-3 py-2.5 text-[11px] text-muted-foreground">
+          No actual data in this range.
+        </div>
+      ) : (
+        <div className="border-b border-border">
+          <table className="w-full text-[11px] tabular-nums">
+            <tbody>
+              <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
+              <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} alt />
+              <StatRow
+                label="Avg Δ"
+                value={`${(stats.avgDelta ?? 0) >= 0 ? "+" : ""}${stats.avgDelta?.toFixed(0)} ${unit}`}
+                tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
+              />
+              <StatRow
+                label="Δ %"
+                value={
+                  stats.avgForecast && stats.avgForecast !== 0
+                    ? `${((stats.avgDelta ?? 0) / stats.avgForecast) * 100 >= 0 ? "+" : ""}${(((stats.avgDelta ?? 0) / stats.avgForecast) * 100).toFixed(1)} %`
+                    : "—"
+                }
+                tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
+                alt
+              />
+              <StatRow
+                label={`Cumulative Δ`}
+                value={`${(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}${stats.cumulativeDelta?.toFixed(0)}`}
+                tone={(stats.cumulativeDelta ?? 0) >= 0 ? "pos" : "neg"}
+              />
+              <StatRow label="Samples" value={String(stats.samples)} alt />
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="space-y-3 px-3 py-3">
         {/* Label */}
@@ -1706,72 +1803,59 @@ const AnnotationEditorPopover = ({
           />
         </div>
 
-        {/* Type */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Type
-          </label>
-          <div className="grid grid-cols-3 gap-1">
-            {(Object.keys(ANNOTATION_TYPE_META) as AnnotationType[]).map((t) => {
-              const meta = ANNOTATION_TYPE_META[t];
-              const active = annotation.type === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => onChange({ ...annotation, type: t })}
-                  className={cn(
-                    "flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] font-medium transition-colors",
-                    active ? "text-white" : "border-border bg-background text-muted-foreground hover:text-foreground",
-                  )}
-                  style={
-                    active
-                      ? { background: meta.color, borderColor: meta.color }
-                      : undefined
-                  }
-                  title={meta.description}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
-                  {meta.label}
-                </button>
-              );
-            })}
+        {/* Type + Color row */}
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Type
+            </label>
+            <Select
+              value={annotation.type}
+              onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: ANNOTATION_TYPE_META[annotation.type].color }}
+                    />
+                    {ANNOTATION_TYPE_META[annotation.type].label}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ANNOTATION_TYPE_GROUPS.map((g, gi) => (
+                  <SelectGroup key={g.label}>
+                    {gi > 0 && <SelectSeparator />}
+                    <SelectLabel>{g.label}</SelectLabel>
+                    {g.types.map((t) => {
+                      const meta = ANNOTATION_TYPE_META[t];
+                      return (
+                        <SelectItem key={t} value={t} textValue={meta.label}>
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                            <span className="text-xs font-medium">{meta.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
 
-        {/* Color override */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
+          <div className="space-y-1">
             <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Color
             </label>
-            {annotation.color && (
-              <button
-                type="button"
-                onClick={() => onChange({ ...annotation, color: undefined })}
-                className="text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {SEGMENT_PALETTE.map((c) => {
-              const isActive = (annotation.color ?? "").toLowerCase() === c.value.toLowerCase();
-              return (
-                <button
-                  key={c.value}
-                  type="button"
-                  title={c.name}
-                  onClick={() => onChange({ ...annotation, color: c.value })}
-                  className={cn(
-                    "h-5 w-5 rounded-md border transition-transform hover:scale-110",
-                    isActive ? "border-foreground ring-2 ring-offset-1 ring-foreground/30" : "border-border/60",
-                  )}
-                  style={{ background: c.value }}
-                />
-              );
-            })}
+            <ColorPickerInline
+              value={annotation.color}
+              defaultColor={ANNOTATION_TYPE_META[annotation.type].color}
+              onChange={(c) => onChange({ ...annotation, color: c })}
+              onReset={() => onChange({ ...annotation, color: undefined })}
+            />
           </div>
         </div>
 

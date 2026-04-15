@@ -12,6 +12,7 @@ export type {
   SegmentParams,
 } from "./decline-math";
 export {
+  ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
   DEFAULT_SEGMENT_PARAMS,
   adjustQiFromDrag,

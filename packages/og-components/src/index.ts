@@ -13,6 +13,7 @@ export {
   MiniCard,
   assetToMiniCard,
   overlayFeatureToMiniCard,
+  ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
   DEFAULT_SEGMENT_PARAMS,
   adjustQiFromDrag,
