@@ -698,7 +698,7 @@ const annotationRegionsPlugin = (
  * back to sign outside any annotation), "off" hides the fill. The
  * "background" mode is handled by annotationRegionsPlugin instead.
  */
-type VarianceFillMode = "off" | "sign" | "byAnnotation";
+type VarianceFillMode = "off" | "sign" | "byAnnotation" | "combined";
 const varianceFillPlugin = (
   getActual: () => Float64Array | null,
   getForecast: () => Float64Array | null,
@@ -743,8 +743,10 @@ const varianceFillPlugin = (
 
       const POSITIVE_FILL = "rgba(16, 185, 129, 0.18)";
       const NEGATIVE_FILL = "rgba(239, 68, 68, 0.18)";
+      const NEUTRAL_FILL = "rgba(100, 116, 139, 0.16)"; // slate — used in byAnnotation outside annotations
 
-      const annotations = mode === "byAnnotation" ? getAnnotations() : [];
+      const usesAnnotations = mode === "byAnnotation" || mode === "combined";
+      const annotations = usesAnnotations ? getAnnotations() : [];
       const findAnnotation = (t: number): Annotation | null => {
         for (const a of annotations) {
           if (t >= Math.min(a.tStart, a.tEnd) && t <= Math.max(a.tStart, a.tEnd)) return a;
@@ -755,10 +757,13 @@ const varianceFillPlugin = (
       ctx.save();
 
       const colorForRun = (sign: number, ann: Annotation | null): string => {
-        if (mode === "byAnnotation" && ann) {
+        if (ann && usesAnnotations) {
           const c = colorForAnnotation(ann).replace("#", "");
-          return `#${c}30`;
+          // Combined mode pumps the alpha so annotated regions clearly stand out
+          // over the sign-coloured ones outside.
+          return mode === "combined" ? `#${c}55` : `#${c}3a`;
         }
+        if (mode === "byAnnotation") return NEUTRAL_FILL;
         return sign >= 0 ? POSITIVE_FILL : NEGATIVE_FILL;
       };
 
@@ -2118,7 +2123,7 @@ export const DeclineCurve = memo(
       annotateModeRef.current = annotateMode;
     }, [annotateMode]);
 
-    type VarianceMode = "off" | "sign" | "byAnnotation";
+    type VarianceMode = "off" | "sign" | "byAnnotation" | "combined";
     const [varianceMode, setVarianceMode] = useState<VarianceMode>(showVariance ? "sign" : "off");
     const varianceModeRef = useRef<VarianceMode>(varianceMode);
     useEffect(() => {
@@ -3207,7 +3212,7 @@ export const DeclineCurve = memo(
           <div className="ml-auto flex items-center gap-1.5">
             {/* Variance view-mode picker */}
             <Select value={varianceMode} onValueChange={(v) => setVarianceMode(v as VarianceMode)}>
-              <SelectTrigger className="h-6 w-[160px] gap-1 text-[10px]">
+              <SelectTrigger className="h-6 w-[170px] gap-1 text-[10px]">
                 <SelectValue>
                   <span className="inline-flex items-center gap-1.5">
                     <span
@@ -3218,14 +3223,18 @@ export const DeclineCurve = memo(
                             ? "#cbd5e1"
                             : varianceMode === "sign"
                               ? "#10b981"
-                              : "#6366f1",
+                              : varianceMode === "byAnnotation"
+                                ? "#6366f1"
+                                : "#f59e0b",
                       }}
                     />
                     {varianceMode === "off"
                       ? "No variance"
                       : varianceMode === "sign"
                         ? "Variance: +/− sign"
-                        : "Variance: by annotation"}
+                        : varianceMode === "byAnnotation"
+                          ? "Variance: by annotation"
+                          : "Variance: combined"}
                   </span>
                 </SelectValue>
               </SelectTrigger>
@@ -3239,7 +3248,13 @@ export const DeclineCurve = memo(
                 <SelectItem value="byAnnotation" textValue="Variance: by annotation">
                   <div className="flex flex-col">
                     <span className="text-xs font-medium">Variance: by annotation</span>
-                    <span className="text-[9px] text-muted-foreground">Color the delta inside each annotation by its type</span>
+                    <span className="text-[9px] text-muted-foreground">Annotation color inside, neutral gray outside</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="combined" textValue="Variance: combined">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">Variance: combined</span>
+                    <span className="text-[9px] text-muted-foreground">+/− sign outside, bold annotation color inside</span>
                   </div>
                 </SelectItem>
                 <SelectSeparator />
