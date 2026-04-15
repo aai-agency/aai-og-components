@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Lock, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
@@ -15,11 +15,17 @@ import {
   type Segment,
   type SegmentParams,
   EQUATION_META,
+  ANNOTATION_TYPE_META,
+  type Annotation,
+  type AnnotationType,
+  colorForAnnotation,
+  computeAnnotationStats,
   createBuffers,
   evalAtTime,
   evalSegment,
   generateSampleProduction,
   insertSegmentAt,
+  nextAnnotationId,
   nextSegmentId,
   removeSegment,
 } from "./decline-math";
@@ -56,6 +62,12 @@ export interface DeclineCurveProps {
   startDate?: Date | string;
   /** What one unit of t means on the calendar. Defaults to "month". */
   timeUnit?: "day" | "month" | "year";
+  /** Preloaded annotations. */
+  initialAnnotations?: Annotation[];
+  /** Fires whenever the annotation list or any annotation changes. */
+  onAnnotationsChange?: (annotations: Annotation[]) => void;
+  /** Default for the variance-fill toggle. Defaults to true. */
+  showVariance?: boolean;
   actualColor?: string;
   forecastColor?: string;
 }
@@ -362,18 +374,9 @@ const boundaryPlugin = (
 
       ctx.save();
 
-      // Active segment tint (uses that segment's color, very transparent)
-      if (selectedIdx >= 0) {
-        const startT = sorted[selectedIdx].tStart;
-        const endT = selectedIdx + 1 < sorted.length
-          ? sorted[selectedIdx + 1].tStart
-          : (sorted[selectedIdx].tEnd ?? xMax);
-        const x1 = toX(Math.max(startT, xMin));
-        const x2 = toX(Math.min(endT, xMax));
-        const hex = selectedColor.replace("#", "");
-        ctx.fillStyle = `#${hex}14`;
-        ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
-      }
+      // (Segment tint intentionally removed — the dashed start/end boundaries
+      // in the segment color carry the activation cue without competing with
+      // variance fills or annotations.)
 
       // Faint inter-segment boundaries (all of them, skip segment[0]'s left edge)
       ctx.setLineDash([4, 4]);
@@ -534,6 +537,113 @@ const annotationsPlugin = (getSegments: () => Segment[]): uPlot.Plugin => ({
         ctx.fillStyle = "#0f172a";
         ctx.textBaseline = "middle";
         ctx.fillText(text, x + padX + 12, y + h / 2 + 0.5);
+      }
+
+      ctx.restore();
+    },
+  },
+});
+
+// ── Annotation regions plugin ───────────────────────────────────────────────
+
+/**
+ * Renders annotation ranges as thin colored bars at the top of the chart.
+ * Hovered/selected annotations get a subtle vertical fill across the chart so
+ * the range is obvious without competing with the forecast/variance read.
+ */
+const annotationRegionsPlugin = (
+  getAnnotations: () => Annotation[],
+  getHoveredId: () => string | null,
+  getSelectedId: () => string | null,
+  getDrawing: () => { tStart: number; tEnd: number } | null,
+): uPlot.Plugin => ({
+  hooks: {
+    draw: (u: uPlot) => {
+      const ctx = u.ctx;
+      const plotLeft = u.bbox.left;
+      const plotWidth = u.bbox.width;
+      const plotTop = u.bbox.top;
+      const plotHeight = u.bbox.height;
+      const times = u.data[0] as number[];
+      const xMin = u.scales.x.min ?? (times.length > 0 ? times[0] : 0);
+      const xMax = u.scales.x.max ?? (times.length > 0 ? times[times.length - 1] : 1);
+      const xRange = xMax - xMin;
+      if (xRange === 0) return;
+      const toX = (t: number) =>
+        plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
+
+      const annotations = getAnnotations();
+      const hoveredId = getHoveredId();
+      const selectedId = getSelectedId();
+      const drawing = getDrawing();
+      const barTop = plotTop + 2;
+      const barHeight = 8;
+
+      ctx.save();
+
+      // In-progress drag (preview)
+      if (drawing) {
+        const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
+        const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
+        ctx.fillStyle = "rgba(99, 102, 241, 0.18)";
+        ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.85)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(dx1, plotTop);
+        ctx.lineTo(dx1, plotTop + plotHeight);
+        ctx.moveTo(dx2, plotTop);
+        ctx.lineTo(dx2, plotTop + plotHeight);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Existing annotations
+      for (const a of annotations) {
+        const color = colorForAnnotation(a);
+        const x1 = toX(a.tStart);
+        const x2 = toX(a.tEnd);
+        if (x2 <= x1) continue;
+
+        const isHovered = a.id === hoveredId;
+        const isSelected = a.id === selectedId;
+
+        // Range fill (only when hovered or selected)
+        if (isHovered || isSelected) {
+          const hex = color.replace("#", "");
+          ctx.fillStyle = `#${hex}1f`;
+          ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
+
+          // Boundary lines in annotation color
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x1, plotTop);
+          ctx.lineTo(x1, plotTop + plotHeight);
+          ctx.moveTo(x2, plotTop);
+          ctx.lineTo(x2, plotTop + plotHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Top bar
+        ctx.fillStyle = color;
+        ctx.globalAlpha = isHovered || isSelected ? 1 : 0.85;
+        ctx.fillRect(x1, barTop, x2 - x1, barHeight);
+        ctx.globalAlpha = 1;
+
+        // Inline label
+        const label = a.label || ANNOTATION_TYPE_META[a.type].label;
+        ctx.font = `9px ${FONT_FAMILY}`;
+        const labelText = label.length > 28 ? `${label.slice(0, 26)}…` : label;
+        const labelWidth = ctx.measureText(labelText).width;
+        if (x2 - x1 > labelWidth + 10) {
+          ctx.fillStyle = "#ffffff";
+          ctx.textBaseline = "middle";
+          ctx.fillText(labelText, x1 + 6, barTop + barHeight / 2 + 0.5);
+        }
       }
 
       ctx.restore();
@@ -1388,6 +1498,251 @@ const SegmentEditorBody = ({
   );
 };
 
+// ── Annotation editor popover ───────────────────────────────────────────────
+
+interface AnnotationEditorProps {
+  annotation: Annotation;
+  stats: ReturnType<typeof computeAnnotationStats>;
+  clientX: number;
+  clientY: number;
+  startDate: Date | null;
+  timeUnit: TimeUnit;
+  unit: string;
+  onChange: (next: Annotation) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}
+
+const AnnotationEditorPopover = ({
+  annotation,
+  stats,
+  clientX,
+  clientY,
+  startDate,
+  timeUnit,
+  unit,
+  onChange,
+  onRemove,
+  onClose,
+}: AnnotationEditorProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: clientX, top: clientY });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const margin = 8;
+    let left = clientX + 12;
+    let top = clientY - h / 2;
+    if (left + w + margin > window.innerWidth) left = clientX - w - 12;
+    if (left < margin) left = margin;
+    if (top + h + margin > window.innerHeight) top = window.innerHeight - h - margin;
+    if (top < margin) top = margin;
+    setPos({ left, top });
+  }, [clientX, clientY]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const color = colorForAnnotation(annotation);
+  const formatT = (t: number) => {
+    if (!startDate) return t.toFixed(1);
+    return dateInputValue(tToDate(startDate, t, timeUnit));
+  };
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="Edit annotation"
+      className={cn(
+        "fixed z-[100002] w-[320px] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground",
+        "shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25),0_2px_8px_-2px_rgba(15,23,42,0.08)]",
+        "animate-in fade-in-0 zoom-in-95",
+      )}
+      style={{ left: pos.left, top: pos.top, fontFamily: FONT_FAMILY }}
+    >
+      <div
+        className="flex items-center justify-between gap-2 border-b border-border px-3 py-2"
+        style={{ background: `${color.replace("#", "#")}10`, borderBottomColor: `${color}40` }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm" style={{ background: color }} />
+          <span className="text-xs font-semibold">Annotation</span>
+          <span className="text-[10px] text-muted-foreground">
+            {formatT(annotation.tStart)} → {formatT(annotation.tEnd)}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          title="Close (Esc)"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="space-y-3 px-3 py-3">
+        {/* Label */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Label
+          </label>
+          <input
+            type="text"
+            value={annotation.label ?? ""}
+            placeholder="What happened in this period?"
+            onChange={(e) => onChange({ ...annotation, label: e.target.value || undefined })}
+            className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+            autoFocus
+          />
+        </div>
+
+        {/* Type */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Type
+          </label>
+          <div className="grid grid-cols-3 gap-1">
+            {(Object.keys(ANNOTATION_TYPE_META) as AnnotationType[]).map((t) => {
+              const meta = ANNOTATION_TYPE_META[t];
+              const active = annotation.type === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onChange({ ...annotation, type: t })}
+                  className={cn(
+                    "flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] font-medium transition-colors",
+                    active ? "text-white" : "border-border bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                  style={
+                    active
+                      ? { background: meta.color, borderColor: meta.color }
+                      : undefined
+                  }
+                  title={meta.description}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                  {meta.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Color override */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Color
+            </label>
+            {annotation.color && (
+              <button
+                type="button"
+                onClick={() => onChange({ ...annotation, color: undefined })}
+                className="text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {SEGMENT_PALETTE.map((c) => {
+              const isActive = (annotation.color ?? "").toLowerCase() === c.value.toLowerCase();
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.name}
+                  onClick={() => onChange({ ...annotation, color: c.value })}
+                  className={cn(
+                    "h-5 w-5 rounded-md border transition-transform hover:scale-110",
+                    isActive ? "border-foreground ring-2 ring-offset-1 ring-foreground/30" : "border-border/60",
+                  )}
+                  style={{ background: c.value }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Stats
+          </label>
+          {stats.samples === 0 ? (
+            <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+              No actual data in this range.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/60 px-2.5 py-2 text-[11px]">
+              <div className="flex flex-col">
+                <span className="text-muted-foreground/80">Avg actual</span>
+                <span className="font-mono font-semibold tabular-nums">{stats.avgActual?.toFixed(0)} {unit}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground/80">Avg forecast</span>
+                <span className="font-mono font-semibold tabular-nums">{stats.avgForecast?.toFixed(0)} {unit}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground/80">Avg Δ</span>
+                <span
+                  className={cn(
+                    "font-mono font-semibold tabular-nums",
+                    (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
+                  )}
+                >
+                  {(stats.avgDelta ?? 0) >= 0 ? "+" : ""}{stats.avgDelta?.toFixed(0)} {unit}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground/80">Cumulative Δ</span>
+                <span
+                  className={cn(
+                    "font-mono font-semibold tabular-nums",
+                    (stats.cumulativeDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
+                  )}
+                >
+                  {(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}{stats.cumulativeDelta?.toFixed(0)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Delete */}
+        <button
+          type="button"
+          onClick={onRemove}
+          className={cn(
+            "inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-red-500",
+            "hover:border-red-500/30 hover:bg-red-500/5",
+          )}
+        >
+          <Trash2 className="h-3 w-3" />
+          Delete annotation
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Inline floating segment editor (anchored at click) ──────────────────────
 
 interface InlineSegmentEditorProps {
@@ -1577,6 +1932,9 @@ export const DeclineCurve = memo(
     unitsPerYear,
     startDate: startDateProp,
     timeUnit = "month",
+    initialAnnotations,
+    onAnnotationsChange,
+    showVariance = true,
     actualColor = ACTUAL_COLOR,
     forecastColor = FORECAST_COLOR,
   }: DeclineCurveProps) => {
@@ -1618,6 +1976,49 @@ export const DeclineCurve = memo(
       ];
     });
     const segmentsRef = useRef<Segment[]>(segments);
+
+    // Annotations
+    const [annotations, setAnnotations] = useState<Annotation[]>(() => initialAnnotations ?? []);
+    const annotationsRef = useRef<Annotation[]>(annotations);
+    useEffect(() => {
+      annotationsRef.current = annotations;
+      onAnnotationsChange?.(annotations);
+    }, [annotations, onAnnotationsChange]);
+
+    const [annotateMode, setAnnotateMode] = useState(false);
+    const annotateModeRef = useRef(false);
+    useEffect(() => {
+      annotateModeRef.current = annotateMode;
+    }, [annotateMode]);
+
+    const [varianceOn, setVarianceOn] = useState(showVariance);
+    const varianceOnRef = useRef(varianceOn);
+    useEffect(() => {
+      varianceOnRef.current = varianceOn;
+    }, [varianceOn]);
+
+    const [drawingAnnotation, setDrawingAnnotation] = useState<{
+      tStart: number;
+      tEnd: number;
+    } | null>(null);
+    const drawingRef = useRef<typeof drawingAnnotation>(null);
+    useEffect(() => {
+      drawingRef.current = drawingAnnotation;
+    }, [drawingAnnotation]);
+
+    const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+    const hoveredAnnotationIdRef = useRef<string | null>(null);
+    useEffect(() => {
+      hoveredAnnotationIdRef.current = hoveredAnnotationId;
+    }, [hoveredAnnotationId]);
+
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+
+    const [annotationEditor, setAnnotationEditor] = useState<{
+      annotationId: string;
+      clientX: number;
+      clientY: number;
+    } | null>(null);
     useEffect(() => {
       segmentsRef.current = segments;
     }, [segments]);
@@ -1781,6 +2182,16 @@ export const DeclineCurve = memo(
           mouseDownInfoRef.current = null;
         }
 
+        // Annotate mode — start drawing a range
+        if (annotateModeRef.current && mouseDownInfoRef.current) {
+          drawingRef.current = { tStart: mouseDownInfoRef.current.t, tEnd: mouseDownInfoRef.current.t };
+          setDrawingAnnotation(drawingRef.current);
+          chart.over.style.cursor = "crosshair";
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
         if (!editModeRef.current) return;
 
         // Boundary drag takes priority over forecast drag
@@ -1859,7 +2270,58 @@ export const DeclineCurve = memo(
           return;
         }
 
+        // Drawing an annotation range
+        if (drawingRef.current && annotateModeRef.current) {
+          const rect = chart.over.getBoundingClientRect();
+          const lx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+          let tVal = chart.posToVal(lx, "x");
+          if (!Number.isFinite(tVal) || (tVal === 0 && lx > 2)) {
+            const data = chart.data[0] as number[];
+            if (data && data.length > 1) {
+              tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
+            }
+          }
+          drawingRef.current = { ...drawingRef.current, tEnd: tVal };
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = requestAnimationFrame(() => {
+            setDrawingAnnotation(drawingRef.current ? { ...drawingRef.current } : null);
+            chart.redraw();
+          });
+          return;
+        }
+
         if (!isDraggingRef.current) {
+          // Annotate mode hover detection — find annotation under cursor
+          if (annotateModeRef.current) {
+            const rect = chart.over.getBoundingClientRect();
+            const lx = e.clientX - rect.left;
+            const ly = e.clientY - rect.top;
+            if (lx < 0 || lx > rect.width || ly < 0 || ly > rect.height) {
+              hoveredAnnotationIdRef.current = null;
+              setHoveredAnnotationId(null);
+              chart.over.style.cursor = "crosshair";
+              return;
+            }
+            let tVal = chart.posToVal(lx, "x");
+            if (!Number.isFinite(tVal) || (tVal === 0 && lx > 2)) {
+              const data = chart.data[0] as number[];
+              if (data && data.length > 1) {
+                tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
+              }
+            }
+            const hit = annotationsRef.current.find(
+              (a) => tVal >= Math.min(a.tStart, a.tEnd) && tVal <= Math.max(a.tStart, a.tEnd),
+            );
+            const newHover = hit?.id ?? null;
+            if (newHover !== hoveredAnnotationIdRef.current) {
+              hoveredAnnotationIdRef.current = newHover;
+              setHoveredAnnotationId(newHover);
+              chart.redraw();
+            }
+            chart.over.style.cursor = hit ? "pointer" : "crosshair";
+            return;
+          }
+
           // Hit-test only in edit mode; otherwise cursor stays default.
           if (!editModeRef.current) {
             isOverForecastRef.current = false;
@@ -2011,6 +2473,43 @@ export const DeclineCurve = memo(
     const handleMouseUp = useCallback((e: MouseEvent) => {
       const chart = prodChartRef.current;
 
+      // Annotate mode — finalize a drawn range
+      if (drawingRef.current && annotateModeRef.current) {
+        const draft = drawingRef.current;
+        drawingRef.current = null;
+        setDrawingAnnotation(null);
+        const tStart = Math.min(draft.tStart, draft.tEnd);
+        const tEnd = Math.max(draft.tStart, draft.tEnd);
+        // Reject tiny accidental drags
+        if (tEnd - tStart < 0.25) {
+          mouseDownInfoRef.current = null;
+          // Treat as a click — see if user clicked on an existing annotation to select/edit
+          const down = mouseDownInfoRef.current;
+          void down;
+          // Find an annotation containing the click point
+          const hit = annotationsRef.current.find(
+            (a) => draft.tStart >= Math.min(a.tStart, a.tEnd) && draft.tStart <= Math.max(a.tStart, a.tEnd),
+          );
+          if (hit) {
+            setSelectedAnnotationId(hit.id);
+            setAnnotationEditor({ annotationId: hit.id, clientX: e.clientX, clientY: e.clientY });
+          }
+          return;
+        }
+        const id = nextAnnotationId();
+        const newAnnotation: Annotation = {
+          id,
+          tStart,
+          tEnd,
+          type: "note",
+        };
+        setAnnotations((prev) => [...prev, newAnnotation]);
+        setSelectedAnnotationId(id);
+        setAnnotationEditor({ annotationId: id, clientX: e.clientX, clientY: e.clientY });
+        mouseDownInfoRef.current = null;
+        return;
+      }
+
       if (boundaryDragRef.current) {
         boundaryDragRef.current = null;
         if (chart) {
@@ -2094,8 +2593,8 @@ export const DeclineCurve = memo(
         height,
         plugins: [
           varianceFillPlugin(
-            () => buffersRef.current?.actual ?? null,
-            () => buffersRef.current?.forecast ?? null,
+            () => (varianceOnRef.current ? buffersRef.current?.actual ?? null : null),
+            () => (varianceOnRef.current ? buffersRef.current?.forecast ?? null : null),
           ),
           forecastSegmentsPlugin(
             () => segmentsRef.current,
@@ -2104,6 +2603,12 @@ export const DeclineCurve = memo(
           ),
           boundaryPlugin(() => segmentsRef.current, () => selectedIdRef.current),
           annotationsPlugin(() => segmentsRef.current),
+          annotationRegionsPlugin(
+            () => annotationsRef.current,
+            () => hoveredAnnotationIdRef.current,
+            () => selectedAnnotationId,
+            () => drawingRef.current,
+          ),
           tooltipPlugin(unit, () => segmentsRef.current),
         ],
         cursor: {
@@ -2397,6 +2902,22 @@ export const DeclineCurve = memo(
           </span>
 
           <div className="ml-auto flex items-center gap-1.5">
+            {/* Variance toggle (always available) */}
+            <button
+              type="button"
+              onClick={() => setVarianceOn((v) => !v)}
+              className={cn(
+                "inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors",
+                varianceOn
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
+              )}
+              title={varianceOn ? "Hide variance fill" : "Show variance fill"}
+            >
+              <span className="h-2 w-2 rounded-full" style={{ background: varianceOn ? "#10b981" : "#cbd5e1" }} />
+              Variance
+            </button>
+
             {editMode ? (
               <>
                 <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-indigo-600">
@@ -2432,6 +2953,31 @@ export const DeclineCurve = memo(
                   Save
                 </button>
               </>
+            ) : annotateMode ? (
+              <>
+                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                  <Pencil className="h-3 w-3" />
+                  Annotating
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAnnotateMode(false);
+                    setSelectedAnnotationId(null);
+                    setHoveredAnnotationId(null);
+                    setDrawingAnnotation(null);
+                    drawingRef.current = null;
+                  }}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground",
+                    "hover:bg-muted hover:text-foreground transition-colors",
+                  )}
+                  title="Done annotating"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Done
+                </button>
+              </>
             ) : (
               <>
                 <span className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-[10px] font-medium text-muted-foreground">
@@ -2449,6 +2995,18 @@ export const DeclineCurve = memo(
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit forecast
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnnotateMode(true)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
+                    "hover:bg-muted hover:border-amber-500/40 hover:text-amber-600 transition-colors",
+                  )}
+                  title="Draw annotation regions on the chart"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Annotate
                 </button>
               </>
             )}
@@ -2614,6 +3172,35 @@ export const DeclineCurve = memo(
                 setInlineEditor(null);
               }}
               onClose={() => setInlineEditor(null)}
+            />
+          );
+        })()}
+
+        {annotationEditor && (() => {
+          const a = annotations.find((x) => x.id === annotationEditor.annotationId);
+          if (!a) return null;
+          const buffers = buffersRef.current;
+          const stats = buffers
+            ? computeAnnotationStats(buffers, Math.min(a.tStart, a.tEnd), Math.max(a.tStart, a.tEnd))
+            : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+          return (
+            <AnnotationEditorPopover
+              annotation={a}
+              stats={stats}
+              clientX={annotationEditor.clientX}
+              clientY={annotationEditor.clientY}
+              startDate={startDate}
+              timeUnit={timeUnit}
+              unit={unit}
+              onChange={(next) =>
+                setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))
+              }
+              onRemove={() => {
+                setAnnotations((prev) => prev.filter((x) => x.id !== a.id));
+                if (selectedAnnotationId === a.id) setSelectedAnnotationId(null);
+                setAnnotationEditor(null);
+              }}
+              onClose={() => setAnnotationEditor(null)}
             />
           );
         })()}

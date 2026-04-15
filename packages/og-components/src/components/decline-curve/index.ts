@@ -1,6 +1,10 @@
 export { DeclineCurve } from "./decline-curve";
 export type { DeclineCurveProps } from "./decline-curve";
 export type {
+  Annotation,
+  AnnotationStats,
+  AnnotationType,
+  AnnotationTypeMeta,
   DeclineMathBuffers,
   EquationType,
   HyperbolicParams,
@@ -8,8 +12,11 @@ export type {
   SegmentParams,
 } from "./decline-math";
 export {
+  ANNOTATION_TYPE_META,
   DEFAULT_SEGMENT_PARAMS,
   adjustQiFromDrag,
+  colorForAnnotation,
+  computeAnnotationStats,
   computeForecast,
   computeVariance,
   createBuffers,
@@ -18,6 +25,7 @@ export {
   generateDailyProduction,
   generateSampleProduction,
   insertSegmentAt,
+  nextAnnotationId,
   nextSegmentId,
   removeSegment,
   updateForecastAndVariance,

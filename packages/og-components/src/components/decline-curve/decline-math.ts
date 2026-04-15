@@ -70,6 +70,93 @@ export interface DeclineMathBuffers {
 /** Legacy alias kept for compatibility with the old single-segment API. */
 export type HyperbolicParams = Pick<SegmentParams, "qi" | "di" | "b">;
 
+// ── Annotations ──────────────────────────────────────────────────────────────
+
+export type AnnotationType = "note" | "issue" | "win" | "plan" | "maintenance" | "other";
+
+export interface Annotation {
+  id: string;
+  /** Range start (same units as the chart's time axis, anchored to startDate). */
+  tStart: number;
+  /** Range end (exclusive). */
+  tEnd: number;
+  /** User-facing label. */
+  label?: string;
+  /** Preset type — drives default color and grouping. */
+  type: AnnotationType;
+  /** Optional override color (hex). Falls back to the type's palette color. */
+  color?: string;
+}
+
+export interface AnnotationTypeMeta {
+  label: string;
+  color: string;
+  description?: string;
+}
+
+export const ANNOTATION_TYPE_META: Record<AnnotationType, AnnotationTypeMeta> = {
+  note: { label: "Note", color: "#64748b", description: "General observation" },
+  issue: { label: "Issue", color: "#ef4444", description: "Underperformance or problem" },
+  win: { label: "Win", color: "#10b981", description: "Outperformance" },
+  plan: { label: "Plan", color: "#6366f1", description: "Planned event" },
+  maintenance: { label: "Maintenance", color: "#f59e0b", description: "Downtime / workover" },
+  other: { label: "Other", color: "#8b5cf6", description: "Uncategorised" },
+};
+
+let annotationIdCounter = 0;
+export const nextAnnotationId = (): string =>
+  `ann_${++annotationIdCounter}_${Date.now().toString(36)}`;
+
+/** Resolve an annotation's display color (override → type → fallback). */
+export const colorForAnnotation = (a: Annotation): string =>
+  a.color ?? ANNOTATION_TYPE_META[a.type]?.color ?? "#64748b";
+
+export interface AnnotationStats {
+  avgActual: number | null;
+  avgForecast: number | null;
+  avgDelta: number | null;
+  /** Integrated variance over the range (sum of (actual − forecast) · dt). */
+  cumulativeDelta: number | null;
+  /** Number of buffer samples that contributed (excluding NaN actual). */
+  samples: number;
+}
+
+export const computeAnnotationStats = (
+  buffers: DeclineMathBuffers,
+  tStart: number,
+  tEnd: number,
+): AnnotationStats => {
+  const { time, actual, forecast, length } = buffers;
+  let sumActual = 0;
+  let sumForecast = 0;
+  let sumDelta = 0;
+  let cum = 0;
+  let n = 0;
+  for (let i = 0; i < length; i++) {
+    const t = time[i];
+    if (t < tStart || t > tEnd) continue;
+    const a = actual[i];
+    const f = forecast[i];
+    if (!Number.isFinite(a) || !Number.isFinite(f)) continue;
+    sumActual += a;
+    sumForecast += f;
+    sumDelta += a - f;
+    const dt = i + 1 < length ? time[i + 1] - time[i] : 0;
+    cum += (a - f) * dt;
+    n++;
+  }
+  if (n === 0) {
+    return { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+  }
+  return {
+    avgActual: sumActual / n,
+    avgForecast: sumForecast / n,
+    avgDelta: sumDelta / n,
+    cumulativeDelta: cum,
+    samples: n,
+  };
+};
+
 // ── Buffer Management ────────────────────────────────────────────────────────
 
 export const createBuffers = (length: number): DeclineMathBuffers => ({
