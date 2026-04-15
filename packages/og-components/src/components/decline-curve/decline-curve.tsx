@@ -1604,11 +1604,11 @@ const AnnotationEditorPopover = ({
     >
       <div
         className="flex items-center justify-between gap-2 border-b border-border px-3 py-2"
-        style={{ background: `${color.replace("#", "#")}10`, borderBottomColor: `${color}40` }}
+        style={{ background: `${color}10`, borderBottomColor: `${color}40` }}
       >
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm" style={{ background: color }} />
-          <span className="text-xs font-semibold">Annotation</span>
+          <span className="text-xs font-semibold">{annotation.label || ANNOTATION_TYPE_META[annotation.type].label}</span>
           <span className="text-[10px] text-muted-foreground">
             {formatT(annotation.tStart)} → {formatT(annotation.tEnd)}
           </span>
@@ -1621,6 +1621,59 @@ const AnnotationEditorPopover = ({
         >
           <X className="h-3.5 w-3.5" />
         </button>
+      </div>
+
+      {/* Stats summary at the top — always visible when popover is open */}
+      <div className="border-b border-border px-3 py-2.5">
+        {stats.samples === 0 ? (
+          <div className="text-[11px] text-muted-foreground">No actual data in this range.</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+            <div className="flex items-baseline justify-between">
+              <span className="text-muted-foreground/80">Avg actual</span>
+              <span className="font-mono font-semibold tabular-nums">{stats.avgActual?.toFixed(0)}</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-muted-foreground/80">Avg forecast</span>
+              <span className="font-mono font-semibold tabular-nums">{stats.avgForecast?.toFixed(0)}</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-muted-foreground/80">Avg Δ</span>
+              <span
+                className={cn(
+                  "font-mono font-semibold tabular-nums",
+                  (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
+                )}
+              >
+                {(stats.avgDelta ?? 0) >= 0 ? "+" : ""}{stats.avgDelta?.toFixed(0)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-muted-foreground/80">Δ%</span>
+              <span
+                className={cn(
+                  "font-mono font-semibold tabular-nums",
+                  (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
+                )}
+              >
+                {stats.avgForecast && stats.avgForecast !== 0
+                  ? `${((stats.avgDelta ?? 0) / stats.avgForecast) * 100 >= 0 ? "+" : ""}${(((stats.avgDelta ?? 0) / stats.avgForecast) * 100).toFixed(1)}%`
+                  : "—"}
+              </span>
+            </div>
+            <div className="col-span-2 mt-0.5 flex items-baseline justify-between border-t border-border pt-1.5">
+              <span className="text-muted-foreground/80">Cumulative Δ ({unit})</span>
+              <span
+                className={cn(
+                  "font-mono font-semibold tabular-nums",
+                  (stats.cumulativeDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
+                )}
+              >
+                {(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}{stats.cumulativeDelta?.toFixed(0)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 px-3 py-3">
@@ -1720,51 +1773,6 @@ const AnnotationEditorPopover = ({
               );
             })}
           </div>
-        </div>
-
-        {/* Stats */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Stats
-          </label>
-          {stats.samples === 0 ? (
-            <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-              No actual data in this range.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/60 px-2.5 py-2 text-[11px]">
-              <div className="flex flex-col">
-                <span className="text-muted-foreground/80">Avg actual</span>
-                <span className="font-mono font-semibold tabular-nums">{stats.avgActual?.toFixed(0)} {unit}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground/80">Avg forecast</span>
-                <span className="font-mono font-semibold tabular-nums">{stats.avgForecast?.toFixed(0)} {unit}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground/80">Avg Δ</span>
-                <span
-                  className={cn(
-                    "font-mono font-semibold tabular-nums",
-                    (stats.avgDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
-                  )}
-                >
-                  {(stats.avgDelta ?? 0) >= 0 ? "+" : ""}{stats.avgDelta?.toFixed(0)} {unit}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground/80">Cumulative Δ</span>
-                <span
-                  className={cn(
-                    "font-mono font-semibold tabular-nums",
-                    (stats.cumulativeDelta ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600",
-                  )}
-                >
-                  {(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}{stats.cumulativeDelta?.toFixed(0)}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Delete */}
@@ -2684,13 +2692,30 @@ export const DeclineCurve = memo(
         return;
       }
 
-      // No drag happened — this was a click. Select the segment at click position.
+      // No drag happened — this was a click.
       const down = mouseDownInfoRef.current;
       mouseDownInfoRef.current = null;
       if (!down) return;
       const dx = Math.abs(e.clientX - down.clientX);
       const dy = Math.abs(e.clientY - down.clientY);
       if (dx > 4 || dy > 4) return; // small movement tolerance
+
+      // Annotation hit takes priority — clicking inside an annotation opens
+      // its editor popover (stats + edit) regardless of mode.
+      const annotationHit = annotationsRef.current.find(
+        (a) => down.t >= Math.min(a.tStart, a.tEnd) && down.t <= Math.max(a.tStart, a.tEnd),
+      );
+      if (annotationHit) {
+        setSelectedAnnotationId(annotationHit.id);
+        setAnnotationEditor({
+          annotationId: annotationHit.id,
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
+        return;
+      }
+
+      // Otherwise, select the segment at the click position.
       const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
       if (sorted.length === 0) return;
       let hitIdx = 0;
