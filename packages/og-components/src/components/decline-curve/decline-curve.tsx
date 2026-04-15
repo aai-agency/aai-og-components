@@ -1532,14 +1532,12 @@ const StatRow = ({
   label,
   value,
   tone,
-  alt,
 }: {
   label: string;
   value: string;
   tone?: "pos" | "neg";
-  alt?: boolean;
 }) => (
-  <tr className={cn(alt && "bg-muted/40")}>
+  <tr className="border-b border-border/60 last:border-b-0">
     <td className="px-3 py-1.5 text-muted-foreground">{label}</td>
     <td
       className={cn(
@@ -1746,7 +1744,7 @@ const AnnotationEditorPopover = ({
           <table className="w-full text-[11px] tabular-nums">
             <tbody>
               <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
-              <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} alt />
+              <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} />
               <StatRow
                 label="Δ %"
                 value={
@@ -1760,7 +1758,6 @@ const AnnotationEditorPopover = ({
                 label="Total variance"
                 value={`${(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}${stats.cumulativeDelta?.toFixed(0)}`}
                 tone={(stats.cumulativeDelta ?? 0) >= 0 ? "pos" : "neg"}
-                alt
               />
             </tbody>
           </table>
