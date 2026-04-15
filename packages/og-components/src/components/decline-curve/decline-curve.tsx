@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Lock, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Lock, Pencil, Plus, Settings, Sparkles, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
@@ -2118,13 +2118,39 @@ export const DeclineCurve = memo(
       annotateModeRef.current = annotateMode;
     }, [annotateMode]);
 
-    type VarianceMode = "off" | "sign" | "byAnnotation" | "background";
+    type VarianceMode = "off" | "sign" | "byAnnotation";
     const [varianceMode, setVarianceMode] = useState<VarianceMode>(showVariance ? "sign" : "off");
     const varianceModeRef = useRef<VarianceMode>(varianceMode);
     useEffect(() => {
       varianceModeRef.current = varianceMode;
       prodChartRef.current?.redraw();
     }, [varianceMode]);
+
+    /** View setting: render annotation regions (boundaries + fill) on the chart. */
+    const [showAnnotationsOnChart, setShowAnnotationsOnChart] = useState(true);
+    const showAnnotationsOnChartRef = useRef(showAnnotationsOnChart);
+    useEffect(() => {
+      showAnnotationsOnChartRef.current = showAnnotationsOnChart;
+      prodChartRef.current?.redraw();
+    }, [showAnnotationsOnChart]);
+
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const settingsRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+      if (!settingsOpen) return;
+      const handler = (e: MouseEvent) => {
+        if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
+      };
+      const keyHandler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setSettingsOpen(false);
+      };
+      window.addEventListener("mousedown", handler);
+      window.addEventListener("keydown", keyHandler);
+      return () => {
+        window.removeEventListener("mousedown", handler);
+        window.removeEventListener("keydown", keyHandler);
+      };
+    }, [settingsOpen]);
 
     const [drawingAnnotation, setDrawingAnnotation] = useState<{
       tStart: number;
@@ -2869,10 +2895,7 @@ export const DeclineCurve = memo(
           varianceFillPlugin(
             () => buffersRef.current?.actual ?? null,
             () => buffersRef.current?.forecast ?? null,
-            () => {
-              const m = varianceModeRef.current;
-              return m === "off" || m === "background" ? "off" : m;
-            },
+            () => varianceModeRef.current,
             () => annotationsRef.current,
           ),
           forecastSegmentsPlugin(
@@ -2883,11 +2906,11 @@ export const DeclineCurve = memo(
           boundaryPlugin(() => segmentsRef.current, () => selectedIdRef.current),
           annotationsPlugin(() => segmentsRef.current),
           annotationRegionsPlugin(
-            () => annotationsRef.current,
+            () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
             () => hoveredAnnotationIdRef.current,
             () => selectedAnnotationId,
             () => drawingRef.current,
-            () => varianceModeRef.current === "background",
+            () => false,
           ),
           tooltipPlugin(unit, () => segmentsRef.current),
         ],
@@ -3184,7 +3207,7 @@ export const DeclineCurve = memo(
           <div className="ml-auto flex items-center gap-1.5">
             {/* Variance view-mode picker */}
             <Select value={varianceMode} onValueChange={(v) => setVarianceMode(v as VarianceMode)}>
-              <SelectTrigger className="h-6 w-[170px] gap-1 text-[10px]">
+              <SelectTrigger className="h-6 w-[160px] gap-1 text-[10px]">
                 <SelectValue>
                   <span className="inline-flex items-center gap-1.5">
                     <span
@@ -3202,9 +3225,7 @@ export const DeclineCurve = memo(
                       ? "No variance"
                       : varianceMode === "sign"
                         ? "Variance: +/− sign"
-                        : varianceMode === "byAnnotation"
-                          ? "Variance: by annotation"
-                          : "Annotation backdrop"}
+                        : "Variance: by annotation"}
                   </span>
                 </SelectValue>
               </SelectTrigger>
@@ -3221,12 +3242,6 @@ export const DeclineCurve = memo(
                     <span className="text-[9px] text-muted-foreground">Color the delta inside each annotation by its type</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="background" textValue="Annotation backdrop">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Annotation backdrop</span>
-                    <span className="text-[9px] text-muted-foreground">Tint the full vertical column for each annotation</span>
-                  </div>
-                </SelectItem>
                 <SelectSeparator />
                 <SelectItem value="off" textValue="No variance">
                   <div className="flex flex-col">
@@ -3236,6 +3251,50 @@ export const DeclineCurve = memo(
                 </SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Settings popover (gear) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((v) => !v)}
+                className={cn(
+                  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
+                  "hover:text-foreground hover:bg-muted transition-colors",
+                  settingsOpen && "border-indigo-500/40 text-indigo-600",
+                )}
+                title="View settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </button>
+              {settingsOpen && (
+                <div
+                  ref={settingsRef}
+                  className={cn(
+                    "absolute right-0 z-[100003] mt-1 w-[240px] rounded-md border border-border bg-popover p-3 shadow-lg",
+                    "animate-in fade-in-0 zoom-in-95",
+                  )}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    View settings
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showAnnotationsOnChart}
+                      onChange={(e) => setShowAnnotationsOnChart(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-indigo-500"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Show annotation backdrop</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Render dashed boundaries and the colored fill for each annotation on the chart.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </div>
 
             {editMode ? (
               <>
