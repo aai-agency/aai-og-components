@@ -557,6 +557,9 @@ const annotationRegionsPlugin = (
   getHoveredId: () => string | null,
   getSelectedId: () => string | null,
   getDrawing: () => { tStart: number; tEnd: number } | null,
+  /** When true, every annotation gets a strong background fill (used by the
+   *  "background" variance mode). */
+  getBackground: () => boolean,
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
@@ -577,6 +580,7 @@ const annotationRegionsPlugin = (
       const hoveredId = getHoveredId();
       const selectedId = getSelectedId();
       const drawing = getDrawing();
+      const background = getBackground();
 
       ctx.save();
 
@@ -618,8 +622,14 @@ const annotationRegionsPlugin = (
         const emphasized = isHovered || isSelected;
         const hex = color.replace("#", "");
 
-        // Range fill — always visible, brighter when emphasized
-        ctx.fillStyle = emphasized ? `#${hex}24` : `#${hex}10`;
+        // Range fill — alpha depends on mode: background = strong, default = light, emphasized = a touch brighter
+        let fillAlpha: string;
+        if (background) {
+          fillAlpha = emphasized ? "30" : "22";
+        } else {
+          fillAlpha = emphasized ? "24" : "10";
+        }
+        ctx.fillStyle = `#${hex}${fillAlpha}`;
         ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
 
         // Boundary lines (dashed, in annotation color)
@@ -682,18 +692,23 @@ const annotationRegionsPlugin = (
 // ── Variance fill plugin (area between actual and forecast) ────────────────
 
 /**
- * Fills the polygon between the actual and forecast curves so the magnitude
- * of the delta is visually obvious. Green tint when actual > forecast
- * (outperforming), red tint when actual < forecast (underperforming).
- * Walks the buffers in groups of contiguous non-NaN actual samples so gaps
- * in the actual data don't get bridged.
+ * Fills the polygon between the actual and forecast curves. Mode controls
+ * the coloring: "sign" uses green/red by sign, "byAnnotation" recolors the
+ * variance area inside each annotation with that annotation's color (falls
+ * back to sign outside any annotation), "off" hides the fill. The
+ * "background" mode is handled by annotationRegionsPlugin instead.
  */
+type VarianceFillMode = "off" | "sign" | "byAnnotation";
 const varianceFillPlugin = (
   getActual: () => Float64Array | null,
   getForecast: () => Float64Array | null,
+  getMode: () => VarianceFillMode,
+  getAnnotations: () => Annotation[],
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
+      const mode = getMode();
+      if (mode === "off") return;
       const actual = getActual();
       const forecast = getForecast();
       if (!actual || !forecast) return;
@@ -726,26 +741,42 @@ const varianceFillPlugin = (
       const toX = (t: number) => plotLeft + ((t - xMin) / xRange) * plotWidth;
       const toY = (v: number) => plotTop + ((yMax - v) / yRange) * plotHeight;
 
-      const POSITIVE_FILL = "rgba(16, 185, 129, 0.18)"; // emerald — actual above forecast
-      const NEGATIVE_FILL = "rgba(239, 68, 68, 0.18)"; // red — actual below forecast
+      const POSITIVE_FILL = "rgba(16, 185, 129, 0.18)";
+      const NEGATIVE_FILL = "rgba(239, 68, 68, 0.18)";
+
+      const annotations = mode === "byAnnotation" ? getAnnotations() : [];
+      const findAnnotation = (t: number): Annotation | null => {
+        for (const a of annotations) {
+          if (t >= Math.min(a.tStart, a.tEnd) && t <= Math.max(a.tStart, a.tEnd)) return a;
+        }
+        return null;
+      };
 
       ctx.save();
 
-      // Find runs of contiguous non-NaN actual samples
+      const colorForRun = (sign: number, ann: Annotation | null): string => {
+        if (mode === "byAnnotation" && ann) {
+          const c = colorForAnnotation(ann).replace("#", "");
+          return `#${c}30`;
+        }
+        return sign >= 0 ? POSITIVE_FILL : NEGATIVE_FILL;
+      };
+
+      // Walk contiguous non-NaN runs and split at sign changes AND annotation
+      // boundary changes so each polygon has a single fill color.
       let runStart = -1;
       const flushRun = (start: number, end: number) => {
         if (end <= start) return;
-        // Split the run into POSITIVE and NEGATIVE sub-runs to fill with the
-        // appropriate color. A "sign" change inside a run means actual crosses
-        // the forecast line — we don't bother interpolating the exact crossing
-        // (small visual artifact, fine for a first pass) and just split at the
-        // sample where sign flips.
         let subStart = start;
         let prevSign = Math.sign(actual[start] - forecast[start]) || 0;
+        let prevAnn = findAnnotation(times[start]);
         for (let i = start + 1; i <= end; i++) {
-          const sign = i < end ? Math.sign(actual[i] - forecast[i]) || 0 : prevSign;
-          if (i === end || (sign !== 0 && sign !== prevSign && prevSign !== 0)) {
-            // Draw polygon for [subStart..i]
+          const isLast = i === end;
+          const sign = isLast ? prevSign : Math.sign(actual[i] - forecast[i]) || 0;
+          const ann = isLast ? prevAnn : findAnnotation(times[i]);
+          const annChanged = (ann?.id ?? null) !== (prevAnn?.id ?? null);
+          const signChanged = sign !== 0 && sign !== prevSign && prevSign !== 0;
+          if (isLast || annChanged || signChanged) {
             ctx.beginPath();
             ctx.moveTo(toX(times[subStart]), toY(actual[subStart]));
             for (let j = subStart + 1; j <= Math.min(i, end - 1); j++) {
@@ -755,10 +786,11 @@ const varianceFillPlugin = (
               ctx.lineTo(toX(times[j]), toY(forecast[j]));
             }
             ctx.closePath();
-            ctx.fillStyle = prevSign >= 0 ? POSITIVE_FILL : NEGATIVE_FILL;
+            ctx.fillStyle = colorForRun(prevSign, prevAnn);
             ctx.fill();
             subStart = i - 1;
             prevSign = sign;
+            prevAnn = ann;
           }
         }
       };
@@ -2086,11 +2118,13 @@ export const DeclineCurve = memo(
       annotateModeRef.current = annotateMode;
     }, [annotateMode]);
 
-    const [varianceOn, setVarianceOn] = useState(showVariance);
-    const varianceOnRef = useRef(varianceOn);
+    type VarianceMode = "off" | "sign" | "byAnnotation" | "background";
+    const [varianceMode, setVarianceMode] = useState<VarianceMode>(showVariance ? "sign" : "off");
+    const varianceModeRef = useRef<VarianceMode>(varianceMode);
     useEffect(() => {
-      varianceOnRef.current = varianceOn;
-    }, [varianceOn]);
+      varianceModeRef.current = varianceMode;
+      prodChartRef.current?.redraw();
+    }, [varianceMode]);
 
     const [drawingAnnotation, setDrawingAnnotation] = useState<{
       tStart: number;
@@ -2833,8 +2867,13 @@ export const DeclineCurve = memo(
         height,
         plugins: [
           varianceFillPlugin(
-            () => (varianceOnRef.current ? buffersRef.current?.actual ?? null : null),
-            () => (varianceOnRef.current ? buffersRef.current?.forecast ?? null : null),
+            () => buffersRef.current?.actual ?? null,
+            () => buffersRef.current?.forecast ?? null,
+            () => {
+              const m = varianceModeRef.current;
+              return m === "off" || m === "background" ? "off" : m;
+            },
+            () => annotationsRef.current,
           ),
           forecastSegmentsPlugin(
             () => segmentsRef.current,
@@ -2848,6 +2887,7 @@ export const DeclineCurve = memo(
             () => hoveredAnnotationIdRef.current,
             () => selectedAnnotationId,
             () => drawingRef.current,
+            () => varianceModeRef.current === "background",
           ),
           tooltipPlugin(unit, () => segmentsRef.current),
         ],
@@ -3142,21 +3182,60 @@ export const DeclineCurve = memo(
           </span>
 
           <div className="ml-auto flex items-center gap-1.5">
-            {/* Variance toggle (always available) */}
-            <button
-              type="button"
-              onClick={() => setVarianceOn((v) => !v)}
-              className={cn(
-                "inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors",
-                varianceOn
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground",
-              )}
-              title={varianceOn ? "Hide variance fill" : "Show variance fill"}
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: varianceOn ? "#10b981" : "#cbd5e1" }} />
-              Variance
-            </button>
+            {/* Variance view-mode picker */}
+            <Select value={varianceMode} onValueChange={(v) => setVarianceMode(v as VarianceMode)}>
+              <SelectTrigger className="h-6 w-[170px] gap-1 text-[10px]">
+                <SelectValue>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        background:
+                          varianceMode === "off"
+                            ? "#cbd5e1"
+                            : varianceMode === "sign"
+                              ? "#10b981"
+                              : "#6366f1",
+                      }}
+                    />
+                    {varianceMode === "off"
+                      ? "No variance"
+                      : varianceMode === "sign"
+                        ? "Variance: +/− sign"
+                        : varianceMode === "byAnnotation"
+                          ? "Variance: by annotation"
+                          : "Annotation backdrop"}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sign" textValue="Variance: +/− sign">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">Variance: +/− sign</span>
+                    <span className="text-[9px] text-muted-foreground">Green when actual &gt; forecast, red when below</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="byAnnotation" textValue="Variance: by annotation">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">Variance: by annotation</span>
+                    <span className="text-[9px] text-muted-foreground">Color the delta inside each annotation by its type</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="background" textValue="Annotation backdrop">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">Annotation backdrop</span>
+                    <span className="text-[9px] text-muted-foreground">Tint the full vertical column for each annotation</span>
+                  </div>
+                </SelectItem>
+                <SelectSeparator />
+                <SelectItem value="off" textValue="No variance">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">No variance</span>
+                    <span className="text-[9px] text-muted-foreground">Hide the fill</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
             {editMode ? (
               <>
