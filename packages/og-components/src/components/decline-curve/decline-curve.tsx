@@ -584,8 +584,8 @@ const annotationRegionsPlugin = (
 
       ctx.save();
 
-      // In-progress drag (preview)
-      if (drawing) {
+      // In-progress drag preview (only shown when annotations are visible on the chart)
+      if (drawing && annotations.length > 0) {
         const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
         const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
         ctx.fillStyle = "rgba(99, 102, 241, 0.18)";
@@ -704,6 +704,9 @@ const varianceFillPlugin = (
   getForecast: () => Float64Array | null,
   getMode: () => VarianceFillMode,
   getAnnotations: () => Annotation[],
+  /** Optional in-progress drag range — treated as a synthetic annotation so
+   *  the variance fill recolors live as the user drags to create one. */
+  getDraft: () => { tStart: number; tEnd: number } | null = () => null,
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
@@ -746,7 +749,19 @@ const varianceFillPlugin = (
       const NEUTRAL_FILL = "rgba(100, 116, 139, 0.16)"; // slate — used in byAnnotation outside annotations
 
       const usesAnnotations = mode === "byAnnotation" || mode === "combined";
-      const annotations = usesAnnotations ? getAnnotations() : [];
+      const baseAnnotations = usesAnnotations ? getAnnotations() : [];
+      const draft = usesAnnotations ? getDraft() : null;
+      const annotations: Annotation[] = draft
+        ? [
+            ...baseAnnotations,
+            {
+              id: "__draft__",
+              tStart: Math.min(draft.tStart, draft.tEnd),
+              tEnd: Math.max(draft.tStart, draft.tEnd),
+              type: "note" as AnnotationType,
+            } as Annotation,
+          ]
+        : baseAnnotations;
       const findAnnotation = (t: number): Annotation | null => {
         for (const a of annotations) {
           if (t >= Math.min(a.tStart, a.tEnd) && t <= Math.max(a.tStart, a.tEnd)) return a;
@@ -980,6 +995,8 @@ const AddSegmentMenu = ({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const keyHandler = (e: KeyboardEvent) => {
@@ -1719,7 +1736,12 @@ const AnnotationEditorPopover = ({
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Element | null;
+      if (!target) return;
+      // Ignore clicks inside Radix-portalled popovers (e.g. the Select dropdown
+      // rendered in a portal outside the editor's DOM tree).
+      if (target.closest?.("[data-radix-popper-content-wrapper]")) return;
+      if (ref.current && !ref.current.contains(target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -1934,6 +1956,8 @@ const InlineSegmentEditor = ({
   // Click outside to close
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const keyHandler = (e: KeyboardEvent) => {
@@ -2902,6 +2926,7 @@ export const DeclineCurve = memo(
             () => buffersRef.current?.forecast ?? null,
             () => varianceModeRef.current,
             () => annotationsRef.current,
+            () => drawingRef.current,
           ),
           forecastSegmentsPlugin(
             () => segmentsRef.current,
