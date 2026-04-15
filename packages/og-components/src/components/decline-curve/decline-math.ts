@@ -82,6 +82,8 @@ export interface Annotation {
   tEnd: number;
   /** User-facing label. */
   label?: string;
+  /** Longer free-text context for the annotation. */
+  description?: string;
   /** Preset type — drives default color and grouping. */
   type: AnnotationType;
   /** Optional override color (hex). Falls back to the type's palette color. */

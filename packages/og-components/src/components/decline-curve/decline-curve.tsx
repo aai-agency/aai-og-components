@@ -547,9 +547,9 @@ const annotationsPlugin = (getSegments: () => Segment[]): uPlot.Plugin => ({
 // ── Annotation regions plugin ───────────────────────────────────────────────
 
 /**
- * Renders annotation ranges as thin colored bars at the top of the chart.
- * Hovered/selected annotations get a subtle vertical fill across the chart so
- * the range is obvious without competing with the forecast/variance read.
+ * Renders annotation ranges as two dashed boundary lines + faint colored fill
+ * between them (just like segment boundaries). Hover or select brightens the
+ * fill and surfaces a small label pill at the bottom.
  */
 const annotationRegionsPlugin = (
   getAnnotations: () => Annotation[],
@@ -576,8 +576,6 @@ const annotationRegionsPlugin = (
       const hoveredId = getHoveredId();
       const selectedId = getSelectedId();
       const drawing = getDrawing();
-      const barTop = plotTop + 2;
-      const barHeight = 8;
 
       ctx.save();
 
@@ -588,8 +586,8 @@ const annotationRegionsPlugin = (
         ctx.fillStyle = "rgba(99, 102, 241, 0.18)";
         ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
         ctx.strokeStyle = "rgba(99, 102, 241, 0.85)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
         ctx.beginPath();
         ctx.moveTo(dx1, plotTop);
         ctx.lineTo(dx1, plotTop + plotHeight);
@@ -599,50 +597,79 @@ const annotationRegionsPlugin = (
         ctx.setLineDash([]);
       }
 
-      // Existing annotations
-      for (const a of annotations) {
+      // Existing annotations — sort so selected/hovered render on top
+      const sorted = [...annotations].sort((a, b) => {
+        const ap = a.id === selectedId ? 2 : a.id === hoveredId ? 1 : 0;
+        const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
+        return ap - bp;
+      });
+
+      for (const a of sorted) {
         const color = colorForAnnotation(a);
-        const x1 = toX(a.tStart);
-        const x2 = toX(a.tEnd);
+        const startT = Math.min(a.tStart, a.tEnd);
+        const endT = Math.max(a.tStart, a.tEnd);
+        const x1 = toX(startT);
+        const x2 = toX(endT);
         if (x2 <= x1) continue;
 
         const isHovered = a.id === hoveredId;
         const isSelected = a.id === selectedId;
+        const emphasized = isHovered || isSelected;
+        const hex = color.replace("#", "");
 
-        // Range fill (only when hovered or selected)
-        if (isHovered || isSelected) {
-          const hex = color.replace("#", "");
-          ctx.fillStyle = `#${hex}1f`;
-          ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
+        // Range fill — always visible, brighter when emphasized
+        ctx.fillStyle = emphasized ? `#${hex}24` : `#${hex}10`;
+        ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
 
-          // Boundary lines in annotation color
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
+        // Boundary lines (dashed, in annotation color)
+        ctx.strokeStyle = color;
+        ctx.lineWidth = emphasized ? 1.5 : 1;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x1, plotTop);
+        ctx.lineTo(x1, plotTop + plotHeight);
+        ctx.moveTo(x2, plotTop);
+        ctx.lineTo(x2, plotTop + plotHeight);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (emphasized) {
+          // Triangle caps at top of each boundary
+          ctx.fillStyle = color;
+          for (const x of [x1, x2]) {
+            ctx.beginPath();
+            ctx.moveTo(x - 5, plotTop);
+            ctx.lineTo(x + 5, plotTop);
+            ctx.lineTo(x, plotTop + 6);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Label pill at the bottom of the range
+          const label = a.label || ANNOTATION_TYPE_META[a.type].label;
+          ctx.font = `10px ${FONT_FAMILY}`;
+          const text = label.length > 32 ? `${label.slice(0, 30)}…` : label;
+          const padX = 6;
+          const padY = 3;
+          const metrics = ctx.measureText(text);
+          const labelW = metrics.width + padX * 2;
+          const labelH = 16;
+          const cx = (x1 + x2) / 2;
+          const lx = Math.max(plotLeft + 2, Math.min(plotLeft + plotWidth - labelW - 2, cx - labelW / 2));
+          const ly = plotTop + plotHeight - labelH - 4;
+          ctx.fillStyle = color;
+          const r = 4;
           ctx.beginPath();
-          ctx.moveTo(x1, plotTop);
-          ctx.lineTo(x1, plotTop + plotHeight);
-          ctx.moveTo(x2, plotTop);
-          ctx.lineTo(x2, plotTop + plotHeight);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-
-        // Top bar
-        ctx.fillStyle = color;
-        ctx.globalAlpha = isHovered || isSelected ? 1 : 0.85;
-        ctx.fillRect(x1, barTop, x2 - x1, barHeight);
-        ctx.globalAlpha = 1;
-
-        // Inline label
-        const label = a.label || ANNOTATION_TYPE_META[a.type].label;
-        ctx.font = `9px ${FONT_FAMILY}`;
-        const labelText = label.length > 28 ? `${label.slice(0, 26)}…` : label;
-        const labelWidth = ctx.measureText(labelText).width;
-        if (x2 - x1 > labelWidth + 10) {
+          ctx.moveTo(lx + r, ly);
+          ctx.arcTo(lx + labelW, ly, lx + labelW, ly + labelH, r);
+          ctx.arcTo(lx + labelW, ly + labelH, lx, ly + labelH, r);
+          ctx.arcTo(lx, ly + labelH, lx, ly, r);
+          ctx.arcTo(lx, ly, lx + labelW, ly, r);
+          ctx.closePath();
+          ctx.fill();
           ctx.fillStyle = "#ffffff";
           ctx.textBaseline = "middle";
-          ctx.fillText(labelText, x1 + 6, barTop + barHeight / 2 + 0.5);
+          ctx.fillText(text, lx + padX, ly + labelH / 2 + 0.5);
         }
       }
 
@@ -1612,6 +1639,20 @@ const AnnotationEditorPopover = ({
           />
         </div>
 
+        {/* Description */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Description
+          </label>
+          <textarea
+            value={annotation.description ?? ""}
+            placeholder="Add more context (optional)"
+            rows={2}
+            onChange={(e) => onChange({ ...annotation, description: e.target.value || undefined })}
+            className="w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-[11px] leading-snug outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
         {/* Type */}
         <div className="space-y-1">
           <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -2012,6 +2053,11 @@ export const DeclineCurve = memo(
       hoveredAnnotationIdRef.current = hoveredAnnotationId;
     }, [hoveredAnnotationId]);
 
+    /** Annotation boundary the cursor is hovering, if any. */
+    const hoveredAnnotationBoundaryRef = useRef<{ id: string; side: "start" | "end" } | null>(null);
+    /** Active annotation boundary drag. */
+    const annotationDragRef = useRef<{ id: string; side: "start" | "end"; minT: number; maxT: number } | null>(null);
+
     const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
     const [annotationEditor, setAnnotationEditor] = useState<{
@@ -2182,8 +2228,37 @@ export const DeclineCurve = memo(
           mouseDownInfoRef.current = null;
         }
 
-        // Annotate mode — start drawing a range
+        // Annotate mode — start drawing a new range OR resize an annotation boundary
         if (annotateModeRef.current && mouseDownInfoRef.current) {
+          // If hovering an annotation boundary, start a boundary drag instead.
+          const bHover = hoveredAnnotationBoundaryRef.current;
+          if (bHover) {
+            const ann = annotationsRef.current.find((a) => a.id === bHover.id);
+            if (ann) {
+              const xMin = chart.data[0][0] as number;
+              const xMax = chart.data[0][chart.data[0].length - 1] as number;
+              if (bHover.side === "start") {
+                annotationDragRef.current = {
+                  id: bHover.id,
+                  side: "start",
+                  minT: xMin,
+                  maxT: Math.max(ann.tStart, ann.tEnd) - MIN_SEGMENT_WIDTH,
+                };
+              } else {
+                annotationDragRef.current = {
+                  id: bHover.id,
+                  side: "end",
+                  minT: Math.min(ann.tStart, ann.tEnd) + MIN_SEGMENT_WIDTH,
+                  maxT: xMax,
+                };
+              }
+              chart.over.style.cursor = "col-resize";
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+          }
+
           drawingRef.current = { tStart: mouseDownInfoRef.current.t, tEnd: mouseDownInfoRef.current.t };
           setDrawingAnnotation(drawingRef.current);
           chart.over.style.cursor = "crosshair";
@@ -2270,6 +2345,35 @@ export const DeclineCurve = memo(
           return;
         }
 
+        // Annotation boundary drag (resize)
+        if (annotationDragRef.current) {
+          const aDrag = annotationDragRef.current;
+          const rect = chart.over.getBoundingClientRect();
+          const lx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+          let tVal = chart.posToVal(lx, "x");
+          if (!Number.isFinite(tVal) || (tVal === 0 && lx > 2)) {
+            const data = chart.data[0] as number[];
+            if (data && data.length > 1) {
+              tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
+            }
+          }
+          const newT = Math.max(aDrag.minT, Math.min(aDrag.maxT, tVal));
+          const next = annotationsRef.current.map((a) =>
+            a.id === aDrag.id
+              ? aDrag.side === "start"
+                ? { ...a, tStart: newT }
+                : { ...a, tEnd: newT }
+              : a,
+          );
+          annotationsRef.current = next;
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = requestAnimationFrame(() => {
+            setAnnotations(next);
+            chart.redraw();
+          });
+          return;
+        }
+
         // Drawing an annotation range
         if (drawingRef.current && annotateModeRef.current) {
           const rect = chart.over.getBoundingClientRect();
@@ -2291,13 +2395,14 @@ export const DeclineCurve = memo(
         }
 
         if (!isDraggingRef.current) {
-          // Annotate mode hover detection — find annotation under cursor
+          // Annotate mode hover detection — boundaries + range
           if (annotateModeRef.current) {
             const rect = chart.over.getBoundingClientRect();
             const lx = e.clientX - rect.left;
             const ly = e.clientY - rect.top;
             if (lx < 0 || lx > rect.width || ly < 0 || ly > rect.height) {
               hoveredAnnotationIdRef.current = null;
+              hoveredAnnotationBoundaryRef.current = null;
               setHoveredAnnotationId(null);
               chart.over.style.cursor = "crosshair";
               return;
@@ -2309,6 +2414,41 @@ export const DeclineCurve = memo(
                 tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
               }
             }
+
+            // Check for boundary hit first (within ~6px of either side)
+            let bHit: { id: string; side: "start" | "end" } | null = null;
+            for (const a of annotationsRef.current) {
+              const x1 = chart.valToPos(Math.min(a.tStart, a.tEnd), "x");
+              const x2 = chart.valToPos(Math.max(a.tStart, a.tEnd), "x");
+              const useFallback = !Number.isFinite(x1) || !Number.isFinite(x2);
+              const data = chart.data[0] as number[];
+              const dMin = data[0];
+              const dMax = data[data.length - 1];
+              const xRange = dMax - dMin;
+              const fX = (t: number) =>
+                useFallback ? ((t - dMin) / xRange) * rect.width : chart.valToPos(t, "x");
+              const px1 = fX(Math.min(a.tStart, a.tEnd));
+              const px2 = fX(Math.max(a.tStart, a.tEnd));
+              if (Math.abs(lx - px1) <= BOUNDARY_HIT_RADIUS_PX) {
+                bHit = { id: a.id, side: a.tStart < a.tEnd ? "start" : "end" };
+                break;
+              }
+              if (Math.abs(lx - px2) <= BOUNDARY_HIT_RADIUS_PX) {
+                bHit = { id: a.id, side: a.tStart < a.tEnd ? "end" : "start" };
+                break;
+              }
+            }
+            hoveredAnnotationBoundaryRef.current = bHit;
+            if (bHit) {
+              if (hoveredAnnotationIdRef.current !== bHit.id) {
+                hoveredAnnotationIdRef.current = bHit.id;
+                setHoveredAnnotationId(bHit.id);
+                chart.redraw();
+              }
+              chart.over.style.cursor = "col-resize";
+              return;
+            }
+
             const hit = annotationsRef.current.find(
               (a) => tVal >= Math.min(a.tStart, a.tEnd) && tVal <= Math.max(a.tStart, a.tEnd),
             );
@@ -2473,6 +2613,23 @@ export const DeclineCurve = memo(
     const handleMouseUp = useCallback((e: MouseEvent) => {
       const chart = prodChartRef.current;
 
+      // Annotation boundary drag end — normalise tStart/tEnd ordering
+      if (annotationDragRef.current) {
+        const id = annotationDragRef.current.id;
+        annotationDragRef.current = null;
+        const next = annotationsRef.current.map((a) => {
+          if (a.id !== id) return a;
+          const lo = Math.min(a.tStart, a.tEnd);
+          const hi = Math.max(a.tStart, a.tEnd);
+          return { ...a, tStart: lo, tEnd: hi };
+        });
+        annotationsRef.current = next;
+        setAnnotations(next);
+        if (chart) chart.over.style.cursor = "crosshair";
+        mouseDownInfoRef.current = null;
+        return;
+      }
+
       // Annotate mode — finalize a drawn range
       if (drawingRef.current && annotateModeRef.current) {
         const draft = drawingRef.current;
@@ -2544,9 +2701,21 @@ export const DeclineCurve = memo(
     }, []);
 
     const handleContextMenu = useCallback((e: MouseEvent) => {
-      if (!editModeRef.current) return;
       const chart = prodChartRef.current;
       if (!chart) return;
+
+      // In annotate mode (or anytime the cursor is over an annotation), open
+      // the annotation editor instead of the segment menu.
+      const annId = hoveredAnnotationIdRef.current;
+      if (annId) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedAnnotationId(annId);
+        setAnnotationEditor({ annotationId: annId, clientX: e.clientX, clientY: e.clientY });
+        return;
+      }
+
+      if (!editModeRef.current) return;
       const rect = chart.over.getBoundingClientRect();
       const lx = e.clientX - rect.left;
       const ly = e.clientY - rect.top;
