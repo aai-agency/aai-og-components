@@ -541,6 +541,108 @@ const annotationsPlugin = (getSegments: () => Segment[]): uPlot.Plugin => ({
   },
 });
 
+// ── Variance fill plugin (area between actual and forecast) ────────────────
+
+/**
+ * Fills the polygon between the actual and forecast curves so the magnitude
+ * of the delta is visually obvious. Green tint when actual > forecast
+ * (outperforming), red tint when actual < forecast (underperforming).
+ * Walks the buffers in groups of contiguous non-NaN actual samples so gaps
+ * in the actual data don't get bridged.
+ */
+const varianceFillPlugin = (
+  getActual: () => Float64Array | null,
+  getForecast: () => Float64Array | null,
+): uPlot.Plugin => ({
+  hooks: {
+    draw: (u: uPlot) => {
+      const actual = getActual();
+      const forecast = getForecast();
+      if (!actual || !forecast) return;
+
+      const ctx = u.ctx;
+      const plotLeft = u.bbox.left;
+      const plotWidth = u.bbox.width;
+      const plotTop = u.bbox.top;
+      const plotHeight = u.bbox.height;
+      const times = u.data[0] as number[];
+      const xMin = u.scales.x.min ?? (times.length > 0 ? times[0] : 0);
+      const xMax = u.scales.x.max ?? (times.length > 0 ? times[times.length - 1] : 1);
+      let yMin = u.scales.y.min;
+      let yMax = u.scales.y.max;
+      if (yMin == null || yMax == null) {
+        let mx = 0;
+        for (let i = 0; i < forecast.length; i++) {
+          const f = forecast[i];
+          const a = actual[i];
+          if (Number.isFinite(f) && f > mx) mx = f;
+          if (Number.isFinite(a) && a > mx) mx = a;
+        }
+        yMin = 0;
+        yMax = mx * 1.1 || 1;
+      }
+      const xRange = xMax - xMin;
+      const yRange = yMax - yMin;
+      if (xRange === 0 || yRange === 0) return;
+
+      const toX = (t: number) => plotLeft + ((t - xMin) / xRange) * plotWidth;
+      const toY = (v: number) => plotTop + ((yMax - v) / yRange) * plotHeight;
+
+      const POSITIVE_FILL = "rgba(16, 185, 129, 0.18)"; // emerald — actual above forecast
+      const NEGATIVE_FILL = "rgba(239, 68, 68, 0.18)"; // red — actual below forecast
+
+      ctx.save();
+
+      // Find runs of contiguous non-NaN actual samples
+      let runStart = -1;
+      const flushRun = (start: number, end: number) => {
+        if (end <= start) return;
+        // Split the run into POSITIVE and NEGATIVE sub-runs to fill with the
+        // appropriate color. A "sign" change inside a run means actual crosses
+        // the forecast line — we don't bother interpolating the exact crossing
+        // (small visual artifact, fine for a first pass) and just split at the
+        // sample where sign flips.
+        let subStart = start;
+        let prevSign = Math.sign(actual[start] - forecast[start]) || 0;
+        for (let i = start + 1; i <= end; i++) {
+          const sign = i < end ? Math.sign(actual[i] - forecast[i]) || 0 : prevSign;
+          if (i === end || (sign !== 0 && sign !== prevSign && prevSign !== 0)) {
+            // Draw polygon for [subStart..i]
+            ctx.beginPath();
+            ctx.moveTo(toX(times[subStart]), toY(actual[subStart]));
+            for (let j = subStart + 1; j <= Math.min(i, end - 1); j++) {
+              ctx.lineTo(toX(times[j]), toY(actual[j]));
+            }
+            for (let j = Math.min(i, end - 1); j >= subStart; j--) {
+              ctx.lineTo(toX(times[j]), toY(forecast[j]));
+            }
+            ctx.closePath();
+            ctx.fillStyle = prevSign >= 0 ? POSITIVE_FILL : NEGATIVE_FILL;
+            ctx.fill();
+            subStart = i - 1;
+            prevSign = sign;
+          }
+        }
+      };
+
+      for (let i = 0; i < actual.length; i++) {
+        const a = actual[i];
+        const f = forecast[i];
+        const valid = Number.isFinite(a) && Number.isFinite(f);
+        if (valid) {
+          if (runStart < 0) runStart = i;
+        } else if (runStart >= 0) {
+          flushRun(runStart, i);
+          runStart = -1;
+        }
+      }
+      if (runStart >= 0) flushRun(runStart, actual.length);
+
+      ctx.restore();
+    },
+  },
+});
+
 // ── Per-segment forecast coloring plugin ────────────────────────────────────
 
 /**
@@ -1991,6 +2093,10 @@ export const DeclineCurve = memo(
         width: chartWidth,
         height,
         plugins: [
+          varianceFillPlugin(
+            () => buffersRef.current?.actual ?? null,
+            () => buffersRef.current?.forecast ?? null,
+          ),
           forecastSegmentsPlugin(
             () => segmentsRef.current,
             () => selectedIdRef.current,
