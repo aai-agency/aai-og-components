@@ -1748,11 +1748,6 @@ const AnnotationEditorPopover = ({
               <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
               <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} alt />
               <StatRow
-                label="Avg Δ"
-                value={`${(stats.avgDelta ?? 0) >= 0 ? "+" : ""}${stats.avgDelta?.toFixed(0)} ${unit}`}
-                tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
-              />
-              <StatRow
                 label="Δ %"
                 value={
                   stats.avgForecast && stats.avgForecast !== 0
@@ -1760,33 +1755,59 @@ const AnnotationEditorPopover = ({
                     : "—"
                 }
                 tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
-                alt
               />
               <StatRow
-                label={`Cumulative Δ`}
+                label="Total variance"
                 value={`${(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}${stats.cumulativeDelta?.toFixed(0)}`}
                 tone={(stats.cumulativeDelta ?? 0) >= 0 ? "pos" : "neg"}
+                alt
               />
-              <StatRow label="Samples" value={String(stats.samples)} alt />
             </tbody>
           </table>
         </div>
       )}
 
       <div className="space-y-3 px-3 py-3">
-        {/* Label */}
+        {/* Type — doubles as the annotation's label. Color is derived from type. */}
         <div className="space-y-1">
           <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Label
+            Type
           </label>
-          <input
-            type="text"
-            value={annotation.label ?? ""}
-            placeholder="What happened in this period?"
-            onChange={(e) => onChange({ ...annotation, label: e.target.value || undefined })}
-            className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-            autoFocus
-          />
+          <Select
+            value={annotation.type}
+            onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}
+          >
+            <SelectTrigger className="h-8 w-full text-xs">
+              <SelectValue>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: ANNOTATION_TYPE_META[annotation.type].color }}
+                  />
+                  {ANNOTATION_TYPE_META[annotation.type].label}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {ANNOTATION_TYPE_GROUPS.map((g, gi) => (
+                <SelectGroup key={g.label}>
+                  {gi > 0 && <SelectSeparator />}
+                  <SelectLabel>{g.label}</SelectLabel>
+                  {g.types.map((t) => {
+                    const meta = ANNOTATION_TYPE_META[t];
+                    return (
+                      <SelectItem key={t} value={t} textValue={meta.label}>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                          <span className="text-xs font-medium">{meta.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Description */}
@@ -1796,67 +1817,11 @@ const AnnotationEditorPopover = ({
           </label>
           <textarea
             value={annotation.description ?? ""}
-            placeholder="Add more context (optional)"
-            rows={2}
+            placeholder="Add context (optional)"
+            rows={3}
             onChange={(e) => onChange({ ...annotation, description: e.target.value || undefined })}
             className="w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-[11px] leading-snug outline-none focus:ring-2 focus:ring-ring"
           />
-        </div>
-
-        {/* Type + Color row */}
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <div className="space-y-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Type
-            </label>
-            <Select
-              value={annotation.type}
-              onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}
-            >
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: ANNOTATION_TYPE_META[annotation.type].color }}
-                    />
-                    {ANNOTATION_TYPE_META[annotation.type].label}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {ANNOTATION_TYPE_GROUPS.map((g, gi) => (
-                  <SelectGroup key={g.label}>
-                    {gi > 0 && <SelectSeparator />}
-                    <SelectLabel>{g.label}</SelectLabel>
-                    {g.types.map((t) => {
-                      const meta = ANNOTATION_TYPE_META[t];
-                      return (
-                        <SelectItem key={t} value={t} textValue={meta.label}>
-                          <div className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
-                            <span className="text-xs font-medium">{meta.label}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Color
-            </label>
-            <ColorPickerInline
-              value={annotation.color}
-              defaultColor={ANNOTATION_TYPE_META[annotation.type].color}
-              onChange={(c) => onChange({ ...annotation, color: c })}
-              onReset={() => onChange({ ...annotation, color: undefined })}
-            />
-          </div>
         </div>
 
         {/* Delete */}
