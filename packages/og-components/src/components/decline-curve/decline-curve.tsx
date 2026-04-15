@@ -1537,11 +1537,11 @@ const StatRow = ({
   value: string;
   tone?: "pos" | "neg";
 }) => (
-  <tr className="border-b border-border/60 last:border-b-0">
-    <td className="px-3 py-1.5 text-muted-foreground">{label}</td>
+  <tr>
+    <td className="py-0.5 pr-3 text-[11px] text-muted-foreground">{label}</td>
     <td
       className={cn(
-        "px-3 py-1.5 text-right font-mono font-semibold",
+        "py-0.5 text-right font-mono text-[11px] font-semibold tabular-nums",
         tone === "pos" ? "text-emerald-600" : tone === "neg" ? "text-rose-600" : "text-foreground",
       )}
     >
@@ -1740,8 +1740,8 @@ const AnnotationEditorPopover = ({
           No actual data in this range.
         </div>
       ) : (
-        <div className="border-b border-border">
-          <table className="w-full text-[11px] tabular-nums">
+        <div className="border-b border-border px-3 py-2.5">
+          <table className="w-full">
             <tbody>
               <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
               <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} />
