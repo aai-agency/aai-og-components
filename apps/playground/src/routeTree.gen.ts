@@ -16,6 +16,7 @@ import { Route as ComponentsSelectionPanelRouteImport } from './routes/component
 import { Route as ComponentsOverlayManagerRouteImport } from './routes/components/overlay-manager'
 import { Route as ComponentsMapRouteImport } from './routes/components/map'
 import { Route as ComponentsLineChartRouteImport } from './routes/components/line-chart'
+import { Route as ComponentsDeclineCurveRouteImport } from './routes/components/decline-curve'
 import { Route as ComponentsAssetDetailCardRouteImport } from './routes/components/asset-detail-card'
 
 const IndexRoute = IndexRouteImport.update({
@@ -55,6 +56,11 @@ const ComponentsLineChartRoute = ComponentsLineChartRouteImport.update({
   path: '/components/line-chart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComponentsDeclineCurveRoute = ComponentsDeclineCurveRouteImport.update({
+  id: '/components/decline-curve',
+  path: '/components/decline-curve',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ComponentsAssetDetailCardRoute =
   ComponentsAssetDetailCardRouteImport.update({
     id: '/components/asset-detail-card',
@@ -65,6 +71,7 @@ const ComponentsAssetDetailCardRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
+  '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
+  '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
+  '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/components/asset-detail-card'
+    | '/components/decline-curve'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/components/asset-detail-card'
+    | '/components/decline-curve'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/components/asset-detail-card'
+    | '/components/decline-curve'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -129,6 +141,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ComponentsAssetDetailCardRoute: typeof ComponentsAssetDetailCardRoute
+  ComponentsDeclineCurveRoute: typeof ComponentsDeclineCurveRoute
   ComponentsLineChartRoute: typeof ComponentsLineChartRoute
   ComponentsMapRoute: typeof ComponentsMapRoute
   ComponentsOverlayManagerRoute: typeof ComponentsOverlayManagerRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComponentsLineChartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/components/decline-curve': {
+      id: '/components/decline-curve'
+      path: '/components/decline-curve'
+      fullPath: '/components/decline-curve'
+      preLoaderRoute: typeof ComponentsDeclineCurveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/components/asset-detail-card': {
       id: '/components/asset-detail-card'
       path: '/components/asset-detail-card'
@@ -201,6 +221,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ComponentsAssetDetailCardRoute: ComponentsAssetDetailCardRoute,
+  ComponentsDeclineCurveRoute: ComponentsDeclineCurveRoute,
   ComponentsLineChartRoute: ComponentsLineChartRoute,
   ComponentsMapRoute: ComponentsMapRoute,
   ComponentsOverlayManagerRoute: ComponentsOverlayManagerRoute,

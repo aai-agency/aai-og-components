@@ -5,6 +5,30 @@ export type { MapControlsProps, MapControlId, MapLayerId } from "./map";
 export { LineChart } from "./line-chart";
 export { ProductionChart } from "./line-chart";
 export type { LineChartProps, ProductionChartProps } from "./line-chart";
+export { DeclineCurve } from "./decline-curve";
+export type { DeclineCurveProps } from "./decline-curve";
+export type {
+  DeclineMathBuffers,
+  EquationType,
+  HyperbolicParams,
+  Segment,
+  SegmentParams,
+} from "./decline-curve";
+export {
+  DEFAULT_SEGMENT_PARAMS,
+  adjustQiFromDrag,
+  computeForecast,
+  computeVariance,
+  createBuffers,
+  evalAtTime,
+  evalSegment,
+  generateDailyProduction,
+  generateSampleProduction,
+  insertSegmentAt,
+  nextSegmentId,
+  removeSegment,
+  updateForecastAndVariance,
+} from "./decline-curve";
 export { AssetDetailCard } from "./asset-card";
 export type { AssetDetailCardProps, AssetDetailSection } from "./asset-card";
 export { OverlayManager } from "./map";
