@@ -560,9 +560,69 @@ const annotationRegionsPlugin = (
   /** When true, every annotation gets a strong background fill (used by the
    *  "background" variance mode). */
   getBackground: () => boolean,
-): uPlot.Plugin => ({
-  hooks: {
-    draw: (u: uPlot) => {
+): uPlot.Plugin => {
+  // Shared compute used by both hooks.
+  const compute = (u: uPlot) => {
+    const ctx = u.ctx;
+    const plotLeft = u.bbox.left;
+    const plotWidth = u.bbox.width;
+    const plotTop = u.bbox.top;
+    const plotHeight = u.bbox.height;
+    const times = u.data[0] as number[];
+    const xMin = u.scales.x.min ?? (times.length > 0 ? times[0] : 0);
+    const xMax = u.scales.x.max ?? (times.length > 0 ? times[times.length - 1] : 1);
+    const xRange = xMax - xMin;
+    const annotations = getAnnotations();
+    const hoveredId = getHoveredId();
+    const selectedId = getSelectedId();
+    const drawing = getDrawing();
+    const background = getBackground();
+    const sorted = [...annotations].sort((a, b) => {
+      const ap = a.id === selectedId ? 2 : a.id === hoveredId ? 1 : 0;
+      const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
+      return ap - bp;
+    });
+    const toX = (t: number) =>
+      plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
+    return { ctx, plotLeft, plotWidth, plotTop, plotHeight, xMin, xMax, xRange, sorted, hoveredId, selectedId, drawing, background, toX };
+  };
+
+  return {
+    hooks: {
+      // Fills first (under the actual/forecast lines).
+      drawAxes: (u: uPlot) => {
+        const c = compute(u);
+        if (c.xRange === 0) return;
+        const { ctx, plotTop, plotHeight, hoveredId, selectedId, drawing, background, sorted, toX } = c;
+        ctx.save();
+
+        if (drawing) {
+          const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
+          const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
+          ctx.fillStyle = "rgba(99, 102, 241, 0.10)";
+          ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
+        }
+
+        for (const a of sorted) {
+          const startT = Math.min(a.tStart, a.tEnd);
+          const endT = Math.max(a.tStart, a.tEnd);
+          const x1 = toX(startT);
+          const x2 = toX(endT);
+          if (x2 <= x1) continue;
+          const isHovered = a.id === hoveredId;
+          const isSelected = a.id === selectedId;
+          const emphasized = isHovered || isSelected;
+          const hex = colorForAnnotation(a).replace("#", "");
+          let fillAlpha: string;
+          if (background) fillAlpha = emphasized ? "30" : "22";
+          else fillAlpha = emphasized ? "1c" : "0a";
+          ctx.fillStyle = `#${hex}${fillAlpha}`;
+          ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
+        }
+        ctx.restore();
+      },
+      // Boundaries + labels on top (above the actual/forecast lines).
+      draw: (u: uPlot) => {
       const ctx = u.ctx;
       const plotLeft = u.bbox.left;
       const plotWidth = u.bbox.width;
@@ -584,14 +644,10 @@ const annotationRegionsPlugin = (
 
       ctx.save();
 
-      // In-progress drag preview — always shown while drawing, regardless of
-      // the backdrop toggle. Once the user releases, this preview is gone and
-      // whether the committed annotation stays visible depends on the backdrop.
+      // In-progress drag preview — boundaries are always shown while drawing.
       if (drawing) {
         const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
         const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
-        ctx.fillStyle = "rgba(99, 102, 241, 0.12)";
-        ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
         ctx.strokeStyle = "rgba(99, 102, 241, 0.9)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 4]);
@@ -610,6 +666,7 @@ const annotationRegionsPlugin = (
         const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
         return ap - bp;
       });
+      void background; // (fills handled in drawAxes hook below)
 
       for (const a of sorted) {
         const color = colorForAnnotation(a);
@@ -622,17 +679,6 @@ const annotationRegionsPlugin = (
         const isHovered = a.id === hoveredId;
         const isSelected = a.id === selectedId;
         const emphasized = isHovered || isSelected;
-        const hex = color.replace("#", "");
-
-        // Range fill — alpha depends on mode: background = strong, default = light, emphasized = a touch brighter
-        let fillAlpha: string;
-        if (background) {
-          fillAlpha = emphasized ? "30" : "22";
-        } else {
-          fillAlpha = emphasized ? "24" : "10";
-        }
-        ctx.fillStyle = `#${hex}${fillAlpha}`;
-        ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
 
         // Boundary lines (dashed, in annotation color)
         ctx.strokeStyle = color;
@@ -688,8 +734,9 @@ const annotationRegionsPlugin = (
 
       ctx.restore();
     },
-  },
-});
+    },
+  };
+};
 
 // ── Variance fill plugin (area between actual and forecast) ────────────────
 
@@ -711,7 +758,9 @@ const varianceFillPlugin = (
   getDraft: () => { tStart: number; tEnd: number } | null = () => null,
 ): uPlot.Plugin => ({
   hooks: {
-    draw: (u: uPlot) => {
+    // Use drawAxes so the fill renders BEFORE the actual/forecast lines —
+    // otherwise it would cover them and the actual data line would disappear.
+    drawAxes: (u: uPlot) => {
       const mode = getMode();
       if (mode === "off") return;
       const actual = getActual();
