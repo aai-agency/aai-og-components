@@ -40,13 +40,16 @@ const DeclineCurvePage = () => {
     };
     const shutInStart = 100;
     const shutInEnd = 150; // 50-day shut-in
+    // Mean-reverting random walk so actuals visibly deviate from the forecast
+    // as a clean line, not a noisy band.
+    let wander = 0;
     for (let d = 0; d < totalDays; d++) {
       const base = DAILY_QI / (1 + DAILY_B * DAILY_DI * d) ** invB;
-      const noise = 1 + (rand() - 0.5) * 0.18; // ±9 %
-      const operational = rand() < 0.015 ? 0 : 1; // tiny chance of single-day shutin noise
+      wander += (rand() - 0.5) * 0.018 - wander * 0.004;
+      const macro = 1 + wander; // ±10–18 %
       const shutIn = d >= shutInStart && d < shutInEnd ? 0 : 1;
       time.push(d);
-      production.push(Math.max(0, base * noise * operational * shutIn));
+      production.push(Math.max(0, base * macro * shutIn));
     }
     return { production, time, count: totalDays, shutInStart, shutInEnd };
   }, []);

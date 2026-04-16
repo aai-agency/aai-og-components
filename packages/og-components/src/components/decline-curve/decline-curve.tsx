@@ -795,9 +795,9 @@ const varianceFillPlugin = (
       const toX = (t: number) => plotLeft + ((t - xMin) / xRange) * plotWidth;
       const toY = (v: number) => plotTop + ((yMax - v) / yRange) * plotHeight;
 
-      const POSITIVE_FILL = "rgba(16, 185, 129, 0.18)";
-      const NEGATIVE_FILL = "rgba(239, 68, 68, 0.18)";
-      const NEUTRAL_FILL = "rgba(100, 116, 139, 0.16)"; // slate — used in byAnnotation outside annotations
+      const POSITIVE_FILL = "rgba(16, 185, 129, 0.13)";
+      const NEGATIVE_FILL = "rgba(239, 68, 68, 0.13)";
+      const NEUTRAL_FILL = "rgba(100, 116, 139, 0.10)"; // slate — used in byAnnotation outside annotations
 
       const usesAnnotations = mode === "byAnnotation" || mode === "combined";
       const baseAnnotations = usesAnnotations ? getAnnotations() : [];
@@ -3168,7 +3168,7 @@ export const DeclineCurve = memo(
         },
         series: [
           {},
-          { label: "Actual", stroke: actualColor, width: 1.5, points: { show: false }, spanGaps: true },
+          { label: "Actual", stroke: actualColor, width: 2, points: { show: false }, spanGaps: true },
           // Forecast stroke is transparent — the forecastSegmentsPlugin draws the per-segment colored line.
           { label: "Forecast", stroke: "transparent", width: 0, points: { show: false }, spanGaps: true },
         ],
