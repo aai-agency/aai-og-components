@@ -1692,6 +1692,131 @@ const ColorPickerInline = ({
   );
 };
 
+const AnnotationRangeFields = ({
+  annotation,
+  startDate,
+  timeUnit,
+  onChange,
+}: {
+  annotation: Annotation;
+  startDate: Date | null;
+  timeUnit: TimeUnit;
+  onChange: (next: Annotation) => void;
+}) => {
+  const supportsDates = startDate != null;
+  const [mode, setMode] = useState<"days" | "date">(supportsDates ? "date" : "days");
+  const useDates = supportsDates && mode === "date";
+  const lo = Math.min(annotation.tStart, annotation.tEnd);
+  const hi = Math.max(annotation.tStart, annotation.tEnd);
+  const unitLabel = timeUnit === "day" ? "days" : timeUnit === "month" ? "months" : "years";
+  const startAsDate = startDate ? tToDate(startDate, lo, timeUnit) : null;
+  const endAsDate = startDate ? tToDate(startDate, hi, timeUnit) : null;
+
+  const setStart = (newLo: number) => {
+    const safeLo = Math.min(newLo, hi - MIN_SEGMENT_WIDTH);
+    onChange({ ...annotation, tStart: safeLo, tEnd: hi });
+  };
+  const setEnd = (newHi: number) => {
+    const safeHi = Math.max(newHi, lo + MIN_SEGMENT_WIDTH);
+    onChange({ ...annotation, tStart: lo, tEnd: safeHi });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Range
+        </label>
+        {supportsDates && (
+          <div className="inline-flex h-6 items-center rounded-md border border-border bg-background p-0.5 text-[10px]">
+            <button
+              type="button"
+              onClick={() => setMode("days")}
+              className={cn(
+                "h-5 rounded-sm px-2 font-medium transition-colors",
+                mode === "days"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {unitLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("date")}
+              className={cn(
+                "h-5 rounded-sm px-2 font-medium transition-colors",
+                mode === "date"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              date
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground">Start</label>
+          {useDates && startAsDate ? (
+            <input
+              type="date"
+              value={dateInputValue(startAsDate)}
+              onChange={(e) => {
+                if (!startDate) return;
+                const next = new Date(`${e.target.value}T00:00:00`);
+                if (Number.isNaN(next.getTime())) return;
+                setStart(dateToT(startDate, next, timeUnit));
+              }}
+              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+            />
+          ) : (
+            <input
+              type="number"
+              value={Number(lo.toFixed(2))}
+              step={1}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) setStart(v);
+              }}
+              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+            />
+          )}
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground">End</label>
+          {useDates && endAsDate ? (
+            <input
+              type="date"
+              value={dateInputValue(endAsDate)}
+              onChange={(e) => {
+                if (!startDate) return;
+                const next = new Date(`${e.target.value}T00:00:00`);
+                if (Number.isNaN(next.getTime())) return;
+                setEnd(dateToT(startDate, next, timeUnit));
+              }}
+              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+            />
+          ) : (
+            <input
+              type="number"
+              value={Number(hi.toFixed(2))}
+              step={1}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) setEnd(v);
+              }}
+              className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Annotation editor popover ───────────────────────────────────────────────
 
 interface AnnotationEditorProps {
@@ -1826,6 +1951,14 @@ const AnnotationEditorPopover = ({
       )}
 
       <div className="space-y-3 px-3 py-3">
+        {/* Start / End range — supports producing days (numeric) or calendar dates */}
+        <AnnotationRangeFields
+          annotation={annotation}
+          startDate={startDate}
+          timeUnit={timeUnit}
+          onChange={onChange}
+        />
+
         {/* Type — doubles as the annotation's label. Color is derived from type. */}
         <div className="space-y-1">
           <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -2373,37 +2506,37 @@ export const DeclineCurve = memo(
           mouseDownInfoRef.current = null;
         }
 
-        // Annotate mode — start drawing a new range OR resize an annotation boundary
-        if (annotateModeRef.current && mouseDownInfoRef.current) {
-          // If hovering an annotation boundary, start a boundary drag instead.
-          const bHover = hoveredAnnotationBoundaryRef.current;
-          if (bHover) {
-            const ann = annotationsRef.current.find((a) => a.id === bHover.id);
-            if (ann) {
-              const xMin = chart.data[0][0] as number;
-              const xMax = chart.data[0][chart.data[0].length - 1] as number;
-              if (bHover.side === "start") {
-                annotationDragRef.current = {
-                  id: bHover.id,
-                  side: "start",
-                  minT: xMin,
-                  maxT: Math.max(ann.tStart, ann.tEnd) - MIN_SEGMENT_WIDTH,
-                };
-              } else {
-                annotationDragRef.current = {
-                  id: bHover.id,
-                  side: "end",
-                  minT: Math.min(ann.tStart, ann.tEnd) + MIN_SEGMENT_WIDTH,
-                  maxT: xMax,
-                };
-              }
-              chart.over.style.cursor = "col-resize";
-              e.preventDefault();
-              e.stopPropagation();
-              return;
+        // Annotation boundary drag — works in any mode (not just Annotate).
+        const bHover = hoveredAnnotationBoundaryRef.current;
+        if (bHover && mouseDownInfoRef.current) {
+          const ann = annotationsRef.current.find((a) => a.id === bHover.id);
+          if (ann) {
+            const xMin = chart.data[0][0] as number;
+            const xMax = chart.data[0][chart.data[0].length - 1] as number;
+            if (bHover.side === "start") {
+              annotationDragRef.current = {
+                id: bHover.id,
+                side: "start",
+                minT: xMin,
+                maxT: Math.max(ann.tStart, ann.tEnd) - MIN_SEGMENT_WIDTH,
+              };
+            } else {
+              annotationDragRef.current = {
+                id: bHover.id,
+                side: "end",
+                minT: Math.min(ann.tStart, ann.tEnd) + MIN_SEGMENT_WIDTH,
+                maxT: xMax,
+              };
             }
+            chart.over.style.cursor = "col-resize";
+            e.preventDefault();
+            e.stopPropagation();
+            return;
           }
+        }
 
+        // Annotate mode — start drawing a new range
+        if (annotateModeRef.current && mouseDownInfoRef.current) {
           drawingRef.current = { tStart: mouseDownInfoRef.current.t, tEnd: mouseDownInfoRef.current.t };
           setDrawingAnnotation(drawingRef.current);
           chart.over.style.cursor = "crosshair";
@@ -2540,14 +2673,58 @@ export const DeclineCurve = memo(
         }
 
         if (!isDraggingRef.current) {
-          // Annotate mode hover detection — boundaries + range
+          // Annotation boundary hit-test runs in any mode so users can resize
+          // existing annotations without entering Annotate mode.
+          {
+            const rect0 = chart.over.getBoundingClientRect();
+            const lx = e.clientX - rect0.left;
+            const ly = e.clientY - rect0.top;
+            const inBounds = lx >= 0 && lx <= rect0.width && ly >= 0 && ly <= rect0.height;
+            if (inBounds && annotationsRef.current.length > 0) {
+              let bHit: { id: string; side: "start" | "end" } | null = null;
+              const data = chart.data[0] as number[];
+              const dMin = data[0];
+              const dMax = data[data.length - 1];
+              const xRange = dMax - dMin;
+              for (const a of annotationsRef.current) {
+                const x1raw = chart.valToPos(Math.min(a.tStart, a.tEnd), "x");
+                const x2raw = chart.valToPos(Math.max(a.tStart, a.tEnd), "x");
+                const useFallback = !Number.isFinite(x1raw) || !Number.isFinite(x2raw);
+                const fX = (t: number) =>
+                  useFallback ? ((t - dMin) / xRange) * rect0.width : chart.valToPos(t, "x");
+                const px1 = fX(Math.min(a.tStart, a.tEnd));
+                const px2 = fX(Math.max(a.tStart, a.tEnd));
+                if (Math.abs(lx - px1) <= BOUNDARY_HIT_RADIUS_PX) {
+                  bHit = { id: a.id, side: a.tStart < a.tEnd ? "start" : "end" };
+                  break;
+                }
+                if (Math.abs(lx - px2) <= BOUNDARY_HIT_RADIUS_PX) {
+                  bHit = { id: a.id, side: a.tStart < a.tEnd ? "end" : "start" };
+                  break;
+                }
+              }
+              hoveredAnnotationBoundaryRef.current = bHit;
+              if (bHit) {
+                if (hoveredAnnotationIdRef.current !== bHit.id) {
+                  hoveredAnnotationIdRef.current = bHit.id;
+                  setHoveredAnnotationId(bHit.id);
+                  chart.redraw();
+                }
+                chart.over.style.cursor = "col-resize";
+                return;
+              }
+            } else {
+              hoveredAnnotationBoundaryRef.current = null;
+            }
+          }
+
+          // Annotate mode hover detection — range body
           if (annotateModeRef.current) {
             const rect = chart.over.getBoundingClientRect();
             const lx = e.clientX - rect.left;
             const ly = e.clientY - rect.top;
             if (lx < 0 || lx > rect.width || ly < 0 || ly > rect.height) {
               hoveredAnnotationIdRef.current = null;
-              hoveredAnnotationBoundaryRef.current = null;
               setHoveredAnnotationId(null);
               chart.over.style.cursor = "crosshair";
               return;
@@ -2558,40 +2735,6 @@ export const DeclineCurve = memo(
               if (data && data.length > 1) {
                 tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
               }
-            }
-
-            // Check for boundary hit first (within ~6px of either side)
-            let bHit: { id: string; side: "start" | "end" } | null = null;
-            for (const a of annotationsRef.current) {
-              const x1 = chart.valToPos(Math.min(a.tStart, a.tEnd), "x");
-              const x2 = chart.valToPos(Math.max(a.tStart, a.tEnd), "x");
-              const useFallback = !Number.isFinite(x1) || !Number.isFinite(x2);
-              const data = chart.data[0] as number[];
-              const dMin = data[0];
-              const dMax = data[data.length - 1];
-              const xRange = dMax - dMin;
-              const fX = (t: number) =>
-                useFallback ? ((t - dMin) / xRange) * rect.width : chart.valToPos(t, "x");
-              const px1 = fX(Math.min(a.tStart, a.tEnd));
-              const px2 = fX(Math.max(a.tStart, a.tEnd));
-              if (Math.abs(lx - px1) <= BOUNDARY_HIT_RADIUS_PX) {
-                bHit = { id: a.id, side: a.tStart < a.tEnd ? "start" : "end" };
-                break;
-              }
-              if (Math.abs(lx - px2) <= BOUNDARY_HIT_RADIUS_PX) {
-                bHit = { id: a.id, side: a.tStart < a.tEnd ? "end" : "start" };
-                break;
-              }
-            }
-            hoveredAnnotationBoundaryRef.current = bHit;
-            if (bHit) {
-              if (hoveredAnnotationIdRef.current !== bHit.id) {
-                hoveredAnnotationIdRef.current = bHit.id;
-                setHoveredAnnotationId(bHit.id);
-                chart.redraw();
-              }
-              chart.over.style.cursor = "col-resize";
-              return;
             }
 
             const hit = annotationsRef.current.find(
