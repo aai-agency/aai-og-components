@@ -1,8 +1,10 @@
 import {
+  type Annotation,
   DeclineCurve,
   type Segment,
   generateDailyProduction,
   generateSampleProduction,
+  nextAnnotationId,
   nextSegmentId,
 } from "@aai-agency/og-components";
 import { createFileRoute } from "@tanstack/react-router";
@@ -21,10 +23,72 @@ const DeclineCurvePage = () => {
     return { production: sample.values, time: sample.time };
   }, []);
 
+  // Daily production 1980-2026 with intentional shut-in events stitched in so
+  // the chart tells a story rather than just showing smooth decline.
   const dailyData = useMemo(() => {
     const sample = generateDailyProduction(1980, 2026, 500, 0.00015, 0.9);
-    return { production: sample.values, time: sample.time, count: sample.time.length };
+    const production = [...sample.values];
+    const start = new Date(1980, 0, 1).getTime();
+    const dayIdx = (yyyy: number, mm: number, dd: number) =>
+      Math.floor((new Date(yyyy, mm - 1, dd).getTime() - start) / 86400000);
+    // Apply shut-ins: production goes to ~0 between two days
+    const shutIn = (a: number, b: number) => {
+      for (let i = a; i <= b && i < production.length; i++) production[i] = 0;
+    };
+    // 1) Offset frac shut-in: Mar - Sep 2005 (6 months)
+    shutIn(dayIdx(2005, 3, 1), dayIdx(2005, 9, 1));
+    // 2) ESP failure: May - Aug 2013 (3 months)
+    shutIn(dayIdx(2013, 5, 1), dayIdx(2013, 8, 1));
+    // 3) Workover: Jan - Jun 2020 (5 months)
+    shutIn(dayIdx(2020, 1, 1), dayIdx(2020, 6, 1));
+    return {
+      production,
+      time: sample.time,
+      count: sample.time.length,
+      dayIdx,
+    };
   }, []);
+
+  /** Forecast for the daily chart — single-segment hyperbolic from t=0. */
+  const dailyForecastSegments = useMemo<Segment[]>(
+    () => [
+      {
+        id: nextSegmentId(),
+        tStart: 0,
+        equation: "hyperbolic",
+        params: { qi: 500, di: 0.00015, b: 0.9, slope: 0 },
+      },
+    ],
+    [],
+  );
+
+  /** Pre-built annotations explaining each shut-in. */
+  const dailyAnnotations = useMemo<Annotation[]>(
+    () => [
+      {
+        id: nextAnnotationId(),
+        tStart: dailyData.dayIdx(2005, 3, 1),
+        tEnd: dailyData.dayIdx(2005, 9, 1),
+        type: "shutInOffset",
+        description: "Adjacent well completed; pressure dropped below pump intake.",
+      },
+      {
+        id: nextAnnotationId(),
+        tStart: dailyData.dayIdx(2013, 5, 1),
+        tEnd: dailyData.dayIdx(2013, 8, 1),
+        type: "espFail",
+        description: "ESP burned out, swapped to a new pump.",
+      },
+      {
+        id: nextAnnotationId(),
+        tStart: dailyData.dayIdx(2020, 1, 1),
+        tEnd: dailyData.dayIdx(2020, 6, 1),
+        type: "workover",
+        description: "Tubing change + acid treatment.",
+      },
+    ],
+    [dailyData],
+  );
 
   const preloadedSegments = useMemo<Segment[]>(
     () => [
@@ -55,7 +119,29 @@ const DeclineCurvePage = () => {
       title="DeclineCurve"
       description="Piecewise decline curve analysis with per-segment equations. Right-click the forecast line to insert a new segment at that point. Segments stay C0-continuous — each new segment starts at the prior segment's end value."
     >
-      <DemoCard title="Interactive — right-click the forecast line to add segments">
+      <DemoCard
+        title={`Daily Production 1980-2026 (${dailyData.count.toLocaleString()} days) — with shut-in events`}
+      >
+        <div style={{ minHeight: 560 }}>
+          <DeclineCurve
+            production={dailyData.production}
+            time={dailyData.time}
+            initialSegments={dailyForecastSegments}
+            initialAnnotations={dailyAnnotations}
+            height={360}
+            varianceHeight={140}
+            unit="BBL/day"
+            unitsPerYear={365}
+            startDate="1980-01-01"
+            timeUnit="day"
+            actualColor="#0ea5e9"
+            forecastColor="#6366f1"
+            onSegmentsChange={handleSegmentsChange}
+          />
+        </div>
+      </DemoCard>
+
+      <DemoCard title="Empty start — right-click the forecast line to add segments">
         <div style={{ minHeight: 540 }}>
           <DeclineCurve
             height={320}
@@ -63,7 +149,6 @@ const DeclineCurvePage = () => {
             unitsPerYear={12}
             startDate="2024-01-01"
             timeUnit="month"
-            onSegmentsChange={handleSegmentsChange}
           />
         </div>
       </DemoCard>
@@ -110,24 +195,6 @@ const DeclineCurvePage = () => {
             forecastHorizon={48 + 40 * 12}
             actualColor="#f59e0b"
             forecastColor="#8b5cf6"
-          />
-        </div>
-      </DemoCard>
-
-      <DemoCard title={`Daily Production 1980-2026 (${dailyData.count.toLocaleString()} data points)`}>
-        <div style={{ minHeight: 540 }}>
-          <DeclineCurve
-            production={dailyData.production}
-            time={dailyData.time}
-            initialParams={{ qi: 500, di: 0.00015, b: 0.9 }}
-            height={350}
-            varianceHeight={140}
-            unit="BBL/day"
-            unitsPerYear={365}
-            startDate="1980-01-01"
-            timeUnit="day"
-            actualColor="#0ea5e9"
-            forecastColor="#f43f5e"
           />
         </div>
       </DemoCard>
