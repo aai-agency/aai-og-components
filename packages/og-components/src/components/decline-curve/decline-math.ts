@@ -494,16 +494,17 @@ export const insertSegmentAt = (
   const defaultWidth = windowWidth ?? Math.max(1, Math.min(10, remaining * 0.2));
   const tEnd = t + defaultWidth;
 
-  // Start from the active segment's params so di/b/slope carry over (the user
-  // is typically inserting a window INSIDE an existing segment — inheriting its
-  // rate parameters gives a sensible baseline). Then layer equation-specific
-  // defaults on top, and set qi from the forecast at t.
-  const eqDefaults = EQUATION_META[equation]?.defaults ?? {};
+  // Start from the active segment's params so di/b/slope carry over, then set
+  // qi from the forecast at t. Preset-specific overrides come last.
   const baseParams = {
     ...(active?.params ?? DEFAULT_SEGMENT_PARAMS),
-    ...eqDefaults,
     qi: qiAtT,
   };
+  // Shut-in forces qi to 0 (well is offline).
+  if (equation === "shutIn") baseParams.qi = 0;
+  // Flowback defaults to a positive slope if the parent wasn't already a flowback.
+  if (equation === "flowback" && active?.equation !== "flowback") baseParams.slope = 25;
+
   const newSeg: Segment = {
     id: newId,
     tStart: t,

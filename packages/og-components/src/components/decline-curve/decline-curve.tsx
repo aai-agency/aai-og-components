@@ -3103,7 +3103,13 @@ export const DeclineCurve = memo(
       e.preventDefault();
       e.stopPropagation();
 
-      const dataT = chart.posToVal(lx, "x");
+      let dataT = chart.posToVal(lx, "x");
+      if (!Number.isFinite(dataT) || (dataT === 0 && lx > 2)) {
+        const data = chart.data[0] as number[];
+        if (data && data.length > 1 && rect.width > 0) {
+          dataT = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
+        }
+      }
       const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
       let activeIdx = 0;
       for (let i = 0; i < sorted.length; i++) {
