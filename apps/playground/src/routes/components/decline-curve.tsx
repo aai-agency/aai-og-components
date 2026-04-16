@@ -2,7 +2,6 @@ import {
   type Annotation,
   DeclineCurve,
   type Segment,
-  generateDailyProduction,
   generateSampleProduction,
   nextAnnotationId,
   nextSegmentId,
@@ -23,26 +22,33 @@ const DeclineCurvePage = () => {
     return { production: sample.values, time: sample.time };
   }, []);
 
-  // Daily production over 5 years with a single 30-day shut-in event so the
-  // drop is unmistakable on the chart. Production goes to 0 for exactly 30 days
-  // mid-2022, then resumes.
+  // Daily production with the underlying hyperbolic baked in (no ramp), so
+  // the forecast tracks the actuals tightly. A single 50-day shut-in starting
+  // day 100 lets the variance area pop without the rest of the chart drifting.
+  const DAILY_QI = 500;
+  const DAILY_DI = 0.0006;
+  const DAILY_B = 0.9;
   const dailyData = useMemo(() => {
-    const sample = generateDailyProduction(2020, 2025, 500, 0.0006, 0.9);
-    const production = [...sample.values];
-    const start = new Date(2020, 0, 1).getTime();
-    const dayIdx = (yyyy: number, mm: number, dd: number) =>
-      Math.floor((new Date(yyyy, mm - 1, dd).getTime() - start) / 86400000);
-    const shutIn = (a: number, b: number) => {
-      for (let i = a; i <= b && i < production.length; i++) production[i] = 0;
+    const totalDays = 730; // ~2 years
+    const time: number[] = [];
+    const production: number[] = [];
+    const invB = 1 / DAILY_B;
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
     };
-    // Single 30-day offset-frac shut-in: Jul 1 - Jul 30, 2022
-    shutIn(dayIdx(2022, 7, 1), dayIdx(2022, 7, 30));
-    return {
-      production,
-      time: sample.time,
-      count: sample.time.length,
-      dayIdx,
-    };
+    const shutInStart = 100;
+    const shutInEnd = 150; // 50-day shut-in
+    for (let d = 0; d < totalDays; d++) {
+      const base = DAILY_QI / (1 + DAILY_B * DAILY_DI * d) ** invB;
+      const noise = 1 + (rand() - 0.5) * 0.18; // ±9 %
+      const operational = rand() < 0.015 ? 0 : 1; // tiny chance of single-day shutin noise
+      const shutIn = d >= shutInStart && d < shutInEnd ? 0 : 1;
+      time.push(d);
+      production.push(Math.max(0, base * noise * operational * shutIn));
+    }
+    return { production, time, count: totalDays, shutInStart, shutInEnd };
   }, []);
 
   /** Forecast for the daily chart — single-segment hyperbolic from t=0. */
@@ -52,21 +58,21 @@ const DeclineCurvePage = () => {
         id: nextSegmentId(),
         tStart: 0,
         equation: "hyperbolic",
-        params: { qi: 500, di: 0.0006, b: 0.9, slope: 0 },
+        params: { qi: DAILY_QI, di: DAILY_DI, b: DAILY_B, slope: 0 },
       },
     ],
     [],
   );
 
-  /** Single annotation matching the 30-day shut-in event. */
+  /** Single annotation matching the 50-day shut-in event. */
   const dailyAnnotations = useMemo<Annotation[]>(
     () => [
       {
         id: nextAnnotationId(),
-        tStart: dailyData.dayIdx(2022, 7, 1),
-        tEnd: dailyData.dayIdx(2022, 7, 30),
+        tStart: dailyData.shutInStart,
+        tEnd: dailyData.shutInEnd,
         type: "shutInOffset",
-        description: "Offset frac on adjacent well — 30-day shut-in.",
+        description: "Offset frac on adjacent well — 50-day shut-in.",
       },
     ],
     [dailyData],
@@ -102,7 +108,7 @@ const DeclineCurvePage = () => {
       description="Piecewise decline curve analysis with per-segment equations. Right-click the forecast line to insert a new segment at that point. Segments stay C0-continuous — each new segment starts at the prior segment's end value."
     >
       <DemoCard
-        title={`Daily Production 2020-2025 (${dailyData.count.toLocaleString()} days) — 30-day offset frac shut-in`}
+        title={`Daily production (${dailyData.count} days) — 50-day offset-frac shut-in`}
       >
         <div style={{ minHeight: 560 }}>
           <DeclineCurve
