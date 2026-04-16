@@ -23,24 +23,20 @@ const DeclineCurvePage = () => {
     return { production: sample.values, time: sample.time };
   }, []);
 
-  // Daily production 1980-2026 with intentional shut-in events stitched in so
-  // the chart tells a story rather than just showing smooth decline.
+  // Daily production over 5 years with a single 30-day shut-in event so the
+  // drop is unmistakable on the chart. Production goes to 0 for exactly 30 days
+  // mid-2022, then resumes.
   const dailyData = useMemo(() => {
-    const sample = generateDailyProduction(1980, 2026, 500, 0.00015, 0.9);
+    const sample = generateDailyProduction(2020, 2025, 500, 0.0006, 0.9);
     const production = [...sample.values];
-    const start = new Date(1980, 0, 1).getTime();
+    const start = new Date(2020, 0, 1).getTime();
     const dayIdx = (yyyy: number, mm: number, dd: number) =>
       Math.floor((new Date(yyyy, mm - 1, dd).getTime() - start) / 86400000);
-    // Apply shut-ins: production goes to ~0 between two days
     const shutIn = (a: number, b: number) => {
       for (let i = a; i <= b && i < production.length; i++) production[i] = 0;
     };
-    // 1) Offset frac shut-in: Mar - Sep 2005 (6 months)
-    shutIn(dayIdx(2005, 3, 1), dayIdx(2005, 9, 1));
-    // 2) ESP failure: May - Aug 2013 (3 months)
-    shutIn(dayIdx(2013, 5, 1), dayIdx(2013, 8, 1));
-    // 3) Workover: Jan - Jun 2020 (5 months)
-    shutIn(dayIdx(2020, 1, 1), dayIdx(2020, 6, 1));
+    // Single 30-day offset-frac shut-in: Jul 1 - Jul 30, 2022
+    shutIn(dayIdx(2022, 7, 1), dayIdx(2022, 7, 30));
     return {
       production,
       time: sample.time,
@@ -56,35 +52,21 @@ const DeclineCurvePage = () => {
         id: nextSegmentId(),
         tStart: 0,
         equation: "hyperbolic",
-        params: { qi: 500, di: 0.00015, b: 0.9, slope: 0 },
+        params: { qi: 500, di: 0.0006, b: 0.9, slope: 0 },
       },
     ],
     [],
   );
 
-  /** Pre-built annotations explaining each shut-in. */
+  /** Single annotation matching the 30-day shut-in event. */
   const dailyAnnotations = useMemo<Annotation[]>(
     () => [
       {
         id: nextAnnotationId(),
-        tStart: dailyData.dayIdx(2005, 3, 1),
-        tEnd: dailyData.dayIdx(2005, 9, 1),
+        tStart: dailyData.dayIdx(2022, 7, 1),
+        tEnd: dailyData.dayIdx(2022, 7, 30),
         type: "shutInOffset",
-        description: "Adjacent well completed; pressure dropped below pump intake.",
-      },
-      {
-        id: nextAnnotationId(),
-        tStart: dailyData.dayIdx(2013, 5, 1),
-        tEnd: dailyData.dayIdx(2013, 8, 1),
-        type: "espFail",
-        description: "ESP burned out, swapped to a new pump.",
-      },
-      {
-        id: nextAnnotationId(),
-        tStart: dailyData.dayIdx(2020, 1, 1),
-        tEnd: dailyData.dayIdx(2020, 6, 1),
-        type: "workover",
-        description: "Tubing change + acid treatment.",
+        description: "Offset frac on adjacent well — 30-day shut-in.",
       },
     ],
     [dailyData],
@@ -120,7 +102,7 @@ const DeclineCurvePage = () => {
       description="Piecewise decline curve analysis with per-segment equations. Right-click the forecast line to insert a new segment at that point. Segments stay C0-continuous — each new segment starts at the prior segment's end value."
     >
       <DemoCard
-        title={`Daily Production 1980-2026 (${dailyData.count.toLocaleString()} days) — with shut-in events`}
+        title={`Daily Production 2020-2025 (${dailyData.count.toLocaleString()} days) — 30-day offset frac shut-in`}
       >
         <div style={{ minHeight: 560 }}>
           <DeclineCurve
@@ -132,7 +114,7 @@ const DeclineCurvePage = () => {
             varianceHeight={140}
             unit="BBL/day"
             unitsPerYear={365}
-            startDate="1980-01-01"
+            startDate="2020-01-01"
             timeUnit="day"
             actualColor="#0ea5e9"
             forecastColor="#6366f1"
