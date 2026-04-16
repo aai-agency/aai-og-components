@@ -584,13 +584,15 @@ const annotationRegionsPlugin = (
 
       ctx.save();
 
-      // In-progress drag preview (only shown when annotations are visible on the chart)
-      if (drawing && annotations.length > 0) {
+      // In-progress drag preview — always shown while drawing, regardless of
+      // the backdrop toggle. Once the user releases, this preview is gone and
+      // whether the committed annotation stays visible depends on the backdrop.
+      if (drawing) {
         const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
         const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
-        ctx.fillStyle = "rgba(99, 102, 241, 0.18)";
+        ctx.fillStyle = "rgba(99, 102, 241, 0.12)";
         ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
-        ctx.strokeStyle = "rgba(99, 102, 241, 0.85)";
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.9)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 4]);
         ctx.beginPath();
