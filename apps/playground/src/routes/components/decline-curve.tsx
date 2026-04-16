@@ -125,7 +125,7 @@ const DeclineCurvePage = () => {
             unitsPerYear={365}
             startDate="2020-01-01"
             timeUnit="day"
-            actualColor="#0ea5e9"
+            actualColor="#22c55e"
             forecastColor="#6366f1"
             onSegmentsChange={handleSegmentsChange}
           />
