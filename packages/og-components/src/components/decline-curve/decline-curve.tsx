@@ -968,8 +968,8 @@ const forecastSegmentsPlugin = (
         const color = colorForSegment(s, seg);
         const isSelected = seg.id === selectedId;
         ctx.strokeStyle = color;
-        ctx.lineWidth = isSelected ? 3 : 2.25;
-        ctx.setLineDash([]);
+        ctx.lineWidth = isSelected ? 2 : 1.5;
+        ctx.setLineDash([6, 3]);
         ctx.beginPath();
         let started = false;
 
@@ -1007,6 +1007,7 @@ const forecastSegmentsPlugin = (
             }
           }
           ctx.stroke();
+          ctx.setLineDash([]);
         }
       }
 
@@ -3168,7 +3169,7 @@ export const DeclineCurve = memo(
         },
         series: [
           {},
-          { label: "Actual", stroke: actualColor, width: 2, points: { show: false }, spanGaps: true },
+          { label: "Actual", stroke: actualColor, width: 2.5, points: { show: false }, spanGaps: true },
           // Forecast stroke is transparent — the forecastSegmentsPlugin draws the per-segment colored line.
           { label: "Forecast", stroke: "transparent", width: 0, points: { show: false }, spanGaps: true },
         ],
