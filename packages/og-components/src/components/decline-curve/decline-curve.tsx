@@ -79,7 +79,7 @@ const ACTUAL_COLOR = "#10b981";
 const FORECAST_COLOR = ACCENT;
 const VARIANCE_POS_COLOR = "rgba(16, 185, 129, 0.6)";
 const VARIANCE_NEG_COLOR = "rgba(239, 68, 68, 0.6)";
-const FORECAST_HIT_RADIUS_PX = 12;
+const FORECAST_HIT_RADIUS_PX = 16;
 const BOUNDARY_HIT_RADIUS_PX = 6;
 const MIN_SEGMENT_WIDTH = 0.5;
 
@@ -895,6 +895,8 @@ const forecastSegmentsPlugin = (
   getSegments: () => Segment[],
   getSelectedId: () => string | null,
   getForecast: () => Float64Array | null,
+  /** When true (edit mode), forecast line is solid + thicker for easier grabbing. */
+  getEditMode: () => boolean = () => false,
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
@@ -967,9 +969,15 @@ const forecastSegmentsPlugin = (
         if (s === sorted.length - 1 && seg.tEnd != null) nextT = Math.min(nextT, seg.tEnd);
         const color = colorForSegment(s, seg);
         const isSelected = seg.id === selectedId;
+        const editing = getEditMode();
         ctx.strokeStyle = color;
-        ctx.lineWidth = isSelected ? 2 : 1.5;
-        ctx.setLineDash([6, 3]);
+        if (editing) {
+          ctx.lineWidth = isSelected ? 3 : 2.5;
+          ctx.setLineDash([]);
+        } else {
+          ctx.lineWidth = isSelected ? 2 : 1.5;
+          ctx.setLineDash([6, 3]);
+        }
         ctx.beginPath();
         let started = false;
 
@@ -2401,6 +2409,7 @@ export const DeclineCurve = memo(
     const editModeRef = useRef<boolean>(defaultEditMode);
     useEffect(() => {
       editModeRef.current = editMode;
+      prodChartRef.current?.redraw();
     }, [editMode]);
     const preEditSnapshotRef = useRef<Segment[] | null>(null);
     const [isDirty, setIsDirty] = useState(false);
@@ -3127,6 +3136,7 @@ export const DeclineCurve = memo(
             () => segmentsRef.current,
             () => selectedIdRef.current,
             () => buffersRef.current?.forecast ?? null,
+            () => editModeRef.current,
           ),
           boundaryPlugin(() => segmentsRef.current, () => selectedIdRef.current),
           annotationsPlugin(() => segmentsRef.current),
