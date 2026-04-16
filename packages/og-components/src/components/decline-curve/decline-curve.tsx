@@ -1091,18 +1091,33 @@ const AddSegmentMenu = ({
 
       {state.onForecast && (
         <>
-          <button
-            type="button"
-            onClick={() => setShowEquations((v) => !v)}
-            className={cn(
-              "relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
-              "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-            )}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add segment here</span>
-            <ChevronRight className={cn("ml-auto h-3.5 w-3.5 transition-transform", showEquations && "rotate-90")} />
-          </button>
+          <div className="flex gap-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                onAdd("hyperbolic");
+                onClose();
+              }}
+              className={cn(
+                "relative flex flex-1 cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
+                "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+              )}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add segment here</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEquations((v) => !v)}
+              className={cn(
+                "inline-flex h-8 w-7 shrink-0 items-center justify-center rounded-sm outline-none",
+                "hover:bg-accent hover:text-accent-foreground",
+              )}
+              title="Choose equation type"
+            >
+              <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", showEquations && "rotate-90")} />
+            </button>
+          </div>
 
           {showEquations &&
             EQUATION_GROUPS.map((group) => (
@@ -3068,10 +3083,11 @@ export const DeclineCurve = memo(
       const chart = prodChartRef.current;
       if (!chart) return;
 
-      // In annotate mode (or anytime the cursor is over an annotation), open
-      // the annotation editor instead of the segment menu.
+      // In edit mode, if the cursor is over the forecast line, the segment
+      // context menu takes priority over opening an annotation editor. If NOT
+      // over the forecast (or not in edit mode), annotations win.
       const annId = hoveredAnnotationIdRef.current;
-      if (annId) {
+      if (annId && !(editModeRef.current && isOverForecastRef.current)) {
         e.preventDefault();
         e.stopPropagation();
         setSelectedAnnotationId(annId);
