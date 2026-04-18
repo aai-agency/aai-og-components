@@ -513,13 +513,17 @@ export const insertSegmentAt = (
     qiAnchored: equation === "shutIn",
   };
 
+  // Anchor the resumption to what the ORIGINAL curve would have been at tEnd,
+  // not the inserted segment's end value. Otherwise a shut-in (qi=0) or any
+  // equation that decays to zero would drag the resumption down with it.
+  const qiAtTEnd = evalAtTime(segments, tEnd);
   const resumeSeg: Segment | null = active
     ? {
         id: nextSegmentId(),
         tStart: tEnd,
         equation: active.equation,
-        // params are cloned; qi is recomputed from continuity at render time
-        params: { ...active.params },
+        params: { ...active.params, qi: qiAtTEnd },
+        qiAnchored: true,
       }
     : null;
 
