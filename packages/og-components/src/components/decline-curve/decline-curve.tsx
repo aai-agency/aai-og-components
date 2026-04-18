@@ -2665,6 +2665,43 @@ export const DeclineCurve = memo(
         } else {
           dragStartValueRef.current = seg.params[currentDragParam];
         }
+
+        // Freeze every downstream segment at its current effective qi before
+        // the drag starts moving. Without this, the dragged segment's new end
+        // value propagates through the inheritance chain and shifts every
+        // subsequent segment — a domino, not a local edit. Anchoring the
+        // downstream means the drag only reshapes the one segment the user
+        // grabbed; everything after it stays exactly where it was.
+        if (currentDragParam === "qi") {
+          const effectiveQis: number[] = [sortedAtDown[0].params.qi];
+          for (let i = 1; i < sortedAtDown.length; i++) {
+            if (sortedAtDown[i].qiAnchored) {
+              effectiveQis.push(sortedAtDown[i].params.qi);
+            } else {
+              const prev = sortedAtDown[i - 1];
+              const dt = sortedAtDown[i].tStart - prev.tStart;
+              effectiveQis.push(
+                evalSegment(prev.equation, { ...prev.params, qi: effectiveQis[i - 1] }, dt),
+              );
+            }
+          }
+          const frozenById = new Map<string, Segment>();
+          for (let i = segIdxAtDown + 1; i < sortedAtDown.length; i++) {
+            const s = sortedAtDown[i];
+            if (s.qiAnchored) continue;
+            frozenById.set(s.id, {
+              ...s,
+              params: { ...s.params, qi: effectiveQis[i] },
+              qiAnchored: true,
+            });
+          }
+          if (frozenById.size > 0) {
+            const nextSegments = segmentsRef.current.map((s) => frozenById.get(s.id) ?? s);
+            segmentsRef.current = nextSegments;
+            setSegments(nextSegments);
+          }
+        }
+
         chart.over.style.cursor = "grabbing";
         e.preventDefault();
         e.stopPropagation();
@@ -3226,7 +3263,7 @@ export const DeclineCurve = memo(
                 if (!arr) continue;
                 for (let i = 0; i < arr.length; i++) {
                   const v = arr[i];
-                  if (Number.isFinite(v) && v > max) max = v;
+                  if (v != null && Number.isFinite(v) && v > max) max = v;
                 }
               }
               return [0, (max || 1) * 1.1];
