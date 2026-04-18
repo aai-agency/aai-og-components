@@ -68,13 +68,48 @@ describe("insertSegmentAt — shut-in bisect", () => {
     expect(resumptionStart).toBeCloseTo(originalAt30, 4);
   });
 
-  it("bisecting with a flat segment still resumes the original curve", () => {
+  it("bisecting with a flat segment hands off continuously from the plateau", () => {
+    // Flat plateau: holds qi for the window. Resumption should pick up at the
+    // same qi the flat ended at (== where it started, since flat is constant),
+    // not snap back to where the original hyperbolic would have been.
     const base = [hyperbolic({ tStart: 0 })];
+    const qiAtInsert = evalAtTime(base, 15);
     const { segments: next } = insertSegmentAt(base, 15, "flat", 5);
     const sorted = [...next].sort((a, b) => a.tStart - b.tStart);
     const resume = sorted[2];
-    expect(resume.qiAnchored).toBe(true);
-    expect(resume.params.qi).toBeCloseTo(evalAtTime(base, 20), 6);
+    expect(resume.qiAnchored).toBeFalsy();
+
+    const buffers = createBuffers(50);
+    for (let i = 0; i < 50; i++) buffers.time[i] = i;
+    computeForecast(buffers, next);
+    // Flat runs 15..20 at qiAtInsert, then hyperbolic resumes from that value.
+    expect(buffers.forecast[20]).toBeCloseTo(qiAtInsert, 4);
+  });
+
+  it("bisecting with a flowback ramp hands off from the ramp's peak, no drop", () => {
+    // Flowback ramps qi up via slope. The resumption must continue from the
+    // ramped value — without this, Flowback visibly jumped back down to the
+    // original curve at tEnd.
+    const base = [hyperbolic({ tStart: 0 })];
+    const qiAtInsert = evalAtTime(base, 15);
+    const flowbackSlope = 25;
+    const windowWidth = 8;
+    const { segments: next } = insertSegmentAt(base, 15, "flowback", windowWidth);
+    const sorted = [...next].sort((a, b) => a.tStart - b.tStart);
+    expect(sorted).toHaveLength(3);
+    const [, flow, resume] = sorted;
+    expect(flow.equation).toBe("flowback");
+    expect(resume.equation).toBe("hyperbolic");
+    expect(resume.qiAnchored).toBeFalsy();
+
+    const buffers = createBuffers(50);
+    for (let i = 0; i < 50; i++) buffers.time[i] = i;
+    computeForecast(buffers, next);
+    const peak = qiAtInsert + flowbackSlope * windowWidth;
+    // At the handoff t=23, the hyperbolic resumption starts at the flowback's peak.
+    expect(buffers.forecast[23]).toBeCloseTo(peak, 4);
+    // Before insert: original hyperbolic at t=22
+    expect(buffers.forecast[22]).toBeCloseTo(qiAtInsert + flowbackSlope * 7, 4);
   });
 });
 

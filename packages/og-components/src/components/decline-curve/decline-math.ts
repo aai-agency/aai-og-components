@@ -275,6 +275,18 @@ export interface EquationMeta {
   defaults: Partial<SegmentParams>;
   /** Optional grouping for the dropdown. */
   group?: "Operations" | "Decline";
+  /**
+   * When this equation is used as a *bisect insert*, should the resumption
+   * segment be anchored back to the original curve's projected value at tEnd
+   * (true — creates a visible "recovery" jump), or should it hand off
+   * C0-continuously from this segment's end value (false — smooth join)?
+   *
+   * Shut-in is the only equation that opts in: the well went to 0, we want
+   * to resume at what the projected rate would have been. Every other
+   * equation leaves the chain continuous so Flowback ramps, Flats, etc.
+   * don't drop back to the original curve the moment they end.
+   */
+  anchorResumption?: boolean;
 }
 
 export const EQUATION_META: Record<EquationType, EquationMeta> = {
@@ -285,6 +297,7 @@ export const EQUATION_META: Record<EquationType, EquationMeta> = {
     fields: [],
     defaults: { qi: 0 },
     group: "Operations",
+    anchorResumption: true,
   },
   flowback: {
     label: "Flowback",
@@ -513,17 +526,27 @@ export const insertSegmentAt = (
     qiAnchored: equation === "shutIn",
   };
 
-  // Anchor the resumption to what the ORIGINAL curve would have been at tEnd,
-  // not the inserted segment's end value. Otherwise a shut-in (qi=0) or any
-  // equation that decays to zero would drag the resumption down with it.
-  const qiAtTEnd = evalAtTime(segments, tEnd);
+  // Decide how the resumption segment picks up:
+  //
+  //   * Shut-in (or any equation with `anchorResumption: true`) ends at 0,
+  //     so we explicitly anchor the resumption to the ORIGINAL curve's
+  //     projected value at tEnd — the well "recovers" to where it would
+  //     have been, not to 0.
+  //
+  //   * Every other equation (Flowback, Flat, Exponential, etc.) should
+  //     hand off C0-continuously from its own end value. Leave the
+  //     resumption un-anchored and let computeForecast's forward pass fill
+  //     its qi from `evalSegment(insertedSegment, windowWidth)`, so there's
+  //     no visual jump between the insert and the resumption.
+  const anchorResume = EQUATION_META[equation].anchorResumption === true;
+  const qiAtTEnd = anchorResume ? evalAtTime(segments, tEnd) : 0;
   const resumeSeg: Segment | null = active
     ? {
         id: nextSegmentId(),
         tStart: tEnd,
         equation: active.equation,
         params: { ...active.params, qi: qiAtTEnd },
-        qiAnchored: true,
+        qiAnchored: anchorResume,
       }
     : null;
 
