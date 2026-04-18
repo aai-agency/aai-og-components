@@ -946,14 +946,19 @@ const forecastSegmentsPlugin = (
       const selectedId = getSelectedId();
 
       // Precompute each segment's effective qi so boundaries evaluate C0-continuously.
+      // Anchored segments use their own params.qi instead of inheriting from the prior segment.
       const effectiveQi: number[] = [];
       if (sorted.length > 0) {
         effectiveQi.push(sorted[0].params.qi);
         for (let i = 1; i < sorted.length; i++) {
-          const prev = sorted[i - 1];
-          const prevQi = effectiveQi[i - 1];
-          const dt = sorted[i].tStart - prev.tStart;
-          effectiveQi.push(evalSegment(prev.equation, { ...prev.params, qi: prevQi }, dt));
+          if (sorted[i].qiAnchored) {
+            effectiveQi.push(sorted[i].params.qi);
+          } else {
+            const prev = sorted[i - 1];
+            const prevQi = effectiveQi[i - 1];
+            const dt = sorted[i].tStart - prev.tStart;
+            effectiveQi.push(evalSegment(prev.equation, { ...prev.params, qi: prevQi }, dt));
+          }
         }
       }
 
@@ -2885,27 +2890,22 @@ export const DeclineCurve = memo(
             return tDataMin + (px / rect.width) * (tDataMax - tDataMin);
           };
 
-          // 1) Boundary hit test — closest vertical dashed line within radius
+          // Compute both hit distances, then pick the winner by priority
+          // (threshold − distance). This stops dense boundary clusters from
+          // swallowing the whole forecast line — if the cursor is on the line,
+          // grab beats col-resize even when a boundary is a few pixels away.
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
           let nearestBoundary: number | null = null;
-          let nearestDist = Number.POSITIVE_INFINITY;
+          let boundaryDx = Number.POSITIVE_INFINITY;
           for (let i = 1; i < sorted.length; i++) {
             const px = safePx(tToPx(sorted[i].tStart), -1);
             const d = Math.abs(px - lx);
-            if (d < nearestDist && d <= BOUNDARY_HIT_RADIUS_PX) {
-              nearestDist = d;
+            if (d < boundaryDx) {
+              boundaryDx = d;
               nearestBoundary = i;
             }
           }
-          if (nearestBoundary != null) {
-            hoveredBoundaryRef.current = nearestBoundary;
-            isOverForecastRef.current = false;
-            chart.over.style.cursor = "col-resize";
-            return;
-          }
-          hoveredBoundaryRef.current = null;
 
-          // 2) Forecast line hit test
           const t = pxToT(lx);
           let lo = 0;
           let hi = times.length - 1;
@@ -2914,13 +2914,29 @@ export const DeclineCurve = memo(
             if (times[mid] < t) lo = mid + 1;
             else hi = mid;
           }
-          const idx = lo;
-          const forecastY = buffers.forecast[idx];
-          const forecastPix = yToPx(forecastY);
-          const dy = Math.abs(ly - forecastPix);
-          const over = dy <= FORECAST_HIT_RADIUS_PX;
-          isOverForecastRef.current = over;
-          chart.over.style.cursor = over ? "grab" : "default";
+          const forecastPix = yToPx(buffers.forecast[lo]);
+          const forecastDy = Math.abs(ly - forecastPix);
+
+          const forecastHit = forecastDy <= FORECAST_HIT_RADIUS_PX;
+          const boundaryHit = nearestBoundary != null && boundaryDx <= BOUNDARY_HIT_RADIUS_PX;
+          const forecastPriority = FORECAST_HIT_RADIUS_PX - forecastDy;
+          const boundaryPriority = BOUNDARY_HIT_RADIUS_PX - boundaryDx;
+
+          if (forecastHit && (!boundaryHit || forecastPriority >= boundaryPriority)) {
+            hoveredBoundaryRef.current = null;
+            isOverForecastRef.current = true;
+            chart.over.style.cursor = "grab";
+            return;
+          }
+          if (boundaryHit) {
+            hoveredBoundaryRef.current = nearestBoundary;
+            isOverForecastRef.current = false;
+            chart.over.style.cursor = "col-resize";
+            return;
+          }
+          hoveredBoundaryRef.current = null;
+          isOverForecastRef.current = false;
+          chart.over.style.cursor = "default";
           return;
         }
 
@@ -3196,7 +3212,23 @@ export const DeclineCurve = memo(
         scales: {
           x: { time: false },
           y: {
-            range: (_self: uPlot, _min: number, dataMax: number) => [0, dataMax * 1.1],
+            // uPlot's dataMax only reflects one series in some render paths,
+            // which caused the y-axis to clip when the forecast peaks higher
+            // than any actual sample (e.g. a flowback ramp). Compute max across
+            // every y-scale series ourselves.
+            range: (self: uPlot, _min: number, _max: number) => {
+              let max = 0;
+              for (let s = 1; s < self.series.length; s++) {
+                if (self.series[s].scale !== "y") continue;
+                const arr = self.data[s];
+                if (!arr) continue;
+                for (let i = 0; i < arr.length; i++) {
+                  const v = arr[i];
+                  if (Number.isFinite(v) && v > max) max = v;
+                }
+              }
+              return [0, (max || 1) * 1.1];
+            },
           },
         },
         series: [
@@ -3347,14 +3379,18 @@ export const DeclineCurve = memo(
 
     const sortedSegments = useMemo(() => [...segments].sort((a, b) => a.tStart - b.tStart), [segments]);
 
-    // Compute effective qi for each segment (honoring continuity).
+    // Compute effective qi for each segment (honoring continuity + anchoring).
     const effectiveQis = useMemo(() => {
       const result: number[] = [];
       if (sortedSegments.length === 0) return result;
       result.push(sortedSegments[0].params.qi);
       for (let i = 1; i < sortedSegments.length; i++) {
-        const qi = evalAtTime(sortedSegments.slice(0, i), sortedSegments[i].tStart);
-        result.push(qi);
+        if (sortedSegments[i].qiAnchored) {
+          result.push(sortedSegments[i].params.qi);
+        } else {
+          const qi = evalAtTime(sortedSegments.slice(0, i), sortedSegments[i].tStart);
+          result.push(qi);
+        }
       }
       return result;
     }, [sortedSegments]);
