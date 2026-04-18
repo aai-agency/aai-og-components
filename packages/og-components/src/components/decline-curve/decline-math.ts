@@ -496,7 +496,9 @@ export const insertSegmentAt = (
   const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
   const nextBoundary = sorted.find((s) => s.tStart > t)?.tStart;
   const remaining = nextBoundary != null ? nextBoundary - t : Number.POSITIVE_INFINITY;
-  const defaultWidth = windowWidth ?? Math.max(1, Math.min(10, remaining * 0.2));
+  // Keep the default window width an integer so tEnd stays aligned with the
+  // caller's t (which is expected to be an integer for day/month/year data).
+  const defaultWidth = windowWidth ?? Math.max(1, Math.round(Math.min(10, remaining * 0.2)));
   const tEnd = t + defaultWidth;
 
   // Start from the active segment's params so di/b/slope carry over, then set

@@ -2616,7 +2616,8 @@ export const DeclineCurve = memo(
 
         // Annotate mode — start drawing a new range
         if (annotateModeRef.current && mouseDownInfoRef.current) {
-          drawingRef.current = { tStart: mouseDownInfoRef.current.t, tEnd: mouseDownInfoRef.current.t };
+          const startT = Math.round(mouseDownInfoRef.current.t);
+          drawingRef.current = { tStart: startT, tEnd: startT };
           setDrawingAnnotation(drawingRef.current);
           chart.over.style.cursor = "crosshair";
           e.preventDefault();
@@ -2682,7 +2683,8 @@ export const DeclineCurve = memo(
           const rect = chart.over.getBoundingClientRect();
           const lx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
           const rawT = chart.posToVal(lx, "x");
-          const newT = Math.max(bDrag.minT, Math.min(bDrag.maxT, rawT));
+          const clamped = Math.max(bDrag.minT, Math.min(bDrag.maxT, rawT));
+          const newT = Math.round(clamped);
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
           const segToUpdate = sorted[bDrag.index];
           if (segToUpdate && segToUpdate.tStart !== newT) {
@@ -2714,7 +2716,7 @@ export const DeclineCurve = memo(
               tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
             }
           }
-          const newT = Math.max(aDrag.minT, Math.min(aDrag.maxT, tVal));
+          const newT = Math.round(Math.max(aDrag.minT, Math.min(aDrag.maxT, tVal)));
           const next = annotationsRef.current.map((a) =>
             a.id === aDrag.id
               ? aDrag.side === "start"
@@ -2742,7 +2744,7 @@ export const DeclineCurve = memo(
               tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
             }
           }
-          drawingRef.current = { ...drawingRef.current, tEnd: tVal };
+          drawingRef.current = { ...drawingRef.current, tEnd: Math.round(tVal) };
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = requestAnimationFrame(() => {
             setDrawingAnnotation(drawingRef.current ? { ...drawingRef.current } : null);
@@ -3354,11 +3356,21 @@ export const DeclineCurve = memo(
     }, [width, height, varianceHeight]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────
-    const handleAddSegment = useCallback((t: number, eq: EquationType) => {
-      const { segments: next, insertedId } = insertSegmentAt(segmentsRef.current, t, eq);
-      setSegments(next);
-      setSelectedId(insertedId);
-    }, []);
+    // All supported timeUnits (day / month / year) are integral — production
+    // data is bucketed by whole units, not fractions. Snap any t that came
+    // from pixel-space math so tStart values stay clean integers, regardless
+    // of how imprecise the pointer was.
+    const snapT = useCallback((t: number) => Math.round(t), []);
+
+    const handleAddSegment = useCallback(
+      (t: number, eq: EquationType) => {
+        const snapped = snapT(t);
+        const { segments: next, insertedId } = insertSegmentAt(segmentsRef.current, snapped, eq);
+        setSegments(next);
+        setSelectedId(insertedId);
+      },
+      [snapT],
+    );
 
     const handleSegmentChange = useCallback((next: Segment) => {
       setSegments((prev) => prev.map((s) => (s.id === next.id ? next : s)).sort((a, b) => a.tStart - b.tStart));
