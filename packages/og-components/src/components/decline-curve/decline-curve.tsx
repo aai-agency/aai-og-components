@@ -2645,6 +2645,25 @@ export const DeclineCurve = memo(
 
         if (!isOverForecastRef.current) return;
 
+        // Auto-select the segment under the click position before starting the
+        // drag. Without this, you had to click once to select then click again
+        // to drag — and grabbing a bisected segment (shut-in window, flowback,
+        // resumption) silently dragged whatever was last selected instead of
+        // the one under the cursor.
+        const clickT = mouseDownInfoRef.current?.t;
+        if (clickT != null && Number.isFinite(clickT)) {
+          const sortedForSelect = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
+          let hitIdx = 0;
+          for (let i = 0; i < sortedForSelect.length; i++) {
+            if (sortedForSelect[i].tStart <= clickT) hitIdx = i;
+          }
+          const hitId = sortedForSelect[hitIdx]?.id;
+          if (hitId && hitId !== selectedIdRef.current) {
+            selectedIdRef.current = hitId;
+            setSelectedId(hitId);
+          }
+        }
+
         const selId = selectedIdRef.current;
         const seg = segmentsRef.current.find((s) => s.id === selId);
         if (!seg) return;
