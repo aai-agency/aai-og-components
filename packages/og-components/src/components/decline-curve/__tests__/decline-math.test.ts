@@ -33,6 +33,36 @@ describe("evalSegment", () => {
   });
 });
 
+describe("insertSegmentAt — resumption behavior is value-driven", () => {
+  it("any insert ending at 0 anchors the resumption — regardless of equation name", () => {
+    // Start on a flat at zero (simulates a well that's already offline, via
+    // a custom-named equation or a Flat/Linear that evaluated to 0). When we
+    // bisect with ANY equation whose end value is 0, the resumption should
+    // anchor to the original projected value, not stay at 0.
+    const base: Segment[] = [
+      { id: "a", tStart: 0, equation: "flat", params: { qi: 0, di: 0, b: 0, slope: 0 } },
+    ];
+    // Insert another flat at t=5 with windowWidth=5 — flat at qi=0 ends at 0.
+    const { segments: next } = insertSegmentAt(base, 5, "flat", 5);
+    const sorted = [...next].sort((a, b) => a.tStart - b.tStart);
+    expect(sorted).toHaveLength(3);
+    const resume = sorted[2];
+    // Resumption anchored even though the inserted equation wasn't named "shutIn"
+    expect(resume.qiAnchored).toBe(true);
+  });
+
+  it("non-zero insert does NOT anchor — even for equations that historically would have", () => {
+    // Exponential insert at a normal rate: end value is positive, so the
+    // resumption should hand off continuously (no anchor). Confirms the
+    // rule isn't keyed off anything but the end value.
+    const base = [hyperbolic({ tStart: 0 })];
+    const { segments: next } = insertSegmentAt(base, 10, "exponential", 5);
+    const sorted = [...next].sort((a, b) => a.tStart - b.tStart);
+    const resume = sorted[2];
+    expect(resume.qiAnchored).toBeFalsy();
+  });
+});
+
 describe("insertSegmentAt — shut-in bisect", () => {
   it("resumption segment inherits qi from the ORIGINAL curve (not the shut-in)", () => {
     const base = [hyperbolic({ tStart: 0 })];
