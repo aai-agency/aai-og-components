@@ -24,6 +24,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 - Map — Interactive asset map with deck.gl, clustering, overlays, drawing tools, lasso selection
 - LineChart — High-performance time series chart with dual Y-axis
+- ForecastLineChart — LineChart with a DCA-driven forecast overlay (auto-fit or explicit per-fluid config)
 - ProductionChart — Oil/gas/water production chart with annotations and brush zoom
 - AssetDetailCard — Expandable detail panel for any asset, auto-generates sections
 - SelectionPanel — Multi-select panel with filter chips and summary stats

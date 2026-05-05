@@ -1,6 +1,45 @@
 import { TYPE_COLORS as ASSET_TYPE_COLORS, STATUS_COLORS, WELL_TYPE_COLORS } from "../constants/colors";
 import type { Asset, AssetTypeConfig, ColorScheme, Coordinates, MapViewState, TimeSeries } from "../types";
 
+// DCA (Decline Curve Analysis) — pure math engine
+export {
+  evaluateDCA,
+  evaluateSegmented,
+  generateSegmentedForecast,
+  enforceContinuity,
+  fitExponential,
+  adjustParam,
+  getModelParamNames,
+  getParamLabel,
+  parseCustomEquation,
+  clearEquationCache,
+  genSegmentId,
+  createDefaultConfig,
+  splitSegment,
+  removeSegment,
+  changeSegmentModel,
+  buildForecastDataPoints,
+  buildUniformGrid,
+  epochToISODate,
+  isoDateToEpoch,
+  ONE_DAY_SECONDS,
+  DCA_MODEL_LABELS,
+} from "./dca";
+export type {
+  DCAModelType,
+  DCAModel,
+  DCASegment,
+  DCAForecastConfig,
+  DCAMultiSeriesConfig,
+  ExponentialParams,
+  HyperbolicParams,
+  HarmonicParams,
+  ModifiedHyperbolicParams,
+  LinearParams,
+  CustomParams,
+  ParsedCustomEquation,
+} from "./dca";
+
 // ── Data Validation ──────────────────────────────────────────────────────────
 
 /** Check if coordinates are plottable on a map (within WGS84 bounds, non-NaN) */

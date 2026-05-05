@@ -39,14 +39,15 @@ const series: TimeSeries[] = [
 ];
 ```
 
-## LineChart vs ProductionChart
+## LineChart vs ForecastLineChart vs ProductionChart
 
 | Component | Use when |
 |-----------|----------|
 | `LineChart` | Standalone chart, simple time series display |
+| `ForecastLineChart` | Want a DCA-driven forecast overlay (auto-fit or explicit config) on top of historical actuals |
 | `ProductionChart` | Full-featured with brush zoom, annotations, forecast drag |
 
-Both accept the same `series: TimeSeries[]` prop.
+`LineChart` and `ProductionChart` accept `series: TimeSeries[]`. `ForecastLineChart` accepts `actuals: TimeSeries[]` plus an optional `forecastConfig`.
 
 ## LineChart
 
@@ -67,6 +68,45 @@ Key props:
 - `colors: Record<string, string>` — custom colors by fluidType
 - `rightAxisFluids: string[]` — default `["gas"]`
 - `showForecast: boolean` — default true
+
+## ForecastLineChart
+
+Wraps `LineChart` and overlays a DCA forecast on top of historical actuals. v1
+is read-only — use `ProductionChart` if you need draggable forecast adjustment.
+
+```tsx
+import { ForecastLineChart } from "@aai-agency/og-components";
+
+<div style={{ height: 400 }}>
+  <ForecastLineChart actuals={actuals} forecastHorizonDays={365} height={360} />
+</div>
+```
+
+Key props:
+- `actuals: TimeSeries[]` — historical production (`curveType: "actual"`)
+- `forecastConfig?: Partial<Record<FluidType, DCAForecastConfig>>` — per-fluid configs; missing fluids fall back to auto-fit
+- `forecastHorizonDays: number` — default `365`
+- `autoFit: boolean` — default `true`; fits an exponential decline when no explicit config is provided
+- `overlayActualsRange: boolean` — default `false`; also evaluate the forecast across the actuals' time range to inspect fit quality
+- All other `LineChartProps` (height, width, colors, labels, rightAxisFluids, formatXValue, xAxisLabel) pass through
+
+For one-off custom configs, build them with the DCA helpers:
+
+```ts
+import { genSegmentId, isoDateToEpoch, type DCAForecastConfig } from "@aai-agency/og-components";
+
+const config: DCAForecastConfig = {
+  segments: [
+    {
+      id: genSegmentId(),
+      model: { type: "hyperbolic", params: { qi: 1200, D: 0.0008, b: 1.2 } },
+      tStart: isoDateToEpoch("2024-01-01"),
+      tEnd: isoDateToEpoch("2025-12-31"),
+    },
+  ],
+  enforceContinuity: true,
+};
+```
 
 ## ProductionChart
 
