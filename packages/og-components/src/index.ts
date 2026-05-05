@@ -5,6 +5,7 @@ export {
   AssetDetailCard,
   LineChart,
   ProductionChart,
+  ForecastLineChart,
   OverlayManager,
   SelectionSummaryCard,
   SelectionPanel,
@@ -27,6 +28,8 @@ export type {
   AssetDetailSection,
   LineChartProps,
   ProductionChartProps,
+  ForecastLineChartProps,
+  ForecastConfigMap,
   OverlayManagerProps,
   SelectionSummaryCardProps,
   SelectionPanelProps,
@@ -100,6 +103,45 @@ export {
   formatNumber,
   groupBy,
   csvRowToAsset,
+} from "./utils";
+
+// DCA — decline curve analysis math + helpers
+export {
+  evaluateDCA,
+  evaluateSegmented,
+  generateSegmentedForecast,
+  enforceContinuity,
+  fitExponential,
+  adjustParam,
+  getModelParamNames,
+  getParamLabel,
+  parseCustomEquation,
+  clearEquationCache,
+  genSegmentId,
+  createDefaultConfig,
+  splitSegment,
+  removeSegment,
+  changeSegmentModel,
+  buildForecastDataPoints,
+  buildUniformGrid,
+  epochToISODate,
+  isoDateToEpoch,
+  ONE_DAY_SECONDS,
+  DCA_MODEL_LABELS,
+} from "./utils";
+export type {
+  DCAModelType,
+  DCAModel,
+  DCASegment,
+  DCAForecastConfig,
+  DCAMultiSeriesConfig,
+  ExponentialParams,
+  HyperbolicParams,
+  HarmonicParams,
+  ModifiedHyperbolicParams,
+  LinearParams,
+  CustomParams,
+  ParsedCustomEquation,
 } from "./utils";
 
 // Machines (XState)

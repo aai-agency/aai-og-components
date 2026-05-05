@@ -34,6 +34,13 @@
       "tag": "component",
       "version": "0.1.0",
       "icon": "MousePointer2"
+    },
+    {
+      "name": "ForecastLineChart",
+      "description": "LineChart with a DCA-driven forecast overlay. Pure-math engine for Arps exponential, hyperbolic, harmonic, modified-hyperbolic, linear, and custom models. Auto-fit + per-fluid configs.",
+      "tag": "component",
+      "version": "0.2.0",
+      "icon": "TrendingUp"
     }
   ],
   "roadmap": [
@@ -44,8 +51,8 @@
       "icon": "Database"
     },
     {
-      "name": "DeclineCurve",
-      "description": "Decline curve analysis with Arps, Duong, and stretched exponential models. Interactive forecast dragging.",
+      "name": "ForecastLineChartEditor",
+      "description": "Interactive segment editor for ForecastLineChart — drag-to-adjust qi/D/b, splittable boundaries, keyboard modifiers. Builds on the v1 read-only forecast.",
       "tag": "component",
       "icon": "TrendingUp"
     },

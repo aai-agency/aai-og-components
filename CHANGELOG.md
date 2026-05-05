@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`ForecastLineChart`** — Wraps `LineChart` with a DCA-driven forecast overlay. Accepts historical actuals plus an optional per-fluid `DCAForecastConfig`, auto-fits an exponential decline when no config is provided, and projects forecasts forward by `forecastHorizonDays` (default 365). v1 is read-only; the interactive segment editor is tracked on the roadmap as `ForecastLineChartEditor`.
+- **DCA math engine** — `utils/dca.ts` is back as a pure-math module: `evaluateDCA`, `evaluateSegmented`, `generateSegmentedForecast`, `enforceContinuity`, `fitExponential`, `splitSegment`, plus types (`DCAModel`, `DCASegment`, `DCAForecastConfig`, `DCAMultiSeriesConfig`). Models supported: exponential, hyperbolic, harmonic, modified-hyperbolic, linear, custom. Exposed at `@aai-agency/og-components` and `@aai-agency/og-components/utils`.
+- **Forecast helpers** — `buildForecastDataPoints`, `buildUniformGrid`, `epochToISODate`, `isoDateToEpoch`, `ONE_DAY_SECONDS` for ergonomic forecast wiring.
+- **Playground demo** — `/components/forecast-line-chart` with horizon slider, overlay toggle, and a hyperbolic-config-on-oil example.
+- **Tests** — `utils/__tests__/dca.test.ts` covers single-model evaluation, segment lookup, exponential-fit recovery, continuity, and forecast helpers.
+
 ## [0.1.0] - 2026-04-02
 
 Foundation overhaul. Sets up the repo as an agent-first, Tailwind-native component library following shadcn/ui patterns.
