@@ -574,6 +574,13 @@ export const insertSegmentAt = (
   const terminalCap =
     active && nextBoundary == null && Number.isFinite(active.tEnd) ? (active.tEnd as number) : null;
   const rightWall = nextBoundary ?? terminalCap ?? Number.POSITIVE_INFINITY;
+  // Refuse to insert when there is no room before a closed terminal cap —
+  // otherwise normalizeSegments would have to widen the inserted segment's
+  // tEnd past the cap to satisfy MIN_SEGMENT_WIDTH, silently re-opening the
+  // forecast the caller had explicitly closed.
+  if (terminalCap != null && t + MIN_SEGMENT_WIDTH > terminalCap) {
+    return { segments, insertedId: "" };
+  }
   const remaining = Number.isFinite(rightWall) ? rightWall - t : Number.POSITIVE_INFINITY;
   // Keep the default window width an integer so tEnd stays aligned with the
   // caller's t (which is expected to be an integer for day/month/year data).

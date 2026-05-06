@@ -2708,7 +2708,7 @@ export const DeclineCurve = memo(
         const cleaned: Segment[] = [];
         for (const s of initialSegments) {
           if (!s || !Number.isFinite(s.tStart)) continue;
-          if (!(s.equation in EQUATION_META)) continue;
+          if (!Object.hasOwn(EQUATION_META, s.equation)) continue; // own-property only
           const id = seen.has(s.id) ? nextSegmentId() : s.id;
           seen.add(id);
           const safeParams: SegmentParams = {
@@ -2748,8 +2748,12 @@ export const DeclineCurve = memo(
         if (!a || !Number.isFinite(a.tStart) || !Number.isFinite(a.tEnd)) continue;
         const id = seen.has(a.id) ? nextAnnotationId() : a.id;
         seen.add(id);
-        const safeType: AnnotationType = a.type in ANNOTATION_TYPE_META ? a.type : "other";
-        const base = a.tEnd >= a.tStart ? a : { ...a, tEnd: a.tStart };
+        const safeType: AnnotationType = Object.hasOwn(ANNOTATION_TYPE_META, a.type) ? a.type : "other";
+        // Preserve interval information when bounds arrive reversed by
+        // swapping rather than collapsing — `tEnd = tStart` would silently
+        // turn an imported range into a point.
+        const base =
+          a.tEnd >= a.tStart ? a : { ...a, tStart: Math.min(a.tStart, a.tEnd), tEnd: Math.max(a.tStart, a.tEnd) };
         const repaired = base.type === safeType ? base : { ...base, type: safeType };
         cleaned.push(id === a.id ? repaired : { ...repaired, id });
       }
@@ -4279,6 +4283,10 @@ export const DeclineCurve = memo(
       (t: number, eq: EquationType) => {
         const snapped = snapT(t);
         const { segments: next, insertedId } = insertSegmentAt(segmentsRef.current, snapped, eq);
+        // insertSegmentAt returns the same array + empty id when the request
+        // is refused (e.g. no room before a closed terminal cap) — bail
+        // without mutating selection in that case.
+        if (!insertedId) return;
         setSegments(next);
         setSelectedId(insertedId);
       },
