@@ -2884,6 +2884,10 @@ export const DeclineCurve = memo(
     const annotationDragRef = useRef<{ id: string; side: "start" | "end"; minT: number; maxT: number } | null>(null);
 
     const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+    const selectedAnnotationIdRef = useRef<string | null>(null);
+    useEffect(() => {
+      selectedAnnotationIdRef.current = selectedAnnotationId;
+    }, [selectedAnnotationId]);
 
     const [annotationEditor, setAnnotationEditor] = useState<{
       annotationId: string;
@@ -3021,12 +3025,14 @@ export const DeclineCurve = memo(
       const varChart = varChartRef.current;
 
       if (prodChart) {
-        const newData: uPlot.AlignedData = [prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)];
+        // uPlot accepts TypedArrays as series; pass buffers.forecast directly to
+        // avoid an Array.from allocation on every drag frame.
+        const newData = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
       if (varChart) {
-        const newData: uPlot.AlignedData = [varChart.data[0], Array.from(buffers.variance)];
+        const newData = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
         varChart.setData(newData, false);
         varChart.redraw();
       }
@@ -3267,8 +3273,12 @@ export const DeclineCurve = memo(
           const rect = chart.over.getBoundingClientRect();
           const lx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
           const rawT = chart.posToVal(lx, "x");
-          const clamped = Math.max(bDrag.minT, Math.min(bDrag.maxT, rawT));
-          const newT = Math.round(clamped);
+          // Snap to integer first, then clamp into an integer-safe band so
+          // post-clamp rounding can't snap up to the neighboring segment's
+          // tStart (which would collapse this segment to zero width).
+          const lo = Math.ceil(bDrag.minT);
+          const hi = Math.floor(bDrag.maxT);
+          const newT = hi < lo ? lo : Math.min(hi, Math.max(lo, Math.round(rawT)));
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
           const segToUpdate = sorted[bDrag.index];
           if (segToUpdate && segToUpdate.tStart !== newT) {
@@ -3898,7 +3908,7 @@ export const DeclineCurve = memo(
           annotationRegionsPlugin(
             () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
             () => hoveredAnnotationIdRef.current,
-            () => selectedAnnotationId,
+            () => selectedAnnotationIdRef.current,
             () => drawingRef.current,
             () => false,
             () => annotateModeRef.current,
@@ -4022,11 +4032,6 @@ export const DeclineCurve = memo(
       el.innerHTML = "";
       const chart = new uPlot(opts, data, el);
       prodChartRef.current = chart;
-      if (typeof window !== "undefined") {
-        const w = window as unknown as { __declineChart: uPlot; __declineCharts?: uPlot[] };
-        w.__declineChart = chart;
-        w.__declineCharts = [...(w.__declineCharts ?? []), chart];
-      }
 
       const overlay = chart.over;
       overlay.style.cursor = "default";
@@ -4146,10 +4151,6 @@ export const DeclineCurve = memo(
       el.innerHTML = "";
       const vChart = new uPlot(opts, data, el);
       varChartRef.current = vChart;
-      if (typeof window !== "undefined") {
-        const w = window as unknown as { __varCharts?: uPlot[] };
-        w.__varCharts = [...(w.__varCharts ?? []), vChart];
-      }
 
       const varOverlay = vChart.over;
       const onEnterVar = () => { hoveredChartRef.current = "var"; };

@@ -401,6 +401,7 @@ export const computeForecast = (buffers: DeclineMathBuffers, segments: Segment[]
   }
 
   // Fill forecast — find the active segment for each time step
+  const lastIdx = sorted.length - 1;
   let segIdx = 0;
   for (let i = 0; i < length; i++) {
     const t = time[i];
@@ -410,6 +411,15 @@ export const computeForecast = (buffers: DeclineMathBuffers, segments: Segment[]
     }
 
     const seg = sorted[segIdx];
+
+    // Honor a closed-ended last segment: past tEnd, the forecast is undefined.
+    // (Mid-segments have an implicit tEnd at the next segment's tStart, so the
+    // tEnd field only matters when there's no successor segment.)
+    if (segIdx === lastIdx && Number.isFinite(seg.tEnd) && t > (seg.tEnd as number)) {
+      forecast[i] = Number.NaN;
+      continue;
+    }
+
     const dt = t - seg.tStart;
     if (dt < 0) {
       // Before first segment — use segments[0] starting value
