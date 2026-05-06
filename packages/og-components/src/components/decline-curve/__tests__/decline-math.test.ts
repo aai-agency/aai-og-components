@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bendSegmentToTarget,
   computeForecast,
   createBuffers,
   evalAtTime,
@@ -7,7 +8,7 @@ import {
   insertSegmentAt,
   nextSegmentId,
 } from "../decline-math";
-import type { Segment } from "../decline-math";
+import type { Segment, SegmentParams } from "../decline-math";
 
 const hyperbolic = (overrides?: Partial<Segment>): Segment => ({
   id: nextSegmentId(),
@@ -168,5 +169,130 @@ describe("computeForecast — qiAnchored", () => {
     computeForecast(buffers, segments);
     const handoffValue = 1000 * Math.exp(-0.02 * 50);
     expect(buffers.forecast[50]).toBeCloseTo(handoffValue, 6);
+  });
+});
+
+describe("bendSegmentToTarget", () => {
+  // Round-trip helper: solve for params, then check evalSegment lands on target.
+  const verify = (
+    eq: Segment["equation"],
+    qiStart: number,
+    targetEnd: number,
+    dt: number,
+    initialParams: Partial<SegmentParams> = {},
+  ) => {
+    const seg: Segment = {
+      id: "x",
+      tStart: 0,
+      equation: eq,
+      params: { qi: qiStart, di: 0.05, b: 0.9, slope: 0, ...initialParams },
+    };
+    return bendSegmentToTarget(seg, qiStart, targetEnd, dt);
+  };
+
+  it("exponential: bends di so qi · e^(−di·dt) = target", () => {
+    const r = verify("exponential", 1000, 600, 30);
+    expect(r).not.toBeNull();
+    expect(r?.changedParam).toBe("di");
+    const landed = evalSegment(r!.segment.equation, r!.segment.params, 30);
+    expect(landed).toBeCloseTo(600, 6);
+  });
+
+  it("harmonic: bends di to land at target", () => {
+    const r = verify("harmonic", 800, 200, 100);
+    expect(r).not.toBeNull();
+    expect(r?.changedParam).toBe("di");
+    const landed = evalSegment("harmonic", r!.segment.params, 100);
+    expect(landed).toBeCloseTo(200, 6);
+  });
+
+  it("hyperbolic: bends di while holding b fixed", () => {
+    const r = verify("hyperbolic", 1500, 400, 365, { b: 0.85 });
+    expect(r).not.toBeNull();
+    expect(r?.changedParam).toBe("di");
+    expect(r?.segment.params.b).toBe(0.85); // b untouched
+    const landed = evalSegment("hyperbolic", r!.segment.params, 365);
+    expect(landed).toBeCloseTo(400, 5);
+  });
+
+  it("stretchedExponential: bends di while holding n=b fixed", () => {
+    const r = verify("stretchedExponential", 1000, 250, 200, { b: 0.6 });
+    expect(r).not.toBeNull();
+    expect(r?.changedParam).toBe("di");
+    expect(r?.segment.params.b).toBe(0.6);
+    const landed = evalSegment("stretchedExponential", r!.segment.params, 200);
+    expect(landed).toBeCloseTo(250, 5);
+  });
+
+  it("linear: bends slope to land at target (any direction)", () => {
+    const up = verify("linear", 100, 500, 40);
+    expect(up).not.toBeNull();
+    expect(up?.changedParam).toBe("slope");
+    expect(evalSegment("linear", up!.segment.params, 40)).toBeCloseTo(500, 6);
+
+    const down = verify("linear", 500, 100, 40);
+    expect(down?.segment.params.slope).toBeLessThan(0);
+    expect(evalSegment("linear", down!.segment.params, 40)).toBeCloseTo(100, 6);
+  });
+
+  it("flowback: bends slope (same shape as linear)", () => {
+    const r = verify("flowback", 50, 1200, 60, { slope: 25 });
+    expect(r).not.toBeNull();
+    expect(r?.changedParam).toBe("slope");
+    expect(evalSegment("flowback", r!.segment.params, 60)).toBeCloseTo(1200, 6);
+  });
+
+  it("flat / constrained / choked: only succeed when target ≈ qi", () => {
+    expect(verify("flat", 800, 800, 30)?.changedParam).toBe("qi");
+    expect(verify("constrained", 800, 800, 30)?.changedParam).toBe("qi");
+    expect(verify("choked", 800, 800, 30)?.changedParam).toBe("qi");
+    expect(verify("flat", 800, 600, 30)).toBeNull();
+    expect(verify("constrained", 800, 600, 30)).toBeNull();
+    expect(verify("choked", 800, 600, 30)).toBeNull();
+  });
+
+  it("shutIn: only succeeds when target ≈ 0", () => {
+    expect(verify("shutIn", 0, 0, 5)).not.toBeNull();
+    expect(verify("shutIn", 0, 100, 5)).toBeNull();
+  });
+
+  it("rejects targets that would require a negative decline rate", () => {
+    // Target above qi for a decline equation can't be solved with di ≥ 0.
+    expect(verify("exponential", 500, 800, 30)).toBeNull();
+    expect(verify("harmonic", 500, 800, 30)).toBeNull();
+    expect(verify("hyperbolic", 500, 800, 30)).toBeNull();
+    expect(verify("stretchedExponential", 500, 800, 30)).toBeNull();
+  });
+
+  it("rejects non-positive targets for decline equations", () => {
+    expect(verify("exponential", 1000, 0, 30)).toBeNull();
+    expect(verify("hyperbolic", 1000, -50, 30)).toBeNull();
+    expect(verify("stretchedExponential", 1000, 0, 30)).toBeNull();
+  });
+
+  it("rejects zero or negative dt", () => {
+    expect(verify("exponential", 1000, 500, 0)).toBeNull();
+    expect(verify("linear", 100, 500, -10)).toBeNull();
+  });
+
+  it("preserves segment id, equation, tStart, and other unrelated fields", () => {
+    const seg: Segment = {
+      id: "preserved",
+      tStart: 42,
+      equation: "hyperbolic",
+      params: { qi: 1000, di: 0.05, b: 0.8, slope: 0 },
+      qiAnchored: true,
+      note: "keep me",
+      color: "#abcdef",
+    };
+    const r = bendSegmentToTarget(seg, 1000, 400, 100);
+    expect(r).not.toBeNull();
+    expect(r?.segment.id).toBe("preserved");
+    expect(r?.segment.tStart).toBe(42);
+    expect(r?.segment.equation).toBe("hyperbolic");
+    expect(r?.segment.qiAnchored).toBe(true);
+    expect(r?.segment.note).toBe("keep me");
+    expect(r?.segment.color).toBe("#abcdef");
+    expect(r?.segment.params.b).toBe(0.8);
   });
 });

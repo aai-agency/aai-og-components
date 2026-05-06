@@ -57,6 +57,14 @@ export interface Segment {
   note?: string;
   /** Optional explicit color for this segment. Falls back to the position-based palette. */
   color?: string;
+  /**
+   * Pin the segment's params in place. A locked segment is never bent by a
+   * neighbor's drag (the bend is skipped and the boundary visibly breaks if
+   * needed) and can't be dragged directly — its forecast line ignores the
+   * grab gesture so the user can't accidentally tweak it. Toggle from the
+   * lock icon in the segment row.
+   */
+  locked?: boolean;
 }
 
 export interface DeclineMathBuffers {
@@ -555,6 +563,130 @@ export const removeSegment = (segments: Segment[], id: string): Segment[] => {
   const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
   if (sorted[0]?.id === id) return segments;
   return segments.filter((s) => s.id !== id);
+};
+
+// ── Bend solver ──────────────────────────────────────────────────────────────
+
+/**
+ * Result of trying to bend a segment so its end value lands at a specific
+ * target. Returns the rebuilt segment plus the param that was bent (handy for
+ * highlighting in the editor / debugging). `null` means the equation can't
+ * legally hit the target — caller should leave the segment unchanged and let
+ * the boundary visibly break so the user can fix it manually.
+ */
+export interface BendResult {
+  segment: Segment;
+  changedParam: keyof SegmentParams;
+}
+
+/**
+ * Solve for one of a segment's params so it starts at `qiStart` and ends at
+ * `targetEnd` after `dt` time units. Used by the drag handler to keep
+ * boundaries glued: when segment N's qi changes, we re-bend N-1 so its end
+ * still matches N's new start, and re-bend N+1 so its end still lands at the
+ * original next-boundary (preserving everything beyond N+1).
+ *
+ * Per equation:
+ *   exponential          → solves for di
+ *   harmonic             → solves for di
+ *   hyperbolic           → solves for di (b is held constant)
+ *   stretchedExponential → solves for di (b is held constant)
+ *   linear / flowback    → solves for slope
+ *   flat / constrained / choked → only valid when target ≈ qiStart (these
+ *                                 equations are constant; can't bend).
+ *   shutIn               → only valid when target ≈ 0 (always 0).
+ *
+ * Numerical guards: rejects non-finite results, negative decline rates (the
+ * UI sliders clamp di to ≥ 0; producing a negative di here would represent
+ * a growing curve which doesn't match the equation's intent), and targets
+ * outside the equation's reachable range.
+ */
+export const bendSegmentToTarget = (
+  seg: Segment,
+  qiStart: number,
+  targetEnd: number,
+  dt: number,
+): BendResult | null => {
+  if (!Number.isFinite(qiStart) || !Number.isFinite(targetEnd) || !Number.isFinite(dt)) return null;
+  if (dt <= 0) return null;
+
+  switch (seg.equation) {
+    case "exponential": {
+      // qi · e^(−di · dt) = target → di = −ln(target / qi) / dt
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const di = -Math.log(targetEnd / qiStart) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "harmonic": {
+      // qi / (1 + di · dt) = target → di = (qi/target − 1) / dt
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const di = (qiStart / targetEnd - 1) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "hyperbolic": {
+      // qi / (1 + b · di · dt)^(1/b) = target
+      // (qi/target)^b = 1 + b · di · dt
+      // di = ((qi/target)^b − 1) / (b · dt)
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const b = seg.params.b > 0 ? seg.params.b : 1e-6;
+      const ratio = qiStart / targetEnd;
+      const di = (ratio ** b - 1) / (b * dt);
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "stretchedExponential": {
+      // qi · e^(−(di · dt)^n) = target with n = b
+      // (di · dt)^n = ln(qi/target)
+      // di = ln(qi/target)^(1/n) / dt
+      if (qiStart <= 0 || targetEnd <= 0 || targetEnd > qiStart) return null;
+      const n = seg.params.b > 0 ? seg.params.b : 1e-6;
+      const lnRatio = Math.log(qiStart / targetEnd);
+      if (lnRatio < 0) return null;
+      const di = lnRatio ** (1 / n) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "linear":
+    case "flowback": {
+      // qi + slope · dt = target → slope = (target − qi) / dt
+      const slope = (targetEnd - qiStart) / dt;
+      if (!Number.isFinite(slope)) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, slope } },
+        changedParam: "slope",
+      };
+    }
+    case "flat":
+    case "constrained":
+    case "choked": {
+      // Constant equation — only valid when target equals start. Tolerance
+      // covers rounding noise from upstream computations.
+      if (Math.abs(targetEnd - qiStart) > 1e-3) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart } },
+        changedParam: "qi",
+      };
+    }
+    case "shutIn": {
+      // Always zero. Bending only succeeds if target itself is zero.
+      if (Math.abs(targetEnd) > 1e-3) return null;
+      return { segment: { ...seg }, changedParam: "qi" };
+    }
+  }
 };
 
 // ── Drag helpers ─────────────────────────────────────────────────────────────

@@ -231,7 +231,7 @@ const DeclineCurvePage = () => {
             initialSegments={fiveSegSegments}
             initialAnnotations={fiveSegAnnotations}
             height={360}
-            varianceHeight={140}
+            varianceHeight={280}
             unit="BBL/day"
             unitsPerYear={365}
             startDate="2024-01-01"
@@ -253,7 +253,7 @@ const DeclineCurvePage = () => {
             initialSegments={dailyForecastSegments}
             initialAnnotations={dailyAnnotations}
             height={360}
-            varianceHeight={140}
+            varianceHeight={280}
             unit="BBL/day"
             unitsPerYear={365}
             startDate="2020-01-01"
@@ -269,7 +269,7 @@ const DeclineCurvePage = () => {
         <div style={{ minHeight: 540 }}>
           <DeclineCurve
             height={320}
-            varianceHeight={120}
+            varianceHeight={240}
             unitsPerYear={12}
             startDate="2024-01-01"
             timeUnit="month"
@@ -311,7 +311,7 @@ const DeclineCurvePage = () => {
             time={customData.time}
             initialSegments={preloadedSegments}
             height={320}
-            varianceHeight={120}
+            varianceHeight={240}
             unit="BBL/mo"
             unitsPerYear={12}
             startDate="2022-01-01"

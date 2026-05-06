@@ -1,5 +1,5 @@
-import { Check, ChevronDown, ChevronRight, Lock, Pencil, Plus, Settings, Sparkles, Trash2, X } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronRight, Lock, Maximize2, Minimize2, Minus, Pencil, Plus, RotateCcw, Settings, Sparkles, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 
@@ -19,6 +19,7 @@ import {
   ANNOTATION_TYPE_META,
   type Annotation,
   type AnnotationType,
+  bendSegmentToTarget,
   colorForAnnotation,
   computeAnnotationStats,
   createBuffers,
@@ -77,8 +78,8 @@ export interface DeclineCurveProps {
 
 const ACTUAL_COLOR = "#10b981";
 const FORECAST_COLOR = ACCENT;
-const VARIANCE_POS_COLOR = "rgba(16, 185, 129, 0.6)";
-const VARIANCE_NEG_COLOR = "rgba(239, 68, 68, 0.6)";
+const VARIANCE_POS_COLOR = "#10b981";
+const VARIANCE_NEG_COLOR = "#ef4444";
 const FORECAST_HIT_RADIUS_PX = 16;
 const BOUNDARY_HIT_RADIUS_PX = 6;
 const MIN_SEGMENT_WIDTH = 0.5;
@@ -189,6 +190,15 @@ const AXIS_STYLE = {
 const tooltipPlugin = (
   unit: string,
   getSegments: () => Segment[],
+  /** True only when the user's actual mouse is over this chart. When the
+   *  cursor was propagated via uPlot's sync (user hovering the sibling
+   *  chart), return false and keep the tooltip hidden so the other chart's
+   *  tooltip is the single source of truth. */
+  getActive: () => boolean = () => true,
+  /** Shared buffers — the variance chart's own series data doesn't include
+   *  actual/forecast, so we pull everything from here regardless of which
+   *  chart is hosting the tooltip. */
+  getBuffers: () => { actual: Float64Array; forecast: Float64Array; variance: Float64Array; time: Float64Array } | null = () => null,
 ): uPlot.Plugin => {
   let tooltip: HTMLDivElement;
 
@@ -225,15 +235,36 @@ const tooltipPlugin = (
     `</div>`;
 
   const setCursor = (u: uPlot) => {
+    if (!getActive()) {
+      tooltip.style.display = "none";
+      return;
+    }
     const idx = u.cursor.idx;
     if (idx == null || idx < 0) {
       tooltip.style.display = "none";
       return;
     }
 
+    // The forecast chart carries actual + forecast as series [1] and [2], so
+    // read them straight from u.data (live, always current). The variance
+    // chart only has [time, variance], so fall back to shared buffers —
+    // those are written on every segment change / drag tick.
+    const buffers = getBuffers();
     const month = u.data[0][idx];
-    const actual = u.data[1][idx];
-    const forecast = u.data[2][idx];
+    const fromSeries = (u.data[1] ?? null) as (number | null)[] | null;
+    const actual: number | null | undefined =
+      fromSeries != null && fromSeries[idx] != null && !Number.isNaN(fromSeries[idx] as number)
+        ? (fromSeries[idx] as number)
+        : buffers
+          ? buffers.actual[idx]
+          : null;
+    const forecastSeries = (u.data[2] ?? null) as (number | null)[] | null;
+    const forecast: number | null | undefined =
+      forecastSeries != null && forecastSeries[idx] != null && !Number.isNaN(forecastSeries[idx] as number)
+        ? (forecastSeries[idx] as number)
+        : buffers
+          ? buffers.forecast[idx]
+          : null;
 
     if (month == null) {
       tooltip.style.display = "none";
@@ -298,11 +329,92 @@ const tooltipPlugin = (
   };
 };
 
+/**
+ * Tooltip for the variance sub-chart. Mirrors the forecast tooltip's look
+ * so hovering either chart feels like one surface.
+ */
+const varianceTooltipPlugin = (
+  unit: string,
+  getVariance: () => Float64Array,
+): uPlot.Plugin => {
+  let tooltip: HTMLDivElement;
+
+  const init = () => {
+    tooltip = document.createElement("div");
+    Object.assign(tooltip.style, {
+      display: "none",
+      position: "fixed",
+      pointerEvents: "none",
+      zIndex: "100000",
+      minWidth: "160px",
+      background: "#ffffff",
+      color: "#0f172a",
+      border: "1px solid rgba(15, 23, 42, 0.08)",
+      borderRadius: "10px",
+      fontFamily: FONT_FAMILY,
+      overflow: "hidden",
+      boxShadow:
+        "0 1px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.18), 0 24px 48px -24px rgba(15, 23, 42, 0.22)",
+    });
+    document.body.appendChild(tooltip);
+  };
+
+  const setCursor = (u: uPlot) => {
+    const idx = u.cursor.idx;
+    if (idx == null || idx < 0) {
+      tooltip.style.display = "none";
+      return;
+    }
+    const t = u.data[0][idx];
+    const variance = getVariance()[idx];
+    if (t == null || variance == null || Number.isNaN(variance)) {
+      tooltip.style.display = "none";
+      return;
+    }
+    const sign = variance >= 0 ? "+" : "";
+    const color = variance >= 0 ? "#059669" : "#e11d48";
+    tooltip.innerHTML =
+      `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid rgba(15, 23, 42, 0.06)">` +
+      `<span style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8">Time</span>` +
+      `<span style="font-family:ui-monospace,'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums">${formatNumber(t, 0)}</span>` +
+      `</div>` +
+      `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px">` +
+      `<span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${color};box-shadow:0 0 0 2px ${color}1f;flex-shrink:0"></span>` +
+      `<span style="font-size:11px;font-weight:500;color:#64748b">Δ Variance</span>` +
+      `<span style="margin-left:auto;font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:${color};font-variant-numeric:tabular-nums">${sign}${formatNumber(variance, 1)} ${unit}</span>` +
+      `</div>`;
+    tooltip.style.display = "block";
+
+    const overRect = u.over.getBoundingClientRect();
+    const viewportX = overRect.left + (u.cursor.left ?? 0);
+    const viewportY = overRect.top + (u.cursor.top ?? 0);
+    const w = tooltip.offsetWidth;
+    const h = tooltip.offsetHeight;
+    const x = viewportX + w + 20 > window.innerWidth ? viewportX - w - 12 : viewportX + 16;
+    const y = Math.min(Math.max(4, viewportY - h / 2), window.innerHeight - h - 4);
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
+  };
+
+  return {
+    hooks: { init, setCursor, destroy: () => tooltip?.remove() },
+  };
+};
+
 // ── Variance Bars Plugin ─────────────────────────────────────────────────────
 
-const varianceBarsPlugin = (getVariance: () => Float64Array): uPlot.Plugin => ({
+type VarianceBarsMode = "off" | "sign" | "byAnnotation" | "combined";
+const varianceBarsPlugin = (
+  getVariance: () => Float64Array,
+  /** View mode that drives coloring — mirrors the forecast chart's variance
+   *  fill mode so the sub-chart stays visually consistent. */
+  getMode: () => VarianceBarsMode = () => "sign",
+  getAnnotations: () => Annotation[] = () => [],
+): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
+      const mode = getMode();
+      if (mode === "off") return;
       const ctx = u.ctx;
       const variance = getVariance();
       const xData = u.data[0];
@@ -323,8 +435,19 @@ const varianceBarsPlugin = (getVariance: () => Float64Array): uPlot.Plugin => ({
       if (xRange === 0 || yRange === 0) return;
 
       const barWidthPx = Math.max(2, (plotWidth / xData.length) * 0.6);
+      const annotations = mode === "byAnnotation" || mode === "combined" ? getAnnotations() : [];
+      const findAnn = (t: number): Annotation | null => {
+        for (const a of annotations) {
+          if (t >= Math.min(a.tStart, a.tEnd) && t <= Math.max(a.tStart, a.tEnd)) return a;
+        }
+        return null;
+      };
 
       ctx.save();
+      // Clip to plot bounds — bars must not bleed into axes / gutters.
+      ctx.beginPath();
+      ctx.rect(plotLeft, plotTop, plotWidth, plotHeight);
+      ctx.clip();
 
       for (let i = 0; i < xData.length; i++) {
         const v = variance[i];
@@ -335,7 +458,14 @@ const varianceBarsPlugin = (getVariance: () => Float64Array): uPlot.Plugin => ({
         const valY = plotTop + ((yMax - v) / yRange) * plotHeight;
 
         const barHeight = zeroY - valY;
-        ctx.fillStyle = v >= 0 ? VARIANCE_POS_COLOR : VARIANCE_NEG_COLOR;
+        const ann = annotations.length > 0 ? findAnn(xData[i]) : null;
+        let fill: string;
+        if (ann && (mode === "byAnnotation" || mode === "combined")) {
+          fill = colorForAnnotation(ann);
+        } else {
+          fill = v >= 0 ? VARIANCE_POS_COLOR : VARIANCE_NEG_COLOR;
+        }
+        ctx.fillStyle = fill;
         ctx.fillRect(x - barWidthPx / 2, barHeight >= 0 ? valY : zeroY, barWidthPx, Math.abs(barHeight));
       }
 
@@ -349,9 +479,13 @@ const varianceBarsPlugin = (getVariance: () => Float64Array): uPlot.Plugin => ({
 const boundaryPlugin = (
   getSegments: () => Segment[],
   getSelectedId: () => string | null,
+  /** Only draw segment boundary markers when actively editing. Outside of
+   *  edit mode they're visual noise that distract from the forecast line. */
+  getEditMode: () => boolean = () => true,
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
+      if (!getEditMode()) return;
       const segments = getSegments();
       if (segments.length < 1) return;
 
@@ -405,7 +539,7 @@ const boundaryPlugin = (
         ctx.strokeStyle = selectedColor;
         ctx.lineWidth = 1.5;
 
-        const drawBoundary = (t: number, labelLeft: string) => {
+        const drawBoundary = (t: number) => {
           if (t < xMin || t > xMax) return;
           const x = toX(t);
           // Dashed vertical line
@@ -423,35 +557,11 @@ const boundaryPlugin = (
           ctx.lineTo(x, plotTop + 6);
           ctx.closePath();
           ctx.fill();
-
-          // Tiny pill label at bottom with t value
-          const txt = `${labelLeft} ${Number.isFinite(t) ? (Math.abs(t) >= 100 ? t.toFixed(0) : t.toFixed(1)) : ""}`;
-          ctx.font = `10px ${FONT_FAMILY}`;
-          const padX = 5;
-          const padY = 2;
-          const metrics = ctx.measureText(txt);
-          const labelW = metrics.width + padX * 2;
-          const labelH = 14;
-          const lx = Math.max(plotLeft + 2, Math.min(plotLeft + plotWidth - labelW - 2, x - labelW / 2));
-          const ly = plotTop + plotHeight - labelH - 2;
-          ctx.fillStyle = selectedColor;
-          const r = 4;
-          ctx.beginPath();
-          ctx.moveTo(lx + r, ly);
-          ctx.arcTo(lx + labelW, ly, lx + labelW, ly + labelH, r);
-          ctx.arcTo(lx + labelW, ly + labelH, lx, ly + labelH, r);
-          ctx.arcTo(lx, ly + labelH, lx, ly, r);
-          ctx.arcTo(lx, ly, lx + labelW, ly, r);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = "#ffffff";
-          ctx.textBaseline = "middle";
-          ctx.fillText(txt, lx + padX, ly + labelH / 2 + 0.5);
           ctx.setLineDash([5, 4]);
         };
 
-        drawBoundary(startT, "start");
-        drawBoundary(endT, "end");
+        drawBoundary(startT);
+        drawBoundary(endT);
       }
 
       ctx.restore();
@@ -560,6 +670,9 @@ const annotationRegionsPlugin = (
   /** When true, every annotation gets a strong background fill (used by the
    *  "background" variance mode). */
   getBackground: () => boolean,
+  /** When false, the dashed boundary lines + triangle caps are suppressed.
+   *  The shaded fill stays visible so viewers still see the annotated range. */
+  getAnnotateMode: () => boolean = () => true,
 ): uPlot.Plugin => {
   // Shared compute used by both hooks.
   const compute = (u: uPlot) => {
@@ -668,6 +781,13 @@ const annotationRegionsPlugin = (
       });
       void background; // (fills handled in drawAxes hook below)
 
+      // Dashed boundaries + caps only show while annotating. Outside annotate
+      // mode the shaded fill (drawAxes hook) carries the visual on its own.
+      if (!getAnnotateMode()) {
+        ctx.restore();
+        return;
+      }
+
       for (const a of sorted) {
         const color = colorForAnnotation(a);
         const startT = Math.min(a.tStart, a.tEnd);
@@ -703,32 +823,6 @@ const annotationRegionsPlugin = (
             ctx.closePath();
             ctx.fill();
           }
-
-          // Label pill at the bottom of the range
-          const label = a.label || ANNOTATION_TYPE_META[a.type].label;
-          ctx.font = `10px ${FONT_FAMILY}`;
-          const text = label.length > 32 ? `${label.slice(0, 30)}…` : label;
-          const padX = 6;
-          const padY = 3;
-          const metrics = ctx.measureText(text);
-          const labelW = metrics.width + padX * 2;
-          const labelH = 16;
-          const cx = (x1 + x2) / 2;
-          const lx = Math.max(plotLeft + 2, Math.min(plotLeft + plotWidth - labelW - 2, cx - labelW / 2));
-          const ly = plotTop + plotHeight - labelH - 4;
-          ctx.fillStyle = color;
-          const r = 4;
-          ctx.beginPath();
-          ctx.moveTo(lx + r, ly);
-          ctx.arcTo(lx + labelW, ly, lx + labelW, ly + labelH, r);
-          ctx.arcTo(lx + labelW, ly + labelH, lx, ly + labelH, r);
-          ctx.arcTo(lx, ly + labelH, lx, ly, r);
-          ctx.arcTo(lx, ly, lx + labelW, ly, r);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = "#ffffff";
-          ctx.textBaseline = "middle";
-          ctx.fillText(text, lx + padX, ly + labelH / 2 + 0.5);
         }
       }
 
@@ -899,6 +993,9 @@ const forecastSegmentsPlugin = (
   getEditMode: () => boolean = () => false,
 ): uPlot.Plugin => ({
   hooks: {
+    // Draw forecast AFTER uPlot draws the series so the dashed line sits on
+    // top of the solid actual line (user's preference — forecast is what
+    // they're inspecting/editing, actual is backdrop context).
     draw: (u: uPlot) => {
       const segments = getSegments();
       const forecast = getForecast();
@@ -966,6 +1063,12 @@ const forecastSegmentsPlugin = (
       const toY = (v: number) => plotTop + ((yMax - v) / yRange) * plotHeight;
 
       ctx.save();
+      // Clip to the plot rect so segments that extend past the visible
+      // x or y range (e.g. forecast tail when zoomed in) don't paint over
+      // axes, sliders, or the chart's gutter areas.
+      ctx.beginPath();
+      ctx.rect(plotLeft, plotTop, plotWidth, plotHeight);
+      ctx.clip();
 
       for (let s = 0; s < sorted.length; s++) {
         const seg = sorted[s];
@@ -977,11 +1080,11 @@ const forecastSegmentsPlugin = (
         const editing = getEditMode();
         ctx.strokeStyle = color;
         if (editing) {
-          ctx.lineWidth = isSelected ? 3 : 2.5;
+          ctx.lineWidth = isSelected ? 3.5 : 3;
           ctx.setLineDash([]);
         } else {
-          ctx.lineWidth = isSelected ? 2 : 1.5;
-          ctx.setLineDash([6, 3]);
+          ctx.lineWidth = isSelected ? 3 : 2.5;
+          ctx.setLineDash([8, 5]);
         }
         ctx.beginPath();
         let started = false;
@@ -1242,35 +1345,58 @@ const SegmentRow = ({
     onChange({ ...segment, equation: eq });
   };
 
+  const toggleLocked = () => {
+    onChange({ ...segment, locked: !segment.locked });
+  };
+
   return (
     <div
       data-segment-id={segment.id}
       className={cn(
         "rounded-md border transition-colors",
         isSelected ? "border-indigo-500/60 bg-indigo-500/5" : "border-border bg-background",
+        segment.locked && "border-amber-500/40 bg-amber-50/40",
       )}
     >
-      <button
-        type="button"
-        onClick={() => {
-          onSelect();
-          setExpanded((v) => !v);
-        }}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left"
-      >
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", !expanded && "-rotate-90")}
-        />
-        <span
-          className="inline-flex h-5 min-w-[22px] items-center justify-center gap-1 rounded-sm px-1.5 text-[10px] font-semibold text-white"
-          style={{ background: colorForSegment(index, segment) }}
+      <div className="flex w-full items-center gap-2 px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            onSelect();
+            setExpanded((v) => !v);
+          }}
+          className="flex flex-1 items-center gap-2 text-left"
         >
-          {index + 1}
-        </span>
-        <span className="text-xs font-medium">{EQUATION_LABELS[segment.equation]}</span>
-        <span className="text-[10px] text-muted-foreground">t ≥ {formatNumber(segment.tStart, 1)}</span>
-        <span className="ml-auto text-[10px] text-muted-foreground">qi = {formatNumber(effectiveQi, 0)}</span>
-      </button>
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", !expanded && "-rotate-90")}
+          />
+          <span
+            className="inline-flex h-5 min-w-[22px] items-center justify-center gap-1 rounded-sm px-1.5 text-[10px] font-semibold text-white"
+            style={{ background: colorForSegment(index, segment) }}
+          >
+            {index + 1}
+          </span>
+          <span className="text-xs font-medium">{EQUATION_LABELS[segment.equation]}</span>
+          <span className="text-[10px] text-muted-foreground">t ≥ {formatNumber(segment.tStart, 1)}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">qi = {formatNumber(effectiveQi, 0)}</span>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleLocked();
+          }}
+          className={cn(
+            "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+            segment.locked
+              ? "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25"
+              : "text-muted-foreground hover:bg-muted",
+          )}
+          title={segment.locked ? "Unlock segment" : "Lock segment — pin params, ignore neighbor drags"}
+        >
+          <Lock className={cn("h-3 w-3", !segment.locked && "opacity-60")} />
+        </button>
+      </div>
 
       {expanded && (
         <div className="border-t border-border px-2.5 py-2.5">
@@ -1280,7 +1406,7 @@ const SegmentRow = ({
             isLast={isLast}
             effectiveQi={effectiveQi}
             length={length}
-            locked={locked}
+            locked={locked || !!segment.locked}
             startDate={startDate}
             timeUnit={timeUnit}
             updateParam={updateParam}
@@ -2282,6 +2408,203 @@ const ParamInput = ({
   );
 };
 
+// ── Range Slider ─────────────────────────────────────────────────────────────
+// Minimap-style slider rendered below the chart. Track is the full data
+// extent; the indigo window is the current zoom. Drag the window middle to
+// pan, drag either edge handle to resize. Click outside the window jumps
+// the window's center to the click point. All edits flow through onChange
+// which the parent uses to drive setScale on both the prod and variance charts.
+
+const RangeSlider = ({
+  fullMin,
+  fullMax,
+  value,
+  onChange,
+  onReset,
+  orientation = "horizontal",
+}: {
+  fullMin: number;
+  fullMax: number;
+  value: [number, number];
+  onChange: (range: [number, number]) => void;
+  /** Reset to the full range. Surfaced as an inline × button that only
+   *  appears when the slider is currently zoomed. Also wired to a
+   *  double-click on the bare track. */
+  onReset?: () => void;
+  orientation?: "horizontal" | "vertical";
+}) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    kind: "lo" | "hi" | "window";
+    startCoord: number;
+    startMin: number;
+    startMax: number;
+  } | null>(null);
+
+  const range = Math.max(1e-9, fullMax - fullMin);
+  const isVertical = orientation === "vertical";
+  const loPct = Math.max(0, Math.min(100, ((value[0] - fullMin) / range) * 100));
+  const hiPct = Math.max(0, Math.min(100, ((value[1] - fullMin) / range) * 100));
+  // "Zoomed" = window is narrower than the full track. Tolerance avoids
+  // float-precision flicker when the user drags back to the very edges.
+  const epsilon = range * 0.0005;
+  const isZoomed = value[0] > fullMin + epsilon || value[1] < fullMax - epsilon;
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const drag = dragRef.current;
+      const track = trackRef.current;
+      if (!drag || !track) return;
+      const rect = track.getBoundingClientRect();
+      const span = isVertical ? rect.height : rect.width;
+      if (span === 0) return;
+      const coord = isVertical ? e.clientY : e.clientX;
+      // Vertical maps "down on screen" → "lower value", so flip the sign.
+      const dPct = ((coord - drag.startCoord) / span) * (isVertical ? -1 : 1);
+      const dValue = dPct * range;
+      if (drag.kind === "lo") {
+        const newMin = Math.max(fullMin, Math.min(drag.startMax - 1, drag.startMin + dValue));
+        onChange([newMin, drag.startMax]);
+      } else if (drag.kind === "hi") {
+        const newMax = Math.min(fullMax, Math.max(drag.startMin + 1, drag.startMax + dValue));
+        onChange([drag.startMin, newMax]);
+      } else {
+        const width = drag.startMax - drag.startMin;
+        let newMin = drag.startMin + dValue;
+        if (newMin < fullMin) newMin = fullMin;
+        if (newMin + width > fullMax) newMin = fullMax - width;
+        onChange([newMin, newMin + width]);
+      }
+      e.preventDefault();
+    };
+    const onUp = () => {
+      dragRef.current = null;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [fullMin, fullMax, range, onChange, isVertical]);
+
+  const startDrag =
+    (kind: "lo" | "hi" | "window") =>
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      e.preventDefault();
+      dragRef.current = {
+        kind,
+        startCoord: isVertical ? e.clientY : e.clientX,
+        startMin: value[0],
+        startMax: value[1],
+      };
+    };
+
+  const windowStyle: React.CSSProperties = isVertical
+    ? { bottom: `${loPct}%`, top: `${100 - hiPct}%` }
+    : { left: `${loPct}%`, right: `${100 - hiPct}%` };
+  // Edge resize zones — visible knobs telegraph "you can grab here." Small
+  // dots that slightly overflow the track so they're easy to land on without
+  // bulking up the rail itself.
+  const loKnobStyle: React.CSSProperties = isVertical
+    ? { bottom: `${loPct}%`, transform: "translate(-50%, 50%)", left: "50%" }
+    : { left: `${loPct}%`, transform: "translate(-50%, -50%)", top: "50%" };
+  const hiKnobStyle: React.CSSProperties = isVertical
+    ? { bottom: `${hiPct}%`, transform: "translate(-50%, 50%)", left: "50%" }
+    : { left: `${hiPct}%`, transform: "translate(-50%, -50%)", top: "50%" };
+
+  // Reset button — × icon, sized to match the slider's footprint and tucked
+  // at the end opposite the data flow (right of horizontal, top of vertical).
+  const resetButton = isZoomed && onReset ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onReset();
+      }}
+      className={cn(
+        "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70",
+        "hover:bg-muted hover:text-foreground transition-colors",
+      )}
+      title="Reset zoom"
+    >
+      <X className="h-2.5 w-2.5" />
+    </button>
+  ) : null;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center",
+        isVertical ? "h-full w-4 flex-col gap-1 py-0.5" : "w-full h-4 gap-1 px-0.5",
+      )}
+    >
+      {/* Reset button is at the "high" end — top for vertical (matches a y
+          axis where high is up), right for horizontal. Reserve space when
+          hidden so the track length stays stable as the user toggles zoom. */}
+      <div className={cn("flex items-center justify-center", isVertical ? "h-4 w-4 order-first" : "w-4 h-4 order-last")}>
+        {resetButton}
+      </div>
+      <div
+        ref={trackRef}
+        className={cn(
+          "relative rounded-full bg-muted/40 transition-colors hover:bg-muted/60",
+          isVertical ? "w-1 flex-1" : "h-1 flex-1",
+        )}
+        onClick={(e) => {
+          if (!trackRef.current || dragRef.current) return;
+          const rect = trackRef.current.getBoundingClientRect();
+          const span = isVertical ? rect.height : rect.width;
+          if (span === 0) return;
+          const coord = isVertical ? e.clientY : e.clientX;
+          const baseline = isVertical ? rect.bottom : rect.left;
+          const offset = isVertical ? baseline - coord : coord - baseline;
+          const tClick = fullMin + (offset / span) * range;
+          const width = value[1] - value[0];
+          let newMin = tClick - width / 2;
+          if (newMin < fullMin) newMin = fullMin;
+          if (newMin + width > fullMax) newMin = fullMax - width;
+          onChange([newMin, newMin + width]);
+        }}
+        onDoubleClick={onReset}
+      >
+        {/* Window — light neutral bar showing current zoom. Drag the middle
+            to pan; cursor flips to grabbing while held. */}
+        <div
+          className={cn(
+            "absolute rounded-full bg-slate-300 hover:bg-slate-400 active:cursor-grabbing transition-colors",
+            isVertical ? "inset-x-0 cursor-grab" : "inset-y-0 cursor-grab",
+          )}
+          style={windowStyle}
+          onMouseDown={startDrag("window")}
+        />
+        {/* Knobs — small light circles at each edge of the window. Sized to
+            sit just slightly proud of the rail so they read as grabbable
+            without dominating the slider visually. */}
+        <div
+          className={cn(
+            "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
+            isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
+          )}
+          style={loKnobStyle}
+          onMouseDown={startDrag("lo")}
+          title="Drag to resize"
+        />
+        <div
+          className={cn(
+            "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
+            isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
+          )}
+          style={hiKnobStyle}
+          onMouseDown={startDrag("hi")}
+          title="Drag to resize"
+        />
+      </div>
+    </div>
+  );
+};
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export const DeclineCurve = memo(
@@ -2312,6 +2635,11 @@ export const DeclineCurve = memo(
       const d = startDateProp instanceof Date ? startDateProp : new Date(startDateProp);
       return Number.isNaN(d.getTime()) ? null : d;
     }, [startDateProp]);
+    // Per-instance sync key — scopes cursor.sync to this DeclineCurve's
+    // forecast + variance charts so hovering one card doesn't move crosshairs
+    // on other cards on the page.
+    const syncKey = useId();
+    const rootRef = useRef<HTMLDivElement>(null);
     const prodChartContainerRef = useRef<HTMLDivElement>(null);
     const varChartContainerRef = useRef<HTMLDivElement>(null);
     const prodChartRef = useRef<uPlot | null>(null);
@@ -2321,6 +2649,32 @@ export const DeclineCurve = memo(
     const isDraggingRef = useRef(false);
     const dragStartYRef = useRef(0);
     const dragStartValueRef = useRef(0);
+    /**
+     * Shift+drag region zoom — track the initial t and the current selection
+     * rect so we can paint uPlot's built-in select overlay during the drag
+     * and zoom into the range on release. Cleared on mouseup.
+     */
+    const zoomDragRef = useRef<{ startT: number } | null>(null);
+    /**
+     * Snapshot of segments at mousedown plus the neighbor metadata we need to
+     * keep the boundaries glued each frame: original effective qi for the
+     * dragged segment's prev (so bending is computed from a stable starting
+     * point, not last frame's drift), original endValue of N+1 (so we can
+     * preserve everything beyond N+1 untouched), and the durations involved.
+     * Reset to null on mouseup.
+     */
+    const dragSnapshotRef = useRef<{
+      segments: Segment[];
+      segId: string;
+      segIdx: number;
+      prevSegId: string | null;
+      prevQi: number;
+      prevDt: number;
+      nextSegId: string | null;
+      nextDt: number;
+      nextOriginalEnd: number;
+      nextHasFollower: boolean;
+    } | null>(null);
     const isOverForecastRef = useRef(false);
     /** Index (in sorted order) of the boundary currently being hit-tested by the cursor. Segment[0] has no draggable left boundary, so valid indices are 1..N-1. */
     const hoveredBoundaryRef = useRef<number | null>(null);
@@ -2352,12 +2706,19 @@ export const DeclineCurve = memo(
     useEffect(() => {
       annotationsRef.current = annotations;
       onAnnotationsChange?.(annotations);
+      // Plugins read annotations via ref, but uPlot doesn't auto-redraw on
+      // ref mutations — without this, deleting an annotation leaves its
+      // shaded region on screen until the next mousemove triggers a repaint.
+      prodChartRef.current?.redraw();
     }, [annotations, onAnnotationsChange]);
 
     const [annotateMode, setAnnotateMode] = useState(false);
     const annotateModeRef = useRef(false);
     useEffect(() => {
       annotateModeRef.current = annotateMode;
+      // Plugins gate on the ref — force a repaint when mode flips so the
+      // dashed boundary lines appear/disappear instantly.
+      prodChartRef.current?.redraw();
     }, [annotateMode]);
 
     type VarianceMode = "off" | "sign" | "byAnnotation" | "combined";
@@ -2366,7 +2727,100 @@ export const DeclineCurve = memo(
     useEffect(() => {
       varianceModeRef.current = varianceMode;
       prodChartRef.current?.redraw();
+      varChartRef.current?.redraw();
     }, [varianceMode]);
+
+    /** User toggle for the variance sub-chart. Defaults on when the prop
+     *  allows variance; gear-menu checkbox flips it. */
+    const [showVarianceChart, setShowVarianceChart] = useState<boolean>(showVariance);
+
+    // Track which chart the physical mouse is over, so only that chart's
+    // tooltip shows (the synced cursor fires setCursor on both charts).
+    const hoveredChartRef = useRef<"prod" | "var" | null>(null);
+
+    // ── Zoom state ───────────────────────────────────────────────────────────
+    // Buttons: Zoom in (1.4×), Zoom out (1/1.4×), Reset. Plus drag-on-chart-
+    // background for region zoom and a slider below the variance chart for
+    // pan/resize. All paths funnel through applyXScale → both charts move
+    // together. xZoomRangeRef is read by each chart's x-scale range callback
+    // so a setScale call actually sticks (uPlot's auto-range otherwise
+    // overrides). zoomRange state mirrors the ref so the slider can render.
+    const [isZoomed, setIsZoomed] = useState(false);
+    const [zoomRange, setZoomRange] = useState<[number, number] | null>(null);
+    const xZoomRangeRef = useRef<[number, number] | null>(null);
+    // Y zoom — independent of X, and per-chart so the production and variance
+    // axes can be tuned in isolation. State for the slider to read, ref for
+    // the y-scale range callback to honor.
+    const [zoomYRange, setZoomYRange] = useState<[number, number] | null>(null);
+    const yZoomRangeRef = useRef<[number, number] | null>(null);
+    const [zoomVarYRange, setZoomVarYRange] = useState<[number, number] | null>(null);
+    const yVarZoomRangeRef = useRef<[number, number] | null>(null);
+    const applyXScale = useCallback((min: number, max: number) => {
+      xZoomRangeRef.current = [min, max];
+      setZoomRange([min, max]);
+      prodChartRef.current?.setScale("x", { min, max });
+      varChartRef.current?.setScale("x", { min, max });
+    }, []);
+    const applyYScale = useCallback((min: number, max: number) => {
+      yZoomRangeRef.current = [min, max];
+      setZoomYRange([min, max]);
+      // Production chart only — variance has its own y axis (delta values).
+      prodChartRef.current?.setScale("y", { min, max });
+    }, []);
+    const resetYZoom = useCallback(() => {
+      yZoomRangeRef.current = null;
+      setZoomYRange(null);
+      // Forcing a redraw makes the range callback fire and rederive max.
+      prodChartRef.current?.redraw(false);
+    }, []);
+    const applyVarYScale = useCallback((min: number, max: number) => {
+      yVarZoomRangeRef.current = [min, max];
+      setZoomVarYRange([min, max]);
+      varChartRef.current?.setScale("y", { min, max });
+    }, []);
+    const resetVarYZoom = useCallback(() => {
+      yVarZoomRangeRef.current = null;
+      setZoomVarYRange(null);
+      varChartRef.current?.redraw(false);
+    }, []);
+    const getCurrentRange = useCallback((): [number, number] | null => {
+      const chart = prodChartRef.current;
+      const buffers = buffersRef.current;
+      if (!buffers) return null;
+      const times = buffers.time;
+      if (!times || times.length < 2) return null;
+      const min = chart?.scales.x.min ?? times[0];
+      const max = chart?.scales.x.max ?? times[times.length - 1];
+      return [min, max];
+    }, []);
+    const resetZoom = useCallback(() => {
+      const buffers = buffersRef.current;
+      if (!buffers) return;
+      const times = buffers.time;
+      if (!times || times.length < 2) return;
+      xZoomRangeRef.current = null;
+      setZoomRange(null);
+      prodChartRef.current?.setScale("x", { min: times[0], max: times[times.length - 1] });
+      varChartRef.current?.setScale("x", { min: times[0], max: times[times.length - 1] });
+      setIsZoomed(false);
+    }, []);
+    const zoomBy = useCallback((factor: number) => {
+      const range = getCurrentRange();
+      const buffers = buffersRef.current;
+      if (!range || !buffers) return;
+      const [min, max] = range;
+      const fullMin = buffers.time[0];
+      const fullMax = buffers.time[buffers.time.length - 1];
+      const center = (min + max) / 2;
+      const half = (max - min) / 2 / factor;
+      const newMin = Math.max(fullMin, center - half);
+      const newMax = Math.min(fullMax, center + half);
+      if (newMax - newMin < 1) return;
+      applyXScale(newMin, newMax);
+      setIsZoomed(newMin > fullMin + 0.5 || newMax < fullMax - 0.5);
+    }, [applyXScale, getCurrentRange]);
+    const zoomIn = useCallback(() => zoomBy(1.4), [zoomBy]);
+    const zoomOut = useCallback(() => zoomBy(1 / 1.4), [zoomBy]);
 
     /** View setting: render annotation regions (boundaries + fill) on the chart. */
     const [showAnnotationsOnChart, setShowAnnotationsOnChart] = useState(true);
@@ -2375,6 +2829,21 @@ export const DeclineCurve = memo(
       showAnnotationsOnChartRef.current = showAnnotationsOnChart;
       prodChartRef.current?.redraw();
     }, [showAnnotationsOnChart]);
+
+    // Fullscreen — CSS-based overlay (position: fixed). The native Fullscreen
+    // API was exiting unpredictably when React re-rendered during drag/edit,
+    // so we roll our own: flip a boolean, let a className pin the root to the
+    // viewport, handle Esc ourselves.
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
+    useEffect(() => {
+      if (!isFullscreen) return;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setIsFullscreen(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }, [isFullscreen]);
 
     const [settingsOpen, setSettingsOpen] = useState(false);
     const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -2431,6 +2900,7 @@ export const DeclineCurve = memo(
       editModeRef.current = editMode;
       prodChartRef.current?.redraw();
     }, [editMode]);
+
     const preEditSnapshotRef = useRef<Segment[] | null>(null);
     const [isDirty, setIsDirty] = useState(false);
 
@@ -2445,7 +2915,10 @@ export const DeclineCurve = memo(
 
     const [dragParam, setDragParam] = useState<"qi" | "di" | "b" | "slope">("qi");
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-    const [inlineEditor, setInlineEditor] = useState<{ segmentId: string; clientX: number; clientY: number } | null>(null);
+    /** Right-side segment detail panel — shows the full editor for the
+     *  selected segment. Open on click in edit mode, collapsible via the
+     *  panel header's chevron. */
+    const [segmentPanelOpen, setSegmentPanelOpen] = useState(false);
 
     // Resolve production data
     const { timeData, actualData } = useMemo(() => {
@@ -2522,13 +2995,19 @@ export const DeclineCurve = memo(
 
       const prodChart = prodChartRef.current;
       const varChart = varChartRef.current;
+      // setData's second arg `resetScales` would clobber any zoom/pan the
+      // user has dialed in. Pass false and let each chart's y-range callback
+      // recompute bounds as needed; x stays at whatever the zoom slider
+      // set it to.
       if (prodChart) {
         const newData: uPlot.AlignedData = [prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)];
-        prodChart.setData(newData, true);
+        prodChart.setData(newData, false);
+        prodChart.redraw();
       }
       if (varChart) {
         const newData: uPlot.AlignedData = [varChart.data[0], Array.from(buffers.variance)];
-        varChart.setData(newData, true);
+        varChart.setData(newData, false);
+        varChart.redraw();
       }
 
       onSegmentsChange?.(segments);
@@ -2585,9 +3064,23 @@ export const DeclineCurve = memo(
           mouseDownInfoRef.current = null;
         }
 
-        // Annotation boundary drag — works in any mode (not just Annotate).
+        // Helper: start a region-zoom drag. Used in two places — view mode
+        // (drag anywhere on the chart zooms) and edit mode when the click
+        // wasn't on the forecast line, a boundary, or anything draggable.
+        const startZoomDrag = () => {
+          if (!inBounds || !mouseDownInfoRef.current) return false;
+          zoomDragRef.current = { startT: mouseDownInfoRef.current.t };
+          chart.setSelect({ left: lx, top: 0, width: 0, height: chart.over.clientHeight }, false);
+          chart.over.style.cursor = "crosshair";
+          e.preventDefault();
+          e.stopPropagation();
+          return true;
+        };
+
+        // Annotation boundary drag — only in annotate mode. Outside it the
+        // user is looking at the chart, not editing it.
         const bHover = hoveredAnnotationBoundaryRef.current;
-        if (bHover && mouseDownInfoRef.current) {
+        if (annotateModeRef.current && bHover && mouseDownInfoRef.current) {
           const ann = annotationsRef.current.find((a) => a.id === bHover.id);
           if (ann) {
             const xMin = chart.data[0][0] as number;
@@ -2625,7 +3118,12 @@ export const DeclineCurve = memo(
           return;
         }
 
-        if (!editModeRef.current) return;
+        // View mode (not editing, not annotating) — plain drag on the chart
+        // zooms into the dragged range, Grafana-style.
+        if (!editModeRef.current) {
+          startZoomDrag();
+          return;
+        }
 
         // Boundary drag takes priority over forecast drag
         const boundaryIdx = hoveredBoundaryRef.current;
@@ -2643,7 +3141,13 @@ export const DeclineCurve = memo(
           return;
         }
 
-        if (!isOverForecastRef.current) return;
+        // In edit mode but not over the forecast line or a boundary — fall
+        // through to region zoom so the user can still drag-zoom on the
+        // chart background without leaving edit mode.
+        if (!isOverForecastRef.current) {
+          startZoomDrag();
+          return;
+        }
 
         // Auto-select the segment under the click position before starting the
         // drag. Without this, you had to click once to select then click again
@@ -2667,6 +3171,8 @@ export const DeclineCurve = memo(
         const selId = selectedIdRef.current;
         const seg = segmentsRef.current.find((s) => s.id === selId);
         if (!seg) return;
+        // Locked segments are pinned in place — no drag, no neighbor bend.
+        if (seg.locked) return;
         const fieldsForEq = PARAM_FIELDS[seg.equation];
         const currentDragParam = dragParam;
 
@@ -2685,41 +3191,49 @@ export const DeclineCurve = memo(
           dragStartValueRef.current = seg.params[currentDragParam];
         }
 
-        // Freeze every downstream segment at its current effective qi before
-        // the drag starts moving. Without this, the dragged segment's new end
-        // value propagates through the inheritance chain and shifts every
-        // subsequent segment — a domino, not a local edit. Anchoring the
-        // downstream means the drag only reshapes the one segment the user
-        // grabbed; everything after it stays exactly where it was.
-        if (currentDragParam === "qi") {
-          const effectiveQis: number[] = [sortedAtDown[0].params.qi];
-          for (let i = 1; i < sortedAtDown.length; i++) {
-            if (sortedAtDown[i].qiAnchored) {
-              effectiveQis.push(sortedAtDown[i].params.qi);
-            } else {
-              const prev = sortedAtDown[i - 1];
-              const dt = sortedAtDown[i].tStart - prev.tStart;
-              effectiveQis.push(
-                evalSegment(prev.equation, { ...prev.params, qi: effectiveQis[i - 1] }, dt),
-              );
-            }
-          }
-          const frozenById = new Map<string, Segment>();
-          for (let i = segIdxAtDown + 1; i < sortedAtDown.length; i++) {
-            const s = sortedAtDown[i];
-            if (s.qiAnchored) continue;
-            frozenById.set(s.id, {
-              ...s,
-              params: { ...s.params, qi: effectiveQis[i] },
-              qiAnchored: true,
-            });
-          }
-          if (frozenById.size > 0) {
-            const nextSegments = segmentsRef.current.map((s) => frozenById.get(s.id) ?? s);
-            segmentsRef.current = nextSegments;
-            setSegments(nextSegments);
+        // Snapshot effective qi values along the chain so the drag bends
+        // neighbors from a stable starting point each frame. Computing once at
+        // mousedown avoids floating-point drift during the drag.
+        const effectiveQis: number[] = [sortedAtDown[0].params.qi];
+        for (let i = 1; i < sortedAtDown.length; i++) {
+          if (sortedAtDown[i].qiAnchored) {
+            effectiveQis.push(sortedAtDown[i].params.qi);
+          } else {
+            const prev = sortedAtDown[i - 1];
+            const dt = sortedAtDown[i].tStart - prev.tStart;
+            effectiveQis.push(
+              evalSegment(prev.equation, { ...prev.params, qi: effectiveQis[i - 1] }, dt),
+            );
           }
         }
+        const prevSeg = segIdxAtDown > 0 ? sortedAtDown[segIdxAtDown - 1] : null;
+        const nextSeg = segIdxAtDown + 1 < sortedAtDown.length ? sortedAtDown[segIdxAtDown + 1] : null;
+        const followerSeg = segIdxAtDown + 2 < sortedAtDown.length ? sortedAtDown[segIdxAtDown + 2] : null;
+        const prevDt = prevSeg ? seg.tStart - prevSeg.tStart : 0;
+        // Width of N+1 — used both to compute its current endValue and to
+        // bend it so it lands at the same endValue after N's drag.
+        const nextDt = nextSeg && followerSeg ? followerSeg.tStart - nextSeg.tStart : 0;
+        let nextOriginalEnd = 0;
+        if (nextSeg && followerSeg) {
+          const nextEffectiveQi = effectiveQis[segIdxAtDown + 1];
+          nextOriginalEnd = evalSegment(
+            nextSeg.equation,
+            { ...nextSeg.params, qi: nextEffectiveQi },
+            nextDt,
+          );
+        }
+        dragSnapshotRef.current = {
+          segments: segmentsRef.current,
+          segId: seg.id,
+          segIdx: segIdxAtDown,
+          prevSegId: prevSeg?.id ?? null,
+          prevQi: prevSeg ? effectiveQis[segIdxAtDown - 1] : 0,
+          prevDt,
+          nextSegId: nextSeg?.id ?? null,
+          nextDt,
+          nextOriginalEnd,
+          nextHasFollower: !!followerSeg,
+        };
 
         chart.over.style.cursor = "grabbing";
         e.preventDefault();
@@ -2732,6 +3246,20 @@ export const DeclineCurve = memo(
       (e: MouseEvent) => {
         const chart = prodChartRef.current;
         if (!chart) return;
+
+        // Region-zoom drag — paint uPlot's select overlay live so the user
+        // sees what they're about to zoom into. Anchored on the start x;
+        // the rect grows in either direction as the cursor moves.
+        if (zoomDragRef.current) {
+          const rect = chart.over.getBoundingClientRect();
+          const lxNow = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+          const startPx = chart.valToPos(zoomDragRef.current.startT, "x");
+          const startSafe = Number.isFinite(startPx) ? startPx : lxNow;
+          const left = Math.min(startSafe, lxNow);
+          const width = Math.abs(lxNow - startSafe);
+          chart.setSelect({ left, top: 0, width, height: chart.over.clientHeight }, false);
+          return;
+        }
 
         // Boundary drag path
         const bDrag = boundaryDragRef.current;
@@ -2810,9 +3338,9 @@ export const DeclineCurve = memo(
         }
 
         if (!isDraggingRef.current) {
-          // Annotation boundary hit-test runs in any mode so users can resize
-          // existing annotations without entering Annotate mode.
-          {
+          // Annotation boundary hit-test — only when annotating, so viewers
+          // don't get a resize cursor on a chart they can't actually edit.
+          if (annotateModeRef.current) {
             const rect0 = chart.over.getBoundingClientRect();
             const lx = e.clientX - rect0.left;
             const ly = e.clientY - rect0.top;
@@ -2982,8 +3510,22 @@ export const DeclineCurve = memo(
 
           if (forecastHit && (!boundaryHit || forecastPriority >= boundaryPriority)) {
             hoveredBoundaryRef.current = null;
-            isOverForecastRef.current = true;
-            chart.over.style.cursor = "grab";
+            // Find which segment the cursor is actually on. Locked segments
+            // don't get the grab cursor — telegraphs they're pinned before
+            // the user wastes a click trying to drag.
+            let hoverSegLocked = false;
+            for (let i = 0; i < sorted.length; i++) {
+              if (sorted[i].tStart <= t) {
+                hoverSegLocked = !!sorted[i].locked;
+              } else break;
+            }
+            if (hoverSegLocked) {
+              isOverForecastRef.current = false;
+              chart.over.style.cursor = "default";
+            } else {
+              isOverForecastRef.current = true;
+              chart.over.style.cursor = "grab";
+            }
             return;
           }
           if (boundaryHit) {
@@ -3001,11 +3543,13 @@ export const DeclineCurve = memo(
         // Dragging
         const pixelDelta = e.clientY - dragStartYRef.current;
         const startVal = dragStartValueRef.current;
-        const segs = segmentsRef.current;
-        const selId = selectedIdRef.current;
-        const segIdx = segs.findIndex((s) => s.id === selId);
+        const snap = dragSnapshotRef.current;
+        const baseSegs = snap?.segments ?? segmentsRef.current;
+        const segIdx = snap
+          ? baseSegs.findIndex((s) => s.id === snap.segId)
+          : baseSegs.findIndex((s) => s.id === selectedIdRef.current);
         if (segIdx < 0) return;
-        const seg = segs[segIdx];
+        const seg = baseSegs[segIdx];
 
         let newValue = startVal;
         if (dragParam === "qi") {
@@ -3022,14 +3566,63 @@ export const DeclineCurve = memo(
           newValue = startVal - pixelDelta * scale;
         }
 
-        const nextSeg: Segment = {
+        // Build the dragged segment's new params from the snapshot — using
+        // baseSegs (pre-drag) instead of segmentsRef.current avoids drift when
+        // we re-bend neighbors each frame.
+        const draggedNew: Segment = {
           ...seg,
           params: { ...seg.params, [dragParam]: newValue },
-          // Anchor qi the moment the user drags it on a non-first segment
+          // Anchor qi the moment the user drags it (locks N's start to drag value)
           qiAnchored: dragParam === "qi" ? true : seg.qiAnchored,
         };
-        const nextSegments = [...segs];
-        nextSegments[segIdx] = nextSeg;
+        // Track which neighbors we replaced; if a bend is unsolvable we leave
+        // the original segment in place — boundary visibly breaks so the user
+        // can fix it manually.
+        const replacements = new Map<string, Segment>();
+        replacements.set(seg.id, draggedNew);
+
+        if (snap) {
+          // ── Backward bend: keep N-1's end glued to N's new qi ───────────────
+          // Only reshapes when qi changed; di/b/slope drags don't move N's
+          // start, so N-1's end is already correct. Locked previous segments
+          // are skipped entirely — boundary visibly breaks rather than the
+          // user's pinned shape getting silently rewritten.
+          if (dragParam === "qi" && snap.prevSegId && snap.prevDt > 0) {
+            const prevSeg = baseSegs.find((s) => s.id === snap.prevSegId);
+            if (prevSeg && !prevSeg.locked) {
+              const bent = bendSegmentToTarget(prevSeg, snap.prevQi, newValue, snap.prevDt);
+              if (bent) replacements.set(prevSeg.id, bent.segment);
+            }
+          }
+
+          // ── Forward bend: keep N+1's end glued to its original endValue ─────
+          // Only meaningful if there's an N+2 to preserve; otherwise N+1 is the
+          // tail and we let inheritance carry the new start. Locked next
+          // segments are skipped (same reasoning as backward bend).
+          if (snap.nextSegId && snap.nextHasFollower && snap.nextDt > 0) {
+            const nSeg = baseSegs.find((s) => s.id === snap.nextSegId);
+            if (nSeg && !nSeg.locked) {
+              // N's new end = evaluate N's equation with new params over N's
+              // duration. The duration is from N.tStart to N+1.tStart.
+              const segDt = (baseSegs[segIdx + 1]?.tStart ?? seg.tStart) - seg.tStart;
+              const newEndOfN =
+                segDt > 0 ? evalSegment(draggedNew.equation, draggedNew.params, segDt) : draggedNew.params.qi;
+              const bent = bendSegmentToTarget(nSeg, newEndOfN, snap.nextOriginalEnd, snap.nextDt);
+              if (bent) replacements.set(nSeg.id, bent.segment);
+              else {
+                // Unsolvable forward bend — still update its qi so the visible
+                // start matches N's new end (its end will drift, user fixes).
+                replacements.set(nSeg.id, {
+                  ...nSeg,
+                  params: { ...nSeg.params, qi: newEndOfN },
+                  qiAnchored: true,
+                });
+              }
+            }
+          }
+        }
+
+        const nextSegments = baseSegs.map((s) => replacements.get(s.id) ?? s);
         segmentsRef.current = nextSegments;
 
         const buffers = buffersRef.current;
@@ -3048,6 +3641,45 @@ export const DeclineCurve = memo(
 
     const handleMouseUp = useCallback((e: MouseEvent) => {
       const chart = prodChartRef.current;
+
+      // Region-zoom drag end — apply the selected x-range as the new x-scale.
+      // Cleared regardless of outcome so a tiny click-drag (no real range)
+      // doesn't leave the overlay visible.
+      if (zoomDragRef.current) {
+        const start = zoomDragRef.current.startT;
+        zoomDragRef.current = null;
+        if (chart) {
+          const rect = chart.over.getBoundingClientRect();
+          const lxNow = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+          let endT = chart.posToVal(lxNow, "x");
+          if (!Number.isFinite(endT)) {
+            const data = chart.data[0] as number[];
+            if (data && data.length > 1 && rect.width > 0) {
+              endT = data[0] + (lxNow / rect.width) * (data[data.length - 1] - data[0]);
+            } else {
+              endT = start;
+            }
+          }
+          chart.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+          chart.over.style.cursor = "default";
+          const lo = Math.min(start, endT);
+          const hi = Math.max(start, endT);
+          // Need at least 1 unit of range to count as a zoom; otherwise treat
+          // as a stray click and skip (avoids accidentally collapsing the x
+          // scale to a single point).
+          if (hi - lo >= 1) {
+            applyXScale(lo, hi);
+            const buffers = buffersRef.current;
+            const fullMin = buffers?.time?.[0];
+            const fullMax = buffers && buffers.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
+            setIsZoomed(
+              fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5,
+            );
+          }
+        }
+        mouseDownInfoRef.current = null;
+        return;
+      }
 
       // Annotation boundary drag end — normalise tStart/tEnd ordering
       if (annotationDragRef.current) {
@@ -3114,9 +3746,21 @@ export const DeclineCurve = memo(
       }
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
+        dragSnapshotRef.current = null;
         if (chart) chart.over.style.cursor = isOverForecastRef.current ? "grab" : "default";
         setSegments([...segmentsRef.current]);
+        // Click without movement on the forecast line is intent to *select*,
+        // not drag — open the side panel so the user gets the details. Drag-
+        // tolerance check matches the regular click path.
+        const downInfo = mouseDownInfoRef.current;
         mouseDownInfoRef.current = null;
+        if (downInfo && editModeRef.current) {
+          const dx = Math.abs(e.clientX - downInfo.clientX);
+          const dy = Math.abs(e.clientY - downInfo.clientY);
+          if (dx <= 4 && dy <= 4 && selectedIdRef.current) {
+            setSegmentPanelOpen(true);
+          }
+        }
         return;
       }
 
@@ -3143,25 +3787,39 @@ export const DeclineCurve = memo(
         return;
       }
 
-      // Otherwise, select the segment at the click position.
+      // Otherwise, select the segment at the click position. In edit mode
+      // also pop the inline editor right at the click — saves the user a
+      // right-click for the common "tweak this segment's params" workflow.
       const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
       if (sorted.length === 0) return;
       let hitIdx = 0;
       for (let i = 0; i < sorted.length; i++) {
         if (sorted[i].tStart <= down.t) hitIdx = i;
       }
-      setSelectedId(sorted[hitIdx].id);
+      const hitId = sorted[hitIdx].id;
+      setSelectedId(hitId);
+      if (editModeRef.current) {
+        // Open the side panel rather than a click-anchored popup. Side panel
+        // stays put as the user clicks between segments, lets them keep
+        // interacting with the chart, and folds away on demand.
+        setSegmentPanelOpen(true);
+      }
     }, []);
 
     const handleContextMenu = useCallback((e: MouseEvent) => {
       const chart = prodChartRef.current;
       if (!chart) return;
 
-      // In edit mode, if the cursor is over the forecast line, the segment
-      // context menu takes priority over opening an annotation editor. If NOT
-      // over the forecast (or not in edit mode), annotations win.
+      // Opening the annotation editor on right-click is gated on annotate
+      // mode. In edit mode, if the cursor is over the forecast line, the
+      // segment context menu wins; otherwise the annotation editor opens —
+      // but only if the user is actively annotating.
       const annId = hoveredAnnotationIdRef.current;
-      if (annId && !(editModeRef.current && isOverForecastRef.current)) {
+      if (
+        annotateModeRef.current &&
+        annId &&
+        !(editModeRef.current && isOverForecastRef.current)
+      ) {
         e.preventDefault();
         e.stopPropagation();
         setSelectedAnnotationId(annId);
@@ -3228,13 +3886,14 @@ export const DeclineCurve = memo(
             () => annotationsRef.current,
             () => drawingRef.current,
           ),
-          forecastSegmentsPlugin(
+          // Order matters for the `draw` hook: later plugins paint on top.
+          // Forecast is registered LAST so its line always sits above the
+          // actual line, boundaries, and annotation overlays.
+          boundaryPlugin(
             () => segmentsRef.current,
             () => selectedIdRef.current,
-            () => buffersRef.current?.forecast ?? null,
             () => editModeRef.current,
           ),
-          boundaryPlugin(() => segmentsRef.current, () => selectedIdRef.current),
           annotationsPlugin(() => segmentsRef.current),
           annotationRegionsPlugin(
             () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
@@ -3242,11 +3901,53 @@ export const DeclineCurve = memo(
             () => selectedAnnotationId,
             () => drawingRef.current,
             () => false,
+            () => annotateModeRef.current,
           ),
-          tooltipPlugin(unit, () => segmentsRef.current),
+          forecastSegmentsPlugin(
+            () => segmentsRef.current,
+            () => selectedIdRef.current,
+            () => buffersRef.current?.forecast ?? null,
+            () => editModeRef.current,
+          ),
+          tooltipPlugin(
+            unit,
+            () => segmentsRef.current,
+            () => hoveredChartRef.current === "prod",
+            () => buffersRef.current,
+          ),
+          // When the forecast chart's x-scale changes (drag-zoom, reset),
+          // propagate it to the variance chart so the two stay aligned, and
+          // flip the isZoomed flag that powers the Reset button.
+          {
+            hooks: {
+              setScale: (u: uPlot, scaleKey: string) => {
+                if (scaleKey !== "x") return;
+                const data = u.data[0] as number[];
+                const min = u.scales.x.min;
+                const max = u.scales.x.max;
+                if (data.length > 1 && min != null && max != null) {
+                  const fullMin = data[0];
+                  const fullMax = data[data.length - 1];
+                  setIsZoomed(min > fullMin + 0.5 || max < fullMax - 0.5);
+                  const varChart = varChartRef.current;
+                  if (varChart && varChart !== u) {
+                    const vMin = varChart.scales.x.min;
+                    const vMax = varChart.scales.x.max;
+                    if (vMin !== min || vMax !== max) {
+                      varChart.setScale("x", { min, max });
+                    }
+                  }
+                }
+              },
+            },
+          } as uPlot.Plugin,
         ],
         cursor: {
           drag: { x: false, y: false },
+          // Share cursor across forecast + variance charts so the vertical
+          // crosshair lines up at the same t regardless of which chart you
+          // hover. Horizontal follows the mouse per-chart (uPlot default).
+          sync: { key: syncKey, setSeries: false },
           points: {
             size: 6,
             width: 1.5,
@@ -3268,13 +3969,32 @@ export const DeclineCurve = memo(
           },
         ],
         scales: {
-          x: { time: false },
+          // Explicit x range so scales.x.min/max populate as real numbers
+          // (not null). uPlot's default auto-ranging leaves them null on
+          // some paths, which breaks cursor.sync and posToVal/valToPos —
+          // the variance chart's crosshair would stay stuck at x=0 because
+          // sync passes NaN through.
+          x: {
+            time: false,
+            range: (self: uPlot) => {
+              // Honor an active zoom range (set by buttons or shift-drag) so
+              // setScale actually sticks. Fall back to full data extent.
+              const z = xZoomRangeRef.current;
+              if (z) return z;
+              const data = self.data[0];
+              if (!data || data.length === 0) return [0, 1];
+              return [data[0] as number, data[data.length - 1] as number];
+            },
+          },
           y: {
             // uPlot's dataMax only reflects one series in some render paths,
             // which caused the y-axis to clip when the forecast peaks higher
             // than any actual sample (e.g. a flowback ramp). Compute max across
-            // every y-scale series ourselves.
+            // every y-scale series ourselves. Honors a manual y zoom when set
+            // (slider drag, etc).
             range: (self: uPlot, _min: number, _max: number) => {
+              const z = yZoomRangeRef.current;
+              if (z) return z;
               let max = 0;
               for (let s = 1; s < self.series.length; s++) {
                 if (self.series[s].scale !== "y") continue;
@@ -3291,8 +4011,9 @@ export const DeclineCurve = memo(
         },
         series: [
           {},
-          { label: "Actual", stroke: actualColor, width: 2.5, points: { show: false }, spanGaps: true },
-          // Forecast stroke is transparent — the forecastSegmentsPlugin draws the per-segment colored line.
+          { label: "Actual", stroke: actualColor, width: 3, points: { show: false }, spanGaps: true },
+          // Forecast stroke is transparent — forecastSegmentsPlugin draws the
+          // per-segment colored + dashed line itself in the `draw` hook.
           { label: "Forecast", stroke: "transparent", width: 0, points: { show: false }, spanGaps: true },
         ],
       };
@@ -3309,12 +4030,18 @@ export const DeclineCurve = memo(
 
       const overlay = chart.over;
       overlay.style.cursor = "default";
+      const onEnterProd = () => { hoveredChartRef.current = "prod"; };
+      const onLeaveProd = () => { if (hoveredChartRef.current === "prod") hoveredChartRef.current = null; };
+      overlay.addEventListener("mouseenter", onEnterProd);
+      overlay.addEventListener("mouseleave", onLeaveProd);
       overlay.addEventListener("mousedown", handleMouseDown);
       overlay.addEventListener("contextmenu", handleContextMenu);
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
 
       return () => {
+        overlay.removeEventListener("mouseenter", onEnterProd);
+        overlay.removeEventListener("mouseleave", onLeaveProd);
         overlay.removeEventListener("mousedown", handleMouseDown);
         overlay.removeEventListener("contextmenu", handleContextMenu);
         window.removeEventListener("mousemove", handleMouseMove);
@@ -3325,7 +4052,7 @@ export const DeclineCurve = memo(
           prodChartRef.current = null;
         }
       };
-    }, [extendedTime, actualData, height, width, unit, actualColor, forecastColor, handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu]);
+    }, [extendedTime, actualData, height, width, unit, actualColor, forecastColor, syncKey, handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu]);
 
     // ── Variance chart ───────────────────────────────────────────────────────
     useLayoutEffect(() => {
@@ -3351,8 +4078,30 @@ export const DeclineCurve = memo(
       const opts: uPlot.Options = {
         width: chartWidth,
         height: varianceHeight,
-        plugins: [varianceBarsPlugin(getVariance)],
-        cursor: { drag: { x: false, y: false }, points: { show: false } },
+        plugins: [
+          varianceBarsPlugin(
+            getVariance,
+            () => varianceModeRef.current,
+            () => annotationsRef.current,
+          ),
+          // Same tooltip as the forecast chart, gated on the mouse actually
+          // being over this sub-chart. Shared buffers feed all values so the
+          // tooltip shows Actual + Forecast + Δ even though this chart only
+          // has a variance series.
+          tooltipPlugin(
+            unit,
+            () => segmentsRef.current,
+            () => hoveredChartRef.current === "var",
+            () => buffersRef.current,
+          ),
+        ],
+        cursor: {
+          drag: { x: false, y: false },
+          // Same sync key as the forecast chart — hovering one moves the
+          // vertical crosshair on the other to the same time value.
+          sync: { key: syncKey, setSeries: false },
+          points: { show: false },
+        },
         legend: { show: false },
         axes: [
           { ...AXIS_STYLE, label: "Time", labelFont: `11px ${FONT_FAMILY}`, labelSize: 20 },
@@ -3370,7 +4119,23 @@ export const DeclineCurve = memo(
               }),
           },
         ],
-        scales: { x: { time: false }, y: { range: () => [-maxAbs, maxAbs] } },
+        scales: {
+          x: {
+            time: false,
+            range: (self: uPlot) => {
+              // Honor an active zoom range (set by buttons or shift-drag) so
+              // setScale actually sticks. Fall back to full data extent.
+              const z = xZoomRangeRef.current;
+              if (z) return z;
+              const data = self.data[0];
+              if (!data || data.length === 0) return [0, 1];
+              return [data[0] as number, data[data.length - 1] as number];
+            },
+          },
+          y: {
+            range: () => yVarZoomRangeRef.current ?? [-maxAbs, maxAbs],
+          },
+        },
         series: [
           {},
           { label: "Variance", stroke: "transparent", width: 0, points: { show: false } },
@@ -3379,17 +4144,33 @@ export const DeclineCurve = memo(
 
       if (varChartRef.current) varChartRef.current.destroy();
       el.innerHTML = "";
-      varChartRef.current = new uPlot(opts, data, el);
+      const vChart = new uPlot(opts, data, el);
+      varChartRef.current = vChart;
+      if (typeof window !== "undefined") {
+        const w = window as unknown as { __varCharts?: uPlot[] };
+        w.__varCharts = [...(w.__varCharts ?? []), vChart];
+      }
+
+      const varOverlay = vChart.over;
+      const onEnterVar = () => { hoveredChartRef.current = "var"; };
+      const onLeaveVar = () => { if (hoveredChartRef.current === "var") hoveredChartRef.current = null; };
+      varOverlay.addEventListener("mouseenter", onEnterVar);
+      varOverlay.addEventListener("mouseleave", onLeaveVar);
 
       return () => {
+        varOverlay.removeEventListener("mouseenter", onEnterVar);
+        varOverlay.removeEventListener("mouseleave", onLeaveVar);
         if (varChartRef.current) {
           varChartRef.current.destroy();
           varChartRef.current = null;
         }
       };
-    }, [extendedTime, actualData, varianceHeight, width, unit]);
+    }, [extendedTime, actualData, varianceHeight, width, unit, showVarianceChart, syncKey]);
 
     // ── Resize ───────────────────────────────────────────────────────────────
+    // In fullscreen, prodChart's height is driven by the container's own size
+    // (it fills the remaining flex space). Out of fullscreen, height stays at
+    // the prop value.
     useEffect(() => {
       if (width) return;
       const prodContainer = prodChartContainerRef.current;
@@ -3397,19 +4178,22 @@ export const DeclineCurve = memo(
       if (!prodContainer) return;
 
       const observer = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (entry) {
-          const w = entry.contentRect.width;
-          if (w > 0) {
-            prodChartRef.current?.setSize({ width: w, height });
-            varChartRef.current?.setSize({ width: w, height: varianceHeight });
+        for (const entry of entries) {
+          const { width: w, height: h } = entry.contentRect;
+          if (w <= 0) continue;
+          if (entry.target === prodContainer) {
+            const effectiveHeight = isFullscreen ? Math.max(h, height) : height;
+            prodChartRef.current?.setSize({ width: w, height: effectiveHeight });
+          } else if (entry.target === varContainer) {
+            const effectiveHeight = isFullscreen ? Math.max(h, varianceHeight) : varianceHeight;
+            varChartRef.current?.setSize({ width: w, height: effectiveHeight });
           }
         }
       });
       observer.observe(prodContainer);
       if (varContainer) observer.observe(varContainer);
       return () => observer.disconnect();
-    }, [width, height, varianceHeight]);
+    }, [width, height, varianceHeight, isFullscreen]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     // All supported timeUnits (day / month / year) are integral — production
@@ -3497,10 +4281,12 @@ export const DeclineCurve = memo(
           const prodChart = prodChartRef.current;
           const varChart = varChartRef.current;
           if (prodChart) {
-            prodChart.setData([prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)], true);
+            prodChart.setData([prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)], false);
+            prodChart.redraw();
           }
           if (varChart) {
-            varChart.setData([varChart.data[0], Array.from(buffers.variance)], true);
+            varChart.setData([varChart.data[0], Array.from(buffers.variance)], false);
+            varChart.redraw();
           }
         }
       }
@@ -3539,89 +4325,72 @@ export const DeclineCurve = memo(
     }, [segments, editMode]);
 
     return (
-      <div className="w-full" style={{ fontFamily: FONT_FAMILY }}>
-        {/* ── Legend / status / edit controls strip ── */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-2">
-          <div className="flex items-center gap-1.5">
-            <div className="h-[2px] w-3 rounded-sm" style={{ background: actualColor }} />
-            <span className="text-[10px] text-muted-foreground">
-              Actual <span className="text-muted-foreground/70">({unit})</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-[2px] w-6 overflow-hidden rounded-sm">
-              {sortedSegments.slice(0, 4).map((_, i) => (
-                <div key={i} className="h-full flex-1" style={{ background: colorForSegment(i) }} />
-              ))}
-              {sortedSegments.length === 0 && (
-                <div className="h-full w-full" style={{ background: forecastColor }} />
-              )}
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              Forecast <span className="text-muted-foreground/70">({unit})</span>
-            </span>
-          </div>
+      <div
+        ref={rootRef}
+        className={cn(
+          "w-full",
+          isFullscreen && "fixed inset-0 z-[9999] flex flex-col overflow-auto bg-background p-6",
+        )}
+        style={{ fontFamily: FONT_FAMILY }}
+      >
+        {/* ── Toolbar strip ──
+             Stripped down to: segment count chip, mode chip, primary actions
+             (Edit / Annotate / Save / Cancel), zoom controls, fullscreen, gear.
+             Display-only stuff (legend swatches, variance mode picker) lives
+             inside the Settings popover now. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pb-2">
           <span className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
             {segments.length} {segments.length === 1 ? "segment" : "segments"}
           </span>
 
           <div className="ml-auto flex items-center gap-1.5">
-            {/* Variance view-mode picker */}
-            <Select value={varianceMode} onValueChange={(v) => setVarianceMode(v as VarianceMode)}>
-              <SelectTrigger className="h-6 w-[170px] gap-1 text-[10px]">
-                <SelectValue>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{
-                        background:
-                          varianceMode === "off"
-                            ? "#cbd5e1"
-                            : varianceMode === "sign"
-                              ? "#10b981"
-                              : varianceMode === "byAnnotation"
-                                ? "#6366f1"
-                                : "#f59e0b",
-                      }}
-                    />
-                    {varianceMode === "off"
-                      ? "No variance"
-                      : varianceMode === "sign"
-                        ? "Variance: +/− sign"
-                        : varianceMode === "byAnnotation"
-                          ? "Variance: by annotation"
-                          : "Variance: combined"}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sign" textValue="Variance: +/− sign">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Variance: +/− sign</span>
-                    <span className="text-[9px] text-muted-foreground">Green when actual &gt; forecast, red when below</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="byAnnotation" textValue="Variance: by annotation">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Variance: by annotation</span>
-                    <span className="text-[9px] text-muted-foreground">Annotation color inside, neutral gray outside</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="combined" textValue="Variance: combined">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Variance: combined</span>
-                    <span className="text-[9px] text-muted-foreground">+/− sign outside, bold annotation color inside</span>
-                  </div>
-                </SelectItem>
-                <SelectSeparator />
-                <SelectItem value="off" textValue="No variance">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">No variance</span>
-                    <span className="text-[9px] text-muted-foreground">Hide the fill</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Zoom controls — zoom in / out / reset. Both charts track the
+                same x-range via applyXScale. */}
+            <div className="inline-flex h-6 items-center overflow-hidden rounded-md border border-border bg-background">
+              <button
+                type="button"
+                onClick={zoomOut}
+                className="inline-flex h-6 w-6 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Zoom out"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={zoomIn}
+                className="inline-flex h-6 w-6 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Zoom in"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={resetZoom}
+                disabled={!isZoomed}
+                className={cn(
+                  "inline-flex h-6 w-6 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                  isZoomed && "text-indigo-600",
+                )}
+                title="Reset zoom"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Fullscreen toggle */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className={cn(
+                "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
+                "hover:text-foreground hover:bg-muted transition-colors",
+                isFullscreen && "border-indigo-500/40 text-indigo-600",
+              )}
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
 
             {/* Settings popover (gear) */}
             <div className="relative">
@@ -3641,13 +4410,109 @@ export const DeclineCurve = memo(
                 <div
                   ref={settingsRef}
                   className={cn(
-                    "absolute right-0 z-[100003] mt-1 w-[240px] rounded-md border border-border bg-popover p-3 shadow-lg",
+                    "absolute right-0 z-[100003] mt-1 w-[280px] rounded-md border border-border bg-popover p-3 shadow-lg",
                     "animate-in fade-in-0 zoom-in-95",
                   )}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
+                  {/* ── Legend ── shows what colors stand for. Sits at the
+                       top because it's the most-likely "what am I looking at"
+                       question users come here with. */}
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    View settings
+                    Legend
+                  </div>
+                  <div className="mb-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-[2px] w-3 rounded-sm" style={{ background: actualColor }} />
+                      <span className="text-xs">
+                        Actual <span className="text-muted-foreground">({unit})</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-[2px] w-6 overflow-hidden rounded-sm">
+                        {sortedSegments.slice(0, 4).map((_, i) => (
+                          <div key={i} className="h-full flex-1" style={{ background: colorForSegment(i) }} />
+                        ))}
+                        {sortedSegments.length === 0 && (
+                          <div className="h-full w-full" style={{ background: forecastColor }} />
+                        )}
+                      </div>
+                      <span className="text-xs">
+                        Forecast <span className="text-muted-foreground">({unit})</span>
+                        <span className="ml-1 text-muted-foreground/70">
+                          — {segments.length} {segments.length === 1 ? "segment" : "segments"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <SelectSeparator />
+
+                  {/* ── Variance ── how the lower sub-chart bars are colored. */}
+                  <div className="mb-2 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Variance
+                  </div>
+                  <Select value={varianceMode} onValueChange={(v) => setVarianceMode(v as VarianceMode)}>
+                    <SelectTrigger className="h-7 w-full text-xs">
+                      <SelectValue>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{
+                              background:
+                                varianceMode === "off"
+                                  ? "#cbd5e1"
+                                  : varianceMode === "sign"
+                                    ? "#10b981"
+                                    : varianceMode === "byAnnotation"
+                                      ? "#6366f1"
+                                      : "#f59e0b",
+                            }}
+                          />
+                          {varianceMode === "off"
+                            ? "No variance fill"
+                            : varianceMode === "sign"
+                              ? "+/− sign"
+                              : varianceMode === "byAnnotation"
+                                ? "By annotation"
+                                : "Combined"}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sign" textValue="+/− sign">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">+/− sign</span>
+                          <span className="text-[9px] text-muted-foreground">Green when actual &gt; forecast, red when below</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="byAnnotation" textValue="By annotation">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">By annotation</span>
+                          <span className="text-[9px] text-muted-foreground">Annotation color inside, gray outside</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="combined" textValue="Combined">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">Combined</span>
+                          <span className="text-[9px] text-muted-foreground">+/− sign outside, annotation color inside</span>
+                        </div>
+                      </SelectItem>
+                      <SelectSeparator />
+                      <SelectItem value="off" textValue="No variance fill">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium">No variance fill</span>
+                          <span className="text-[9px] text-muted-foreground">Hide the bars</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="my-3 h-px w-full bg-border" />
+
+                  {/* ── Display toggles ── */}
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Display
                   </div>
                   <label className="flex cursor-pointer items-start gap-2">
                     <input
@@ -3657,9 +4522,23 @@ export const DeclineCurve = memo(
                       className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-indigo-500"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-medium">Show annotation backdrop</span>
+                      <span className="text-xs font-medium">Annotation backdrop</span>
                       <span className="text-[10px] text-muted-foreground">
-                        Render dashed boundaries and the colored fill for each annotation on the chart.
+                        Dashed boundaries + colored fill on the chart.
+                      </span>
+                    </div>
+                  </label>
+                  <label className="mt-2 flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showVarianceChart}
+                      onChange={(e) => setShowVarianceChart(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-indigo-500"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Variance sub-chart</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Attached bars below the forecast.
                       </span>
                     </div>
                   </label>
@@ -3806,23 +4685,378 @@ export const DeclineCurve = memo(
             </div>
 
             <span className="text-muted-foreground/70">· right-click forecast to add a segment</span>
+            <span className="text-muted-foreground/70">· drag chart background to zoom in</span>
           </div>
         )}
 
-        {/* ── Production chart ── */}
-        <div
-          ref={prodChartContainerRef}
-          style={{ width: "100%", minHeight: height, userSelect: "none" }}
-        />
+        {/* ── Selected segment toolbar (contextual) ──
+             Surfaces the selected segment's equation + params + lock here at
+             the top of the chart so the user doesn't have to look at the list
+             below to see what they're editing. */}
+        {editMode && selectedSegment && (() => {
+          const selectedIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
+          const selectedEffectiveQi = selectedIdx >= 0 ? effectiveQis[selectedIdx] ?? selectedSegment.params.qi : selectedSegment.params.qi;
+          const isFirstSelected = selectedIdx === 0;
+          const segLocked = !!selectedSegment.locked;
+          const compactInput = (
+            label: string,
+            value: number,
+            step: number,
+            onChange: (v: number) => void,
+            opts: { min?: number; max?: number; format?: (v: number) => string; disabled?: boolean; readOnly?: boolean } = {},
+          ) => (
+            <label key={label} className="inline-flex items-center gap-1.5 text-[10px]">
+              <span className="font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+              <input
+                type="number"
+                value={Number.isFinite(value) ? Number(value.toFixed(4)) : 0}
+                step={step}
+                min={opts.min}
+                max={opts.max}
+                disabled={opts.disabled || opts.readOnly}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (Number.isFinite(v)) onChange(v);
+                }}
+                className={cn(
+                  "h-6 w-[78px] rounded-md border border-border bg-background px-1.5 text-[11px] outline-none focus:ring-2 focus:ring-ring",
+                  (opts.disabled || opts.readOnly) && "cursor-not-allowed opacity-60",
+                )}
+              />
+              {opts.format && <span className="text-[9px] text-muted-foreground/70">{opts.format(value)}</span>}
+            </label>
+          );
+          return (
+            <div
+              className={cn(
+                "mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-2.5 py-1.5",
+                segLocked ? "border-amber-500/40 bg-amber-50/40" : "border-border bg-muted/30",
+              )}
+            >
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white"
+                  style={{ background: colorForSegment(selectedIdx, selectedSegment) }}
+                >
+                  {selectedIdx + 1}
+                </span>
+                <span className="text-xs font-semibold">{EQUATION_LABELS[selectedSegment.equation]}</span>
+                <span className="font-mono text-[9.5px] text-muted-foreground">
+                  {EQUATION_FORMULAS[selectedSegment.equation]}
+                </span>
+              </div>
 
-        {/* ── Variance label ── */}
-        <div className="pb-1 pt-2 text-[10px] font-semibold text-muted-foreground">
-          Variance (Actual − Forecast)
+              {isFirstSelected
+                ? compactInput(
+                    "qi",
+                    selectedSegment.params.qi,
+                    10,
+                    (v) => handleSegmentChange({ ...selectedSegment, params: { ...selectedSegment.params, qi: Math.max(0, v) } }),
+                    { min: 0, disabled: segLocked },
+                  )
+                : compactInput(
+                    "qi",
+                    selectedEffectiveQi,
+                    10,
+                    (v) =>
+                      handleSegmentChange({
+                        ...selectedSegment,
+                        params: { ...selectedSegment.params, qi: Math.max(0, v) },
+                        // Editing qi explicitly anchors the segment — same
+                        // semantic as drag-adjusting it.
+                        qiAnchored: true,
+                      }),
+                    { min: 0, disabled: segLocked },
+                  )}
+
+              {selectedEqFields.includes("di") &&
+                compactInput(
+                  "di",
+                  selectedSegment.params.di,
+                  0.01,
+                  (v) =>
+                    handleSegmentChange({
+                      ...selectedSegment,
+                      params: { ...selectedSegment.params, di: Math.max(0, v) },
+                    }),
+                  { min: 0, format: (v) => `${(v * 100).toFixed(1)}%`, disabled: segLocked },
+                )}
+              {selectedEqFields.includes("b") &&
+                compactInput(
+                  "b",
+                  selectedSegment.params.b,
+                  0.05,
+                  (v) =>
+                    handleSegmentChange({
+                      ...selectedSegment,
+                      params: { ...selectedSegment.params, b: Math.max(0.01, Math.min(2, v)) },
+                    }),
+                  { min: 0.01, max: 2, disabled: segLocked },
+                )}
+              {selectedEqFields.includes("slope") &&
+                compactInput(
+                  "slope",
+                  selectedSegment.params.slope,
+                  1,
+                  (v) =>
+                    handleSegmentChange({
+                      ...selectedSegment,
+                      params: { ...selectedSegment.params, slope: v },
+                    }),
+                  { disabled: segLocked },
+                )}
+
+              <button
+                type="button"
+                onClick={() => handleSegmentChange({ ...selectedSegment, locked: !segLocked })}
+                className={cn(
+                  "ml-auto inline-flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors",
+                  segLocked
+                    ? "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25"
+                    : "border border-border bg-background text-muted-foreground hover:bg-muted",
+                )}
+                title={segLocked ? "Unlock segment" : "Lock segment — pin params, ignore neighbor drags"}
+              >
+                <Lock className={cn("h-3 w-3", !segLocked && "opacity-60")} />
+                {segLocked ? "Locked" : "Lock"}
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* ── Chart area + side panel row ──
+             Side panel docks to the right of the charts when open; chart
+             column shrinks to accommodate. Panel can be collapsed to give
+             the chart full width back. */}
+        <div className="flex w-full gap-3">
+        <div className="flex-1 min-w-0 flex flex-col">
+        {/* ── Production chart + Y-axis slider row ──
+             Y slider sits on the LEFT, outside uPlot's own y-axis labels, so
+             the visual reading order is slider | axis labels | plot. */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            width: "100%",
+            flex: isFullscreen ? `${height} 1 0` : undefined,
+            // Explicit height (not just min-height) so percentage-height
+            // descendants like the slider's track can resolve correctly.
+            // In fullscreen the flex weight overrides this.
+            height: isFullscreen ? undefined : height,
+            minHeight: height,
+            gap: 4,
+          }}
+        >
+          {(() => {
+            // Compute the full data extent for Y so the slider's track maps
+            // to the same bounds the auto-range would derive.
+            let dataMax = 0;
+            for (const v of actualData) if (Number.isFinite(v) && v > dataMax) dataMax = v;
+            for (let i = 0; i < sortedSegments.length; i++) {
+              const q = effectiveQis[i] ?? sortedSegments[i].params.qi;
+              if (q > dataMax) dataMax = q;
+            }
+            const fullYMax = (dataMax || 1) * 1.1;
+            const value: [number, number] = zoomYRange ?? [0, fullYMax];
+            return (
+              <RangeSlider
+                orientation="vertical"
+                fullMin={0}
+                fullMax={fullYMax}
+                value={value}
+                onChange={(r) => applyYScale(r[0], r[1])}
+                onReset={resetYZoom}
+              />
+            );
+          })()}
+          <div
+            ref={prodChartContainerRef}
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              minHeight: height,
+              userSelect: "none",
+            }}
+          />
         </div>
 
-        <div ref={varChartContainerRef} style={{ width: "100%", minHeight: varianceHeight }} />
+        {/* ── Variance sub-chart ── (attached to the forecast chart; toggle
+             in the gear menu). Shares the forecast chart's x-range and picks
+             up coloring from the current variance mode so annotation colors
+             propagate down. */}
+        {showVarianceChart && (
+          <>
+            {/* Visual divider — separates the forecast chart from the
+                attached variance sub-chart so it reads as "a different thing". */}
+            <div className="mt-2 h-px w-full bg-border" />
+            <div className="flex items-center justify-between pb-0.5 pt-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span>Variance (Actual − Forecast)</span>
+              <button
+                type="button"
+                onClick={() => setShowVarianceChart(false)}
+                className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Hide variance chart"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "stretch",
+                width: "100%",
+                flex: isFullscreen ? `${varianceHeight} 1 0` : undefined,
+                height: isFullscreen ? undefined : varianceHeight,
+                minHeight: varianceHeight,
+                gap: 4,
+              }}
+            >
+              {(() => {
+                // Re-derive the variance chart's full y-range for the slider
+                // track. Mirrors the maxAbs calc in varChart init — kept
+                // here at render time so changes to actuals/segments update
+                // the slider's bounds without a remount.
+                const buffers = buffersRef.current;
+                let maxAbs = 0;
+                if (buffers) {
+                  for (let i = 0; i < buffers.length; i++) {
+                    const v = buffers.variance[i];
+                    if (!Number.isNaN(v) && Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+                  }
+                }
+                const fullVar = maxAbs * 1.2 || 100;
+                const value: [number, number] = zoomVarYRange ?? [-fullVar, fullVar];
+                return (
+                  <RangeSlider
+                    orientation="vertical"
+                    fullMin={-fullVar}
+                    fullMax={fullVar}
+                    value={value}
+                    onChange={(r) => applyVarYScale(r[0], r[1])}
+                    onReset={resetVarYZoom}
+                  />
+                );
+              })()}
+              <div
+                ref={varChartContainerRef}
+                style={{
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  minHeight: varianceHeight,
+                }}
+              />
+            </div>
+          </>
+        )}
 
-        {/* ── Segment editor ── */}
+        {/* ── Range slider ── pan/resize the visible window. Hidden in
+             fullscreen since the chart already fills the viewport. */}
+        {!isFullscreen && extendedTime.length > 1 && (() => {
+          const fullMin = extendedTime[0];
+          const fullMax = extendedTime[extendedTime.length - 1];
+          const value: [number, number] = zoomRange ?? [fullMin, fullMax];
+          return (
+            <RangeSlider
+              fullMin={fullMin}
+              fullMax={fullMax}
+              value={value}
+              onChange={(r) => applyXScale(r[0], r[1])}
+              onReset={resetZoom}
+            />
+          );
+        })()}
+        </div>{/* end chart column */}
+
+        {/* ── Segment side panel ── docks right of the chart column. Visible
+             only in edit mode + when opened. Empty when no segment selected. */}
+        {editMode && segmentPanelOpen && selectedSegment && (() => {
+          const segIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
+          const next = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
+          const segLength = next ? next.tStart - selectedSegment.tStart : null;
+          return (
+            <div className="w-[300px] flex-shrink-0 rounded-md border border-border bg-background shadow-sm">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
+                    style={{ background: colorForSegment(segIdx, selectedSegment) }}
+                  >
+                    {segIdx + 1}
+                  </span>
+                  <span className="text-xs font-semibold truncate">
+                    {EQUATION_LABELS[selectedSegment.equation]}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSegmentPanelOpen(false)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title="Collapse panel"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="max-h-[600px] overflow-y-auto p-3">
+                <SegmentEditorBody
+                  segment={selectedSegment}
+                  isFirst={segIdx === 0}
+                  isLast={segIdx === sortedSegments.length - 1}
+                  effectiveQi={effectiveQis[segIdx] ?? selectedSegment.params.qi}
+                  length={segLength}
+                  locked={!editMode || !!selectedSegment.locked}
+                  startDate={startDate}
+                  timeUnit={timeUnit}
+                  updateParam={(key, value) =>
+                    handleSegmentChange({
+                      ...selectedSegment,
+                      params: { ...selectedSegment.params, [key]: value },
+                    })
+                  }
+                  updateEquation={(eq) =>
+                    handleSegmentChange({ ...selectedSegment, equation: eq })
+                  }
+                  onChange={handleSegmentChange}
+                  onLengthChange={(newLen) => {
+                    if (!next) return;
+                    const newNextTStart = selectedSegment.tStart + newLen;
+                    setSegments((prev) =>
+                      prev
+                        .map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))
+                        .sort((a, b) => a.tStart - b.tStart),
+                    );
+                  }}
+                  onRemove={() => handleSegmentRemove(selectedSegment.id)}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Reopen handle — visible when the panel is closed but a segment
+             is selected and we're in edit mode. Slim vertical button on the
+             right edge that expands the panel back. */}
+        {editMode && !segmentPanelOpen && selectedSegment && (
+          <button
+            type="button"
+            onClick={() => setSegmentPanelOpen(true)}
+            className={cn(
+              "flex-shrink-0 w-6 rounded-md border border-border bg-background",
+              "hover:bg-muted hover:border-indigo-500/40 transition-colors",
+              "flex flex-col items-center justify-center py-2 gap-1",
+            )}
+            title="Open segment panel"
+          >
+            <ChevronRight className="h-3 w-3 rotate-180 text-muted-foreground" />
+            <div
+              className="w-1 flex-1 rounded-full"
+              style={{ background: colorForSegment(sortedSegments.findIndex((s) => s.id === selectedSegment.id), selectedSegment) }}
+            />
+          </button>
+        )}
+        </div>{/* end chart-row flex */}
+
+        {/* ── Segment editor ── (hidden in fullscreen — charts only) */}
+        {!isFullscreen && (
         <div className="mt-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -3863,6 +5097,7 @@ export const DeclineCurve = memo(
             })}
           </div>
         </div>
+        )}
 
         {contextMenu && (
           <AddSegmentMenu
@@ -3871,11 +5106,7 @@ export const DeclineCurve = memo(
             onEdit={() => {
               if (contextMenu.activeSegmentId) {
                 setSelectedId(contextMenu.activeSegmentId);
-                setInlineEditor({
-                  segmentId: contextMenu.activeSegmentId,
-                  clientX: contextMenu.clientX,
-                  clientY: contextMenu.clientY,
-                });
+                setSegmentPanelOpen(true);
               }
             }}
             onRemove={() => {
@@ -3886,44 +5117,6 @@ export const DeclineCurve = memo(
             onClose={() => setContextMenu(null)}
           />
         )}
-
-        {inlineEditor && (() => {
-          const segIdx = sortedSegments.findIndex((s) => s.id === inlineEditor.segmentId);
-          if (segIdx < 0) return null;
-          const seg = sortedSegments[segIdx];
-          const next = sortedSegments[segIdx + 1];
-          const segLength = next ? next.tStart - seg.tStart : null;
-          return (
-            <InlineSegmentEditor
-              segment={seg}
-              index={segIdx}
-              isFirst={segIdx === 0}
-              isLast={segIdx === sortedSegments.length - 1}
-              effectiveQi={effectiveQis[segIdx] ?? seg.params.qi}
-              length={segLength}
-              clientX={inlineEditor.clientX}
-              clientY={inlineEditor.clientY}
-              locked={!editMode}
-              startDate={startDate}
-              timeUnit={timeUnit}
-              onChange={handleSegmentChange}
-              onLengthChange={(newLen) => {
-                if (!next) return;
-                const newNextTStart = seg.tStart + newLen;
-                setSegments((prev) =>
-                  prev
-                    .map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))
-                    .sort((a, b) => a.tStart - b.tStart),
-                );
-              }}
-              onRemove={() => {
-                handleSegmentRemove(seg.id);
-                setInlineEditor(null);
-              }}
-              onClose={() => setInlineEditor(null)}
-            />
-          );
-        })()}
 
         {annotationEditor && (() => {
           const a = annotations.find((x) => x.id === annotationEditor.annotationId);
