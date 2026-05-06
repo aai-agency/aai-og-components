@@ -72,7 +72,14 @@ export interface DeclineCurveProps {
   onAnnotationsChange?: (annotations: Annotation[]) => void;
   /** Default for the variance-fill toggle. Defaults to true. */
   showVariance?: boolean;
+  /** Stroke color for the historical-actuals line. */
   actualColor?: string;
+  /**
+   * Fallback color for the forecast cursor pointer in edit mode and the
+   * default segment color when a segment provides none. The piecewise
+   * forecast line itself draws each segment in its own color (set via
+   * `Segment.color` or cycled from the built-in palette).
+   */
   forecastColor?: string;
 }
 
@@ -333,77 +340,6 @@ const tooltipPlugin = (
   };
 };
 
-/**
- * Tooltip for the variance sub-chart. Mirrors the forecast tooltip's look
- * so hovering either chart feels like one surface.
- */
-const varianceTooltipPlugin = (
-  unit: string,
-  getVariance: () => Float64Array,
-): uPlot.Plugin => {
-  let tooltip: HTMLDivElement;
-
-  const init = () => {
-    tooltip = document.createElement("div");
-    Object.assign(tooltip.style, {
-      display: "none",
-      position: "fixed",
-      pointerEvents: "none",
-      zIndex: "100000",
-      minWidth: "160px",
-      background: "#ffffff",
-      color: "#0f172a",
-      border: "1px solid rgba(15, 23, 42, 0.08)",
-      borderRadius: "10px",
-      fontFamily: FONT_FAMILY,
-      overflow: "hidden",
-      boxShadow:
-        "0 1px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.18), 0 24px 48px -24px rgba(15, 23, 42, 0.22)",
-    });
-    document.body.appendChild(tooltip);
-  };
-
-  const setCursor = (u: uPlot) => {
-    const idx = u.cursor.idx;
-    if (idx == null || idx < 0) {
-      tooltip.style.display = "none";
-      return;
-    }
-    const t = u.data[0][idx];
-    const variance = getVariance()[idx];
-    if (t == null || variance == null || Number.isNaN(variance)) {
-      tooltip.style.display = "none";
-      return;
-    }
-    const sign = variance >= 0 ? "+" : "";
-    const color = variance >= 0 ? "#059669" : "#e11d48";
-    tooltip.innerHTML =
-      `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid rgba(15, 23, 42, 0.06)">` +
-      `<span style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8">Time</span>` +
-      `<span style="font-family:ui-monospace,'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums">${formatNumber(t, 0)}</span>` +
-      `</div>` +
-      `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px">` +
-      `<span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${color};box-shadow:0 0 0 2px ${color}1f;flex-shrink:0"></span>` +
-      `<span style="font-size:11px;font-weight:500;color:#64748b">Δ Variance</span>` +
-      `<span style="margin-left:auto;font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:${color};font-variant-numeric:tabular-nums">${sign}${formatNumber(variance, 1)} ${unit}</span>` +
-      `</div>`;
-    tooltip.style.display = "block";
-
-    const overRect = u.over.getBoundingClientRect();
-    const viewportX = overRect.left + (u.cursor.left ?? 0);
-    const viewportY = overRect.top + (u.cursor.top ?? 0);
-    const w = tooltip.offsetWidth;
-    const h = tooltip.offsetHeight;
-    const x = viewportX + w + 20 > window.innerWidth ? viewportX - w - 12 : viewportX + 16;
-    const y = Math.min(Math.max(4, viewportY - h / 2), window.innerHeight - h - 4);
-    tooltip.style.left = `${x}px`;
-    tooltip.style.top = `${y}px`;
-  };
-
-  return {
-    hooks: { init, setCursor, destroy: () => tooltip?.remove() },
-  };
-};
 
 // ── Variance Bars Plugin ─────────────────────────────────────────────────────
 
@@ -2240,140 +2176,6 @@ const AnnotationEditorPopover = ({
   );
 };
 
-// ── Inline floating segment editor (anchored at click) ──────────────────────
-
-interface InlineSegmentEditorProps {
-  segment: Segment;
-  index: number;
-  isFirst: boolean;
-  isLast: boolean;
-  effectiveQi: number;
-  length: number | null;
-  clientX: number;
-  clientY: number;
-  locked: boolean;
-  startDate: Date | null;
-  timeUnit: TimeUnit;
-  onChange: (next: Segment) => void;
-  onLengthChange: (newLength: number) => void;
-  onRemove: () => void;
-  onClose: () => void;
-}
-
-const InlineSegmentEditor = ({
-  segment,
-  index,
-  isFirst,
-  isLast,
-  effectiveQi,
-  length,
-  clientX,
-  clientY,
-  locked,
-  startDate,
-  timeUnit,
-  onChange,
-  onLengthChange,
-  onRemove,
-  onClose,
-}: InlineSegmentEditorProps) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ left: clientX, top: clientY });
-
-  // Reposition on mount so the popover stays inside the viewport.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    const margin = 8;
-    let left = clientX + 12;
-    let top = clientY - h / 2;
-    if (left + w + margin > window.innerWidth) left = clientX - w - 12;
-    if (left < margin) left = margin;
-    if (top + h + margin > window.innerHeight) top = window.innerHeight - h - margin;
-    if (top < margin) top = margin;
-    setPos({ left, top });
-  }, [clientX, clientY]);
-
-  // Click outside to close
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Element | null;
-      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("mousedown", handler);
-    window.addEventListener("keydown", keyHandler);
-    return () => {
-      window.removeEventListener("mousedown", handler);
-      window.removeEventListener("keydown", keyHandler);
-    };
-  }, [onClose]);
-
-  const updateParam = (key: keyof SegmentParams, value: number) => {
-    onChange({ ...segment, params: { ...segment.params, [key]: value } });
-  };
-  const updateEquation = (eq: EquationType) => {
-    onChange({ ...segment, equation: eq });
-  };
-
-  return (
-    <div
-      ref={ref}
-      role="dialog"
-      aria-label={`Edit segment ${index + 1}`}
-      className={cn(
-        "fixed z-[100002] w-[320px] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground",
-        "shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25),0_2px_8px_-2px_rgba(15,23,42,0.08)]",
-        "animate-in fade-in-0 zoom-in-95",
-      )}
-      style={{ left: pos.left, top: pos.top, fontFamily: FONT_FAMILY }}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white"
-            style={{ background: colorForSegment(index, segment) }}
-          >
-            {index + 1}
-          </span>
-          <span className="text-xs font-semibold">{EQUATION_LABELS[segment.equation]}</span>
-          <span className="text-[10px] text-muted-foreground">t ≥ {formatNumber(segment.tStart, 1)}</span>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          title="Close (Esc)"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <div className="px-3 py-3">
-        <SegmentEditorBody
-          segment={segment}
-          isFirst={isFirst}
-          isLast={isLast}
-          effectiveQi={effectiveQi}
-          length={length}
-          locked={locked}
-          startDate={startDate}
-          timeUnit={timeUnit}
-          updateParam={updateParam}
-          updateEquation={updateEquation}
-          onChange={onChange}
-          onLengthChange={onLengthChange}
-          onRemove={onRemove}
-        />
-      </div>
-    </div>
-  );
-};
 
 const ParamInput = ({
   label,
@@ -2990,10 +2792,21 @@ export const DeclineCurve = memo(
      *  panel header's chevron. */
     const [segmentPanelOpen, setSegmentPanelOpen] = useState(false);
 
-    // Resolve production data
+    // Resolve production data — when both `production` and `time` are
+    // supplied, truncate to the shorter length so an off-by-one in the
+    // caller can't silently misalign timestamps with values.
     const { timeData, actualData } = useMemo(() => {
       if (productionProp && productionProp.length > 0) {
         const t = timeProp ?? productionProp.map((_, i) => i);
+        if (timeProp && timeProp.length !== productionProp.length) {
+          const n = Math.min(timeProp.length, productionProp.length);
+          if (typeof console !== "undefined" && console.warn) {
+            console.warn(
+              `[DeclineCurve] time (${timeProp.length}) and production (${productionProp.length}) lengths differ; truncating to ${n}.`,
+            );
+          }
+          return { timeData: t.slice(0, n), actualData: productionProp.slice(0, n) };
+        }
         return { timeData: t, actualData: productionProp };
       }
       const sample = generateSampleProduction(36, DEFAULT_SEGMENT_PARAMS.qi, DEFAULT_SEGMENT_PARAMS.di, DEFAULT_SEGMENT_PARAMS.b);
@@ -3197,6 +3010,15 @@ export const DeclineCurve = memo(
         const boundaryIdx = hoveredBoundaryRef.current;
         if (boundaryIdx != null) {
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
+          // Locked segments must not be reshaped by boundary drag — moving a
+          // boundary changes the tStart of the segment immediately to its
+          // right, so block the drag if either adjacent segment is locked.
+          const leftSeg = sorted[boundaryIdx - 1];
+          const rightSeg = sorted[boundaryIdx];
+          if (leftSeg?.locked || rightSeg?.locked) {
+            chart.over.style.cursor = "default";
+            return;
+          }
           const times = buffersRef.current?.time;
           const dataMax = times && times.length > 0 ? times[times.length - 1] : Number.POSITIVE_INFINITY;
           const minT = (sorted[boundaryIdx - 1]?.tStart ?? 0) + MIN_SEGMENT_WIDTH;
@@ -3364,6 +3186,9 @@ export const DeclineCurve = memo(
           const newT = Math.min(hi, Math.max(lo, Math.round(rawT)));
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
           const segToUpdate = sorted[bDrag.index];
+          // Defensive check: if either side of the boundary became locked
+          // mid-drag (toolbar toggle, etc.), drop the rest of the drag.
+          if (segToUpdate?.locked || sorted[bDrag.index - 1]?.locked) return;
           if (segToUpdate && segToUpdate.tStart !== newT) {
             const nextSegments = segmentsRef.current.map((s) =>
               s.id === segToUpdate.id ? { ...s, tStart: newT } : s,
