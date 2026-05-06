@@ -47,10 +47,13 @@ export interface DeclineCurveProps {
   width?: number;
   unit?: string;
   onSegmentsChange?: (segments: Segment[]) => void;
-  /** Fires when the user clicks Save in edit mode. Persist these segments. */
+  /**
+   * Fires after every segment commit (drag, panel edit, insert, delete).
+   * v1 auto-commits — there is no Save button — so this fires alongside
+   * `onSegmentsChange`. Use whichever name reads better in your code; both
+   * receive the same payload and both fire on the same trigger.
+   */
   onSave?: (segments: Segment[]) => void;
-  /** Start in edit mode instead of locked (default: false). */
-  defaultEditMode?: boolean;
   /**
    * Project the forecast out to this time value (same units as the time axis).
    * If omitted, defaults to lastActualTime + 1x the actual data range so users
@@ -1238,123 +1241,115 @@ const AddSegmentMenu = ({
   );
 };
 
-// ── Segment editor ───────────────────────────────────────────────────────────
+// ── Color swatch (popover) ───────────────────────────────────────────────────
 
-const SegmentRow = ({
+const SegmentColorSwatch = ({
   segment,
   index,
-  isFirst,
-  isLast,
-  isSelected,
-  effectiveQi,
-  length,
   locked,
-  startDate,
-  timeUnit,
-  onSelect,
   onChange,
-  onLengthChange,
-  onRemove,
 }: {
   segment: Segment;
   index: number;
-  isFirst: boolean;
-  isLast: boolean;
-  isSelected: boolean;
-  effectiveQi: number;
-  length: number | null;
   locked: boolean;
-  startDate: Date | null;
-  timeUnit: TimeUnit;
-  onSelect: () => void;
-  onChange: (next: Segment) => void;
-  onLengthChange: (newLength: number) => void;
-  onRemove: () => void;
+  onChange: (color: string | undefined) => void;
 }) => {
-  const [expanded, setExpanded] = useState(isFirst || isSelected);
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const currentColor = segment.color ?? colorForSegment(index, segment);
 
   useEffect(() => {
-    if (isSelected) setExpanded(true);
-  }, [isSelected]);
-
-  const updateParam = (key: keyof SegmentParams, value: number) => {
-    onChange({ ...segment, params: { ...segment.params, [key]: value } });
-  };
-
-  const updateEquation = (eq: EquationType) => {
-    onChange({ ...segment, equation: eq });
-  };
-
-  const toggleLocked = () => {
-    onChange({ ...segment, locked: !segment.locked });
-  };
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <div
-      data-segment-id={segment.id}
-      className={cn(
-        "rounded-md border transition-colors",
-        isSelected ? "border-indigo-500/60 bg-indigo-500/5" : "border-border bg-background",
-        segment.locked && "border-amber-500/40 bg-amber-50/40",
-      )}
-    >
-      <div className="flex w-full items-center gap-2 px-2.5 py-1.5">
-        <button
-          type="button"
-          onClick={() => {
-            onSelect();
-            setExpanded((v) => !v);
-          }}
-          className="flex flex-1 items-center gap-2 text-left"
-        >
-          <ChevronDown
-            className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", !expanded && "-rotate-90")}
-          />
-          <span
-            className="inline-flex h-5 min-w-[22px] items-center justify-center gap-1 rounded-sm px-1.5 text-[10px] font-semibold text-white"
-            style={{ background: colorForSegment(index, segment) }}
+    <div ref={wrapRef} className="relative space-y-1">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Color
+        </label>
+        {segment.color && !locked && (
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            className="text-[10px] text-muted-foreground hover:text-foreground"
           >
-            {index + 1}
-          </span>
-          <span className="text-xs font-medium">{EQUATION_LABELS[segment.equation]}</span>
-          <span className="text-[10px] text-muted-foreground">t ≥ {formatNumber(segment.tStart, 1)}</span>
-          <span className="ml-auto text-[10px] text-muted-foreground">qi = {formatNumber(effectiveQi, 0)}</span>
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleLocked();
-          }}
-          className={cn(
-            "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-            segment.locked
-              ? "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25"
-              : "text-muted-foreground hover:bg-muted",
-          )}
-          title={segment.locked ? "Unlock segment" : "Lock segment — pin params, ignore neighbor drags"}
-        >
-          <Lock className={cn("h-3 w-3", !segment.locked && "opacity-60")} />
-        </button>
+            Reset
+          </button>
+        )}
       </div>
-
-      {expanded && (
-        <div className="border-t border-border px-2.5 py-2.5">
-          <SegmentEditorBody
-            segment={segment}
-            isFirst={isFirst}
-            isLast={isLast}
-            effectiveQi={effectiveQi}
-            length={length}
-            locked={locked || !!segment.locked}
-            startDate={startDate}
-            timeUnit={timeUnit}
-            updateParam={updateParam}
-            updateEquation={updateEquation}
-            onChange={onChange}
-            onLengthChange={onLengthChange}
-            onRemove={onRemove}
-          />
+      <button
+        type="button"
+        disabled={locked}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "inline-flex h-7 items-center gap-2 rounded-md border border-border bg-background px-2 text-[11px] outline-none focus:ring-2 focus:ring-ring",
+          "hover:border-foreground/40 disabled:cursor-not-allowed disabled:opacity-60",
+        )}
+        title={segment.color ? "Change color" : "Pick a color"}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span
+          className="inline-block h-4 w-4 rounded-sm border border-border/60"
+          style={{ background: currentColor }}
+        />
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {currentColor.toUpperCase()}
+        </span>
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+      </button>
+      {open && !locked && (
+        <div
+          role="dialog"
+          className="absolute left-0 z-50 mt-1 w-[176px] rounded-md border border-border bg-popover p-2 shadow-lg"
+        >
+          <div className="grid grid-cols-6 gap-1">
+            {SEGMENT_PALETTE.map((c) => {
+              const active = (segment.color ?? "").toLowerCase() === c.value.toLowerCase();
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.name}
+                  onClick={() => {
+                    onChange(c.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "h-5 w-5 rounded-md border transition-transform hover:scale-110",
+                    active ? "border-foreground ring-2 ring-foreground/30" : "border-border/60",
+                  )}
+                  style={{ background: c.value }}
+                />
+              );
+            })}
+          </div>
+          {segment.color && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(undefined);
+                setOpen(false);
+              }}
+              className="mt-2 w-full rounded-sm px-2 py-1 text-left text-[10px] text-muted-foreground hover:bg-muted"
+            >
+              Reset to default
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1481,19 +1476,9 @@ const SegmentEditorBody = ({
       {supportsDates && (!isFirst || !isLast) && (
         <div className="flex items-center justify-between gap-2 pt-1">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Time</span>
+          {/* Date first, days second — the calendar surface is the primary
+              one when the chart knows about a startDate. */}
           <div className="inline-flex h-6 items-center rounded-md border border-border bg-background p-0.5 text-[10px]">
-            <button
-              type="button"
-              onClick={() => setTimeMode("days")}
-              className={cn(
-                "h-5 rounded-sm px-2 font-medium transition-colors",
-                timeMode === "days"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {unitLabel}
-            </button>
             <button
               type="button"
               onClick={() => setTimeMode("date")}
@@ -1505,6 +1490,18 @@ const SegmentEditorBody = ({
               )}
             >
               date
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeMode("days")}
+              className={cn(
+                "h-5 rounded-sm px-2 font-medium transition-colors",
+                timeMode === "days"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {unitLabel}
             </button>
           </div>
         </div>
@@ -1656,43 +1653,15 @@ const SegmentEditorBody = ({
         </div>
       )}
 
-      {/* Color picker */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Color
-          </label>
-          {segment.color && !locked && (
-            <button
-              type="button"
-              onClick={() => onChange({ ...segment, color: undefined })}
-              className="text-[10px] text-muted-foreground hover:text-foreground"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {SEGMENT_PALETTE.map((c) => {
-            const active = (segment.color ?? "").toLowerCase() === c.value.toLowerCase();
-            return (
-              <button
-                key={c.value}
-                type="button"
-                disabled={locked}
-                title={c.name}
-                onClick={() => onChange({ ...segment, color: c.value })}
-                className={cn(
-                  "h-5 w-5 rounded-md border transition-transform",
-                  "hover:scale-110 disabled:cursor-not-allowed disabled:hover:scale-100",
-                  active ? "border-foreground ring-2 ring-offset-1 ring-foreground/30" : "border-border/60",
-                )}
-                style={{ background: c.value }}
-              />
-            );
-          })}
-        </div>
-      </div>
+      {/* Color — single swatch button. Click to open the palette popover and
+          pick a different color. v0 rendered every palette swatch inline. */}
+      <SegmentColorSwatch
+        segment={segment}
+        index={0 /* index doesn't matter — swatch derives color from segment */}
+        locked={locked}
+        onChange={(color) => onChange({ ...segment, color })}
+      />
+
 
       {/* Annotation / note */}
       <div className="space-y-1">
@@ -2434,7 +2403,6 @@ export const DeclineCurve = memo(
     unit = "BBL/mo",
     onSegmentsChange,
     onSave,
-    defaultEditMode = false,
     forecastHorizon,
     unitsPerYear,
     startDate: startDateProp,
@@ -2584,6 +2552,9 @@ export const DeclineCurve = memo(
     const annotateModeRef = useRef(false);
     useEffect(() => {
       annotateModeRef.current = annotateMode;
+      // editMode is the inverse of annotate mode — when the user is drawing
+      // annotation regions, the chart suppresses forecast drag/right-click.
+      editModeRef.current = !annotateMode;
       // Plugins gate on the ref — force a repaint when mode flips so the
       // dashed boundary lines appear/disappear instantly.
       prodChartRef.current?.redraw();
@@ -2766,15 +2737,11 @@ export const DeclineCurve = memo(
       segmentsRef.current = segments;
     }, [segments]);
 
-    const [editMode, setEditMode] = useState<boolean>(defaultEditMode);
-    const editModeRef = useRef<boolean>(defaultEditMode);
-    useEffect(() => {
-      editModeRef.current = editMode;
-      prodChartRef.current?.redraw();
-    }, [editMode]);
-
-    const preEditSnapshotRef = useRef<Segment[] | null>(null);
-    const [isDirty, setIsDirty] = useState(false);
+    // v1: the chart is always editable. Edit-mode is the inverse of annotate-mode
+    // — entering "Annotate" disables drag/right-click on the forecast so the
+    // user is just drawing annotation regions. There is no longer a Save/Cancel
+    // wrapper; segment changes auto-commit through onSave on every mutation.
+    const editModeRef = useRef<boolean>(true);
 
     const [selectedId, setSelectedId] = useState<string | null>(() => segments[0]?.id ?? null);
     const selectedIdRef = useRef<string | null>(selectedId);
@@ -4179,79 +4146,15 @@ export const DeclineCurve = memo(
       }
     }, [availableDragParams, dragParam]);
 
-    // ── Edit mode controls ───────────────────────────────────────────────────
-    const enterEditMode = useCallback(() => {
-      preEditSnapshotRef.current = segmentsRef.current.map((s) => ({ ...s, params: { ...s.params } }));
-      setIsDirty(false);
-      setEditMode(true);
-    }, []);
-
-    const cancelEditMode = useCallback(() => {
-      const snap = preEditSnapshotRef.current;
-      if (snap) {
-        setSegments(snap);
-        const buffers = buffersRef.current;
-        if (buffers) {
-          engineUpdateForecastAndVariance(buffers, snap);
-          const prodChart = prodChartRef.current;
-          const varChart = varChartRef.current;
-          if (prodChart) {
-            const next = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
-            prodChart.setData(next, false);
-            prodChart.redraw();
-          }
-          if (varChart) {
-            const next = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
-            varChart.setData(next, false);
-            varChart.redraw();
-          }
-        }
-      }
-      preEditSnapshotRef.current = null;
-      setIsDirty(false);
-      setContextMenu(null);
-      setEditMode(false);
-    }, []);
-
-    const saveEdits = useCallback(() => {
-      onSave?.(segmentsRef.current);
-      preEditSnapshotRef.current = null;
-      setIsDirty(false);
-      setContextMenu(null);
-      setEditMode(false);
-    }, [onSave]);
-
-    // Mark dirty whenever segments change while in edit mode
+    // v1: no edit-mode wrapper, no Save/Cancel/dirty machinery. The `onSave`
+    // callback fires from the segments-change effect (see useEffect above
+    // that already calls onSegmentsChange) — see the auto-commit wiring
+    // below where we forward every segment change.
     useEffect(() => {
-      if (editMode && preEditSnapshotRef.current) {
-        const snap = preEditSnapshotRef.current;
-        const differ =
-          snap.length !== segments.length ||
-          segments.some((s, i) => {
-            const a = snap[i];
-            if (!a) return true;
-            if (
-              a.id !== s.id ||
-              a.tStart !== s.tStart ||
-              a.tEnd !== s.tEnd ||
-              a.equation !== s.equation ||
-              a.qiAnchored !== s.qiAnchored ||
-              a.locked !== s.locked ||
-              a.color !== s.color ||
-              a.note !== s.note
-            ) {
-              return true;
-            }
-            return (
-              a.params.qi !== s.params.qi ||
-              a.params.di !== s.params.di ||
-              a.params.b !== s.params.b ||
-              a.params.slope !== s.params.slope
-            );
-          });
-        setIsDirty(differ);
-      }
-    }, [segments, editMode]);
+      onSave?.(segmentsRef.current);
+      // We intentionally read from ref to avoid a stale-array commit when
+      // multiple updates batch in the same tick.
+    }, [segments, onSave]);
 
     return (
       <div
@@ -4475,42 +4378,10 @@ export const DeclineCurve = memo(
               )}
             </div>
 
-            {editMode ? (
-              <>
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-indigo-600">
-                  <Pencil className="h-3 w-3" />
-                  Editing
-                  {isDirty && <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />}
-                </span>
-                <button
-                  type="button"
-                  onClick={cancelEditMode}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground",
-                    "hover:bg-muted hover:text-foreground transition-colors",
-                  )}
-                  title="Discard changes"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveEdits}
-                  disabled={!isDirty}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-semibold text-white transition-colors",
-                    isDirty
-                      ? "bg-indigo-600 hover:bg-indigo-700"
-                      : "bg-indigo-400/70 cursor-not-allowed",
-                  )}
-                  title={isDirty ? "Save forecast" : "No changes to save"}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Save
-                </button>
-              </>
-            ) : annotateMode ? (
+            {/* v1 auto-commits every change — Save/Cancel/Edit toggle is gone.
+                The chart is always editable; toggle into annotate-mode when
+                drawing range annotations on top of the forecast. */}
+            {annotateMode ? (
               <>
                 <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
                   <Pencil className="h-3 w-3" />
@@ -4536,42 +4407,24 @@ export const DeclineCurve = memo(
                 </button>
               </>
             ) : (
-              <>
-                <span className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-[10px] font-medium text-muted-foreground">
-                  <Lock className="h-3 w-3" />
-                  Locked
-                </span>
-                <button
-                  type="button"
-                  onClick={enterEditMode}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
-                    "hover:bg-muted hover:border-indigo-500/40 hover:text-indigo-600 transition-colors",
-                  )}
-                  title="Unlock to edit forecast"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit forecast
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAnnotateMode(true)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
-                    "hover:bg-muted hover:border-amber-500/40 hover:text-amber-600 transition-colors",
-                  )}
-                  title="Draw annotation regions on the chart"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Annotate
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => setAnnotateMode(true)}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
+                  "hover:bg-muted hover:border-amber-500/40 hover:text-amber-600 transition-colors",
+                )}
+                title="Draw annotation regions on the chart"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Annotate
+              </button>
             )}
           </div>
         </div>
 
         {/* ── Edit controls row: drag target + horizon ── */}
-        {editMode && (
+        {!annotateMode && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-1.5 text-[10px] text-muted-foreground">
             {availableDragParams.length > 1 && (
               <div className="flex items-center gap-2">
@@ -4622,136 +4475,9 @@ export const DeclineCurve = memo(
              Surfaces the selected segment's equation + params + lock here at
              the top of the chart so the user doesn't have to look at the list
              below to see what they're editing. */}
-        {editMode && selectedSegment && (() => {
-          const selectedIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
-          const selectedEffectiveQi = selectedIdx >= 0 ? effectiveQis[selectedIdx] ?? selectedSegment.params.qi : selectedSegment.params.qi;
-          const isFirstSelected = selectedIdx === 0;
-          const segLocked = !!selectedSegment.locked;
-          const compactInput = (
-            label: string,
-            value: number,
-            step: number,
-            onChange: (v: number) => void,
-            opts: { min?: number; max?: number; format?: (v: number) => string; disabled?: boolean; readOnly?: boolean } = {},
-          ) => (
-            <label key={label} className="inline-flex items-center gap-1.5 text-[10px]">
-              <span className="font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-              <input
-                type="number"
-                value={Number.isFinite(value) ? Number(value.toFixed(4)) : 0}
-                step={step}
-                min={opts.min}
-                max={opts.max}
-                disabled={opts.disabled || opts.readOnly}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (Number.isFinite(v)) onChange(v);
-                }}
-                className={cn(
-                  "h-6 w-[78px] rounded-md border border-border bg-background px-1.5 text-[11px] outline-none focus:ring-2 focus:ring-ring",
-                  (opts.disabled || opts.readOnly) && "cursor-not-allowed opacity-60",
-                )}
-              />
-              {opts.format && <span className="text-[9px] text-muted-foreground/70">{opts.format(value)}</span>}
-            </label>
-          );
-          return (
-            <div
-              className={cn(
-                "mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-2.5 py-1.5",
-                segLocked ? "border-amber-500/40 bg-amber-50/40" : "border-border bg-muted/30",
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white"
-                  style={{ background: colorForSegment(selectedIdx, selectedSegment) }}
-                >
-                  {selectedIdx + 1}
-                </span>
-                <span className="text-xs font-semibold">{EQUATION_LABELS[selectedSegment.equation]}</span>
-                <span className="font-mono text-[9.5px] text-muted-foreground">
-                  {EQUATION_FORMULAS[selectedSegment.equation]}
-                </span>
-              </div>
-
-              {isFirstSelected
-                ? compactInput(
-                    "qi",
-                    selectedSegment.params.qi,
-                    10,
-                    (v) => handleSegmentChange({ ...selectedSegment, params: { ...selectedSegment.params, qi: Math.max(0, v) } }),
-                    { min: 0, disabled: segLocked },
-                  )
-                : compactInput(
-                    "qi",
-                    selectedEffectiveQi,
-                    10,
-                    (v) =>
-                      handleSegmentChange({
-                        ...selectedSegment,
-                        params: { ...selectedSegment.params, qi: Math.max(0, v) },
-                        // Editing qi explicitly anchors the segment — same
-                        // semantic as drag-adjusting it.
-                        qiAnchored: true,
-                      }),
-                    { min: 0, disabled: segLocked },
-                  )}
-
-              {selectedEqFields.includes("di") &&
-                compactInput(
-                  "di",
-                  selectedSegment.params.di,
-                  0.01,
-                  (v) =>
-                    handleSegmentChange({
-                      ...selectedSegment,
-                      params: { ...selectedSegment.params, di: Math.max(0, v) },
-                    }),
-                  { min: 0, format: (v) => `${(v * 100).toFixed(1)}%`, disabled: segLocked },
-                )}
-              {selectedEqFields.includes("b") &&
-                compactInput(
-                  "b",
-                  selectedSegment.params.b,
-                  0.05,
-                  (v) =>
-                    handleSegmentChange({
-                      ...selectedSegment,
-                      params: { ...selectedSegment.params, b: Math.max(0.01, Math.min(2, v)) },
-                    }),
-                  { min: 0.01, max: 2, disabled: segLocked },
-                )}
-              {selectedEqFields.includes("slope") &&
-                compactInput(
-                  "slope",
-                  selectedSegment.params.slope,
-                  1,
-                  (v) =>
-                    handleSegmentChange({
-                      ...selectedSegment,
-                      params: { ...selectedSegment.params, slope: v },
-                    }),
-                  { disabled: segLocked },
-                )}
-
-              <button
-                type="button"
-                onClick={() => handleSegmentChange({ ...selectedSegment, locked: !segLocked })}
-                className={cn(
-                  "ml-auto inline-flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors",
-                  segLocked
-                    ? "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25"
-                    : "border border-border bg-background text-muted-foreground hover:bg-muted",
-                )}
-                title={segLocked ? "Unlock segment" : "Lock segment — pin params, ignore neighbor drags"}
-              >
-                <Lock className={cn("h-3 w-3", !segLocked && "opacity-60")} />
-                {segLocked ? "Locked" : "Lock"}
-              </button>
-            </div>
-          );
-        })()}
+        {/* v0 surfaced the selected segment's params in a compact strip
+             above the chart. Removed for v1 — every segment knob now lives
+             in the right-side <SegmentEditorBody> panel only. */}
 
         {/* ── Chart area + side panel row ──
              Side panel docks to the right of the charts when open; chart
@@ -4898,13 +4624,13 @@ export const DeclineCurve = memo(
 
         {/* ── Segment side panel ── docks right of the chart column. Visible
              only in edit mode + when opened. Empty when no segment selected. */}
-        {editMode && segmentPanelOpen && selectedSegment && (() => {
+        {!annotateMode && segmentPanelOpen && selectedSegment && (() => {
           const segIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
           const next = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
           const segLength = next ? next.tStart - selectedSegment.tStart : null;
           return (
-            <div className="w-[300px] flex-shrink-0 rounded-md border border-border bg-background shadow-sm">
-              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+            <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span
                     className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
@@ -4925,14 +4651,17 @@ export const DeclineCurve = memo(
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <div className="max-h-[600px] overflow-y-auto p-3">
+              {/* Panel matches the chart column's height (self-stretch on
+                   the parent flex). Inner area scrolls if the editor is
+                   taller than the available height. */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-3">
                 <SegmentEditorBody
                   segment={selectedSegment}
                   isFirst={segIdx === 0}
                   isLast={segIdx === sortedSegments.length - 1}
                   effectiveQi={effectiveQis[segIdx] ?? selectedSegment.params.qi}
                   length={segLength}
-                  locked={!editMode || !!selectedSegment.locked}
+                  locked={annotateMode || !!selectedSegment.locked}
                   startDate={startDate}
                   timeUnit={timeUnit}
                   updateParam={(key, value) =>
@@ -4964,7 +4693,7 @@ export const DeclineCurve = memo(
         {/* Reopen handle — visible when the panel is closed but a segment
              is selected and we're in edit mode. Slim vertical button on the
              right edge that expands the panel back. */}
-        {editMode && !segmentPanelOpen && selectedSegment && (
+        {!annotateMode && !segmentPanelOpen && selectedSegment && (
           <button
             type="button"
             onClick={() => setSegmentPanelOpen(true)}
@@ -4984,49 +4713,10 @@ export const DeclineCurve = memo(
         )}
         </div>{/* end chart-row flex */}
 
-        {/* ── Segment editor ── (hidden in fullscreen — charts only) */}
-        {!isFullscreen && (
-        <div className="mt-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Segments
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            {sortedSegments.map((seg, i) => {
-              const next = sortedSegments[i + 1];
-              const segLength = next ? next.tStart - seg.tStart : null;
-              return (
-                <SegmentRow
-                  key={seg.id}
-                  segment={seg}
-                  index={i}
-                  isFirst={i === 0}
-                  isLast={i === sortedSegments.length - 1}
-                  isSelected={seg.id === selectedId}
-                  effectiveQi={effectiveQis[i] ?? seg.params.qi}
-                  length={segLength}
-                  locked={!editMode}
-                  startDate={startDate}
-                  timeUnit={timeUnit}
-                  onSelect={() => setSelectedId(seg.id)}
-                  onChange={handleSegmentChange}
-                  onLengthChange={(newLen) => {
-                    if (!next) return;
-                    const newNextTStart = seg.tStart + newLen;
-                    setSegments((prev) =>
-                      normalizeSegments(
-                        prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s)),
-                      ),
-                    );
-                  }}
-                  onRemove={() => handleSegmentRemove(seg.id)}
-                />
-              );
-            })}
-          </div>
-        </div>
-        )}
+        {/* The full per-segment list lived here in v0 — every selected
+             segment's editor moved into the right-side panel for v1, and
+             the legacy list is being replaced by a v2 multi-segment editor.
+             Keep this comment as a future-work anchor. */}
 
         {contextMenu && (
           <AddSegmentMenu
