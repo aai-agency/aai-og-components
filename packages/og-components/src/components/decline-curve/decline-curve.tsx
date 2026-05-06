@@ -2737,7 +2737,9 @@ export const DeclineCurve = memo(
 
     // Annotations — sanitize consumer input the same way as initialSegments:
     // dedupe ids (a duplicate routes every edit/delete to multiple rows),
-    // drop entries with non-finite tStart/tEnd, and ensure tStart <= tEnd.
+    // drop entries with non-finite tStart/tEnd, ensure tStart <= tEnd, and
+    // coerce unknown `type` keys to "other" so editor rendering can safely
+    // index ANNOTATION_TYPE_META[type].
     const [annotations, setAnnotations] = useState<Annotation[]>(() => {
       if (!initialAnnotations || initialAnnotations.length === 0) return [];
       const seen = new Set<string>();
@@ -2746,8 +2748,10 @@ export const DeclineCurve = memo(
         if (!a || !Number.isFinite(a.tStart) || !Number.isFinite(a.tEnd)) continue;
         const id = seen.has(a.id) ? nextAnnotationId() : a.id;
         seen.add(id);
-        const fixed = a.tEnd >= a.tStart ? a : { ...a, tEnd: a.tStart };
-        cleaned.push(id === a.id ? fixed : { ...fixed, id });
+        const safeType: AnnotationType = a.type in ANNOTATION_TYPE_META ? a.type : "other";
+        const base = a.tEnd >= a.tStart ? a : { ...a, tEnd: a.tStart };
+        const repaired = base.type === safeType ? base : { ...base, type: safeType };
+        cleaned.push(id === a.id ? repaired : { ...repaired, id });
       }
       return cleaned;
     });

@@ -567,7 +567,14 @@ export const insertSegmentAt = (
 
   const newId = nextSegmentId();
   const nextBoundary = sorted.find((s) => s.tStart > t)?.tStart;
-  const remaining = nextBoundary != null ? nextBoundary - t : Number.POSITIVE_INFINITY;
+  // If we're inserting into the *last* segment and it has a finite tEnd
+  // (closed-ended forecast), treat that tEnd as the right wall — otherwise
+  // the resumption segment would be placed past the configured shutoff and
+  // the forecast would silently extend forever.
+  const terminalCap =
+    active && nextBoundary == null && Number.isFinite(active.tEnd) ? (active.tEnd as number) : null;
+  const rightWall = nextBoundary ?? terminalCap ?? Number.POSITIVE_INFINITY;
+  const remaining = Number.isFinite(rightWall) ? rightWall - t : Number.POSITIVE_INFINITY;
   // Keep the default window width an integer so tEnd stays aligned with the
   // caller's t (which is expected to be an integer for day/month/year data).
   const defaultWidth = windowWidth ?? Math.max(1, Math.round(Math.min(10, remaining * 0.2)));
@@ -611,12 +618,30 @@ export const insertSegmentAt = (
         equation: active.equation,
         params: { ...active.params, qi: qiAtTEnd },
         qiAnchored: insertEndsAtZero,
+        // Preserve a closed-ended terminal so insertion never silently
+        // re-opens a forecast that the caller had explicitly capped.
+        ...(terminalCap != null ? { tEnd: terminalCap } : {}),
       }
     : null;
 
-  const next = [...segments, newSeg];
-  if (resumeSeg && (nextBoundary == null || tEnd < nextBoundary)) {
+  // Suppress resumption when it would land at or past the right wall
+  // (terminal tEnd or next boundary) — there's no room for a tail.
+  // When we're moving the terminal cap onto a newer tail segment, also clear
+  // it from the previously-terminal `active` so the forecast doesn't carry
+  // confusing stale state.
+  let segmentsCopy = segments;
+  if (terminalCap != null && active) {
+    segmentsCopy = segments.map((s) =>
+      s.id === active.id ? { ...s, tEnd: undefined } : s,
+    );
+  }
+  const next = [...segmentsCopy, newSeg];
+  if (resumeSeg && tEnd < rightWall) {
     next.push(resumeSeg);
+  } else if (terminalCap != null) {
+    // Insert overran the terminal cap; carry the cap onto the new segment so
+    // the forecast still ends where the caller asked.
+    newSeg.tEnd = terminalCap;
   }
 
   return { segments: normalizeSegments(next), insertedId: newId };
