@@ -376,6 +376,39 @@ export const EQUATION_META: Record<EquationType, EquationMeta> = {
  * to match the prior segment's final value — writes a mutable copy so
  * subsequent evaluation is cheap. Returns the list of effective qi values.
  */
+/**
+ * Default minimum spacing between segment boundaries. Mirrors the value used
+ * by the boundary-drag clamp in decline-curve.tsx so all edit paths agree.
+ */
+export const MIN_SEGMENT_WIDTH = 0.5;
+
+/**
+ * Enforce strictly increasing `tStart` with at least `minWidth` between
+ * boundaries. Used by every commit path (Start/End/Length inputs, insert,
+ * drag mouseup) so manual edits can't create overlapping or zero-width
+ * segments that make evaluation order-dependent.
+ */
+export const normalizeSegments = (segments: Segment[], minWidth = MIN_SEGMENT_WIDTH): Segment[] => {
+  if (segments.length === 0) return segments;
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  let mutated = false;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const minStart = prev.tStart + minWidth;
+    if (!Number.isFinite(sorted[i].tStart) || sorted[i].tStart < minStart) {
+      sorted[i] = { ...sorted[i], tStart: minStart };
+      mutated = true;
+    }
+  }
+  // Snap any open-ended terminal tEnd that sits before the segment's start.
+  const last = sorted[sorted.length - 1];
+  if (Number.isFinite(last.tEnd) && (last.tEnd as number) < last.tStart + minWidth) {
+    sorted[sorted.length - 1] = { ...last, tEnd: last.tStart + minWidth };
+    mutated = true;
+  }
+  return mutated ? sorted : segments;
+};
+
 export const computeForecast = (buffers: DeclineMathBuffers, segments: Segment[]): Float64Array => {
   const { time, forecast, length } = buffers;
   if (segments.length === 0) {
@@ -437,7 +470,9 @@ export const computeVariance = (buffers: DeclineMathBuffers): void => {
   const { actual, forecast, variance, length } = buffers;
   for (let i = 0; i < length; i++) {
     const a = actual[i];
-    variance[i] = Number.isNaN(a) ? Number.NaN : a - forecast[i];
+    const f = forecast[i];
+    // Treat any non-finite input (NaN, ±Infinity) on either side as missing.
+    variance[i] = Number.isFinite(a) && Number.isFinite(f) ? a - f : Number.NaN;
   }
 };
 
@@ -507,11 +542,25 @@ export const insertSegmentAt = (
   equation: EquationType = "flat",
   windowWidth?: number,
 ): { segments: Segment[]; insertedId: string } => {
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+
+  // Refuse to land an insert exactly on (or within MIN_SEGMENT_WIDTH of) an
+  // existing boundary — that would create duplicate or zero-width segments
+  // whose evaluation order is implementation-defined. Nudge the insert
+  // forward by MIN_SEGMENT_WIDTH per collision (caller passes integer t for
+  // day/month/year scales, so the nudged t lands on the next valid slot).
+  let safeT = t;
+  for (const s of sorted) {
+    if (Math.abs(s.tStart - safeT) < MIN_SEGMENT_WIDTH) {
+      safeT = s.tStart + MIN_SEGMENT_WIDTH;
+    }
+  }
+  t = safeT;
+
   const active = findActiveSegment(segments, t);
   const qiAtT = evalAtTime(segments, t);
 
   const newId = nextSegmentId();
-  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
   const nextBoundary = sorted.find((s) => s.tStart > t)?.tStart;
   const remaining = nextBoundary != null ? nextBoundary - t : Number.POSITIVE_INFINITY;
   // Keep the default window width an integer so tEnd stays aligned with the
@@ -565,7 +614,7 @@ export const insertSegmentAt = (
     next.push(resumeSeg);
   }
 
-  return { segments: next.sort((a, b) => a.tStart - b.tStart), insertedId: newId };
+  return { segments: normalizeSegments(next), insertedId: newId };
 };
 
 export const removeSegment = (segments: Segment[], id: string): Segment[] => {

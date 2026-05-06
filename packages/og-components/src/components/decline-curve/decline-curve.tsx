@@ -27,8 +27,10 @@ import {
   evalSegment,
   generateSampleProduction,
   insertSegmentAt,
+  MIN_SEGMENT_WIDTH,
   nextAnnotationId,
   nextSegmentId,
+  normalizeSegments,
   removeSegment,
 } from "./decline-math";
 import { engineUpdateForecastAndVariance, initWasm } from "./wasm-engine";
@@ -82,7 +84,9 @@ const VARIANCE_POS_COLOR = "#10b981";
 const VARIANCE_NEG_COLOR = "#ef4444";
 const FORECAST_HIT_RADIUS_PX = 16;
 const BOUNDARY_HIT_RADIUS_PX = 6;
-const MIN_SEGMENT_WIDTH = 0.5;
+// MIN_SEGMENT_WIDTH lives in decline-math.ts so every commit path agrees on
+// the same lower bound (0.5 — sub-integer so an integer-snapped boundary is
+// always strictly inside the legal band).
 
 /** Curated palette — shows in the per-segment color picker and acts as the
  *  default cycled-by-index colors when a segment doesn't specify its own. */
@@ -3004,12 +3008,12 @@ export const DeclineCurve = memo(
       // recompute bounds as needed; x stays at whatever the zoom slider
       // set it to.
       if (prodChart) {
-        const newData: uPlot.AlignedData = [prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)];
+        const newData = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
       if (varChart) {
-        const newData: uPlot.AlignedData = [varChart.data[0], Array.from(buffers.variance)];
+        const newData = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
         varChart.setData(newData, false);
         varChart.redraw();
       }
@@ -4214,7 +4218,7 @@ export const DeclineCurve = memo(
     );
 
     const handleSegmentChange = useCallback((next: Segment) => {
-      setSegments((prev) => prev.map((s) => (s.id === next.id ? next : s)).sort((a, b) => a.tStart - b.tStart));
+      setSegments((prev) => normalizeSegments(prev.map((s) => (s.id === next.id ? next : s))));
     }, []);
 
     const handleSegmentRemove = useCallback(
@@ -4282,11 +4286,13 @@ export const DeclineCurve = memo(
           const prodChart = prodChartRef.current;
           const varChart = varChartRef.current;
           if (prodChart) {
-            prodChart.setData([prodChart.data[0], prodChart.data[1], Array.from(buffers.forecast)], false);
+            const next = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
+            prodChart.setData(next, false);
             prodChart.redraw();
           }
           if (varChart) {
-            varChart.setData([varChart.data[0], Array.from(buffers.variance)], false);
+            const next = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
+            varChart.setData(next, false);
             varChart.redraw();
           }
         }
@@ -5021,9 +5027,9 @@ export const DeclineCurve = memo(
                     if (!next) return;
                     const newNextTStart = selectedSegment.tStart + newLen;
                     setSegments((prev) =>
-                      prev
-                        .map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))
-                        .sort((a, b) => a.tStart - b.tStart),
+                      normalizeSegments(
+                        prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s)),
+                      ),
                     );
                   }}
                   onRemove={() => handleSegmentRemove(selectedSegment.id)}
@@ -5087,9 +5093,9 @@ export const DeclineCurve = memo(
                     if (!next) return;
                     const newNextTStart = seg.tStart + newLen;
                     setSegments((prev) =>
-                      prev
-                        .map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))
-                        .sort((a, b) => a.tStart - b.tStart),
+                      normalizeSegments(
+                        prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s)),
+                      ),
                     );
                   }}
                   onRemove={() => handleSegmentRemove(seg.id)}
