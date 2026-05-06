@@ -12,6 +12,42 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
 
+// ── 5-segment definitions (module-scoped: pure, no closure deps) ────────────
+// Realistic Bakken-style well: flowback → hyperbolic → shut-in → exponential → harmonic
+const FIVE_SEG_DEFS: Array<{
+  tStart: number;
+  equation: EquationType;
+  params: { qi: number; di: number; b: number; slope: number };
+  qiAnchored?: boolean;
+}> = [
+  // 1. Flowback ramp-up: 0-20 days, gentle climb
+  { tStart: 0, equation: "flowback", params: { qi: 200, di: 0, b: 0, slope: 15 } },
+  // 2. Hyperbolic primary decline: 20-350 days
+  { tStart: 20, equation: "hyperbolic", params: { qi: 0, di: 0.006, b: 1.0, slope: 0 } },
+  // 3. Shut-in for workover: 350-390 days
+  { tStart: 350, equation: "shutIn", params: { qi: 0, di: 0, b: 0, slope: 0 }, qiAnchored: true },
+  // 4. Exponential post-workover: 390-650 days
+  { tStart: 390, equation: "exponential", params: { qi: 180, di: 0.003, b: 0, slope: 0 }, qiAnchored: true },
+  // 5. Harmonic terminal decline: 650+ days
+  { tStart: 650, equation: "harmonic", params: { qi: 0, di: 0.005, b: 0, slope: 0 } },
+];
+
+// Pre-compute effective qi once at module load — FIVE_SEG_DEFS is static.
+const FIVE_SEG_QI: number[] = (() => {
+  const qi: number[] = [FIVE_SEG_DEFS[0].params.qi];
+  for (let s = 1; s < FIVE_SEG_DEFS.length; s++) {
+    const seg = FIVE_SEG_DEFS[s];
+    if (seg.qiAnchored) {
+      qi.push(seg.params.qi);
+    } else {
+      const prev = FIVE_SEG_DEFS[s - 1];
+      const dt = seg.tStart - prev.tStart;
+      qi.push(evalSegment(prev.equation, { ...prev.params, qi: qi[s - 1] }, dt));
+    }
+  }
+  return qi;
+})();
+
 const DeclineCurvePage = () => {
   const [segmentSummary, setSegmentSummary] = useState<Segment[] | null>(null);
 
@@ -108,43 +144,6 @@ const DeclineCurvePage = () => {
   );
 
   // ── 5-segment daily demo ──────────────────────────────────────────────────
-  // Realistic well life: flowback → hyperbolic → shut-in → exponential → harmonic
-  // ── 5-segment definitions ──────────────────────────────────────────────────
-  // Realistic Bakken-style well: flowback → hyperbolic → shut-in → exponential → harmonic
-  const FIVE_SEG_DEFS: Array<{
-    tStart: number;
-    equation: EquationType;
-    params: { qi: number; di: number; b: number; slope: number };
-    qiAnchored?: boolean;
-  }> = [
-    // 1. Flowback ramp-up: 0-20 days, gentle climb
-    { tStart: 0, equation: "flowback", params: { qi: 200, di: 0, b: 0, slope: 15 } },
-    // 2. Hyperbolic primary decline: 20-350 days
-    { tStart: 20, equation: "hyperbolic", params: { qi: 0, di: 0.006, b: 1.0, slope: 0 } },
-    // 3. Shut-in for workover: 350-390 days
-    { tStart: 350, equation: "shutIn", params: { qi: 0, di: 0, b: 0, slope: 0 }, qiAnchored: true },
-    // 4. Exponential post-workover: 390-650 days
-    { tStart: 390, equation: "exponential", params: { qi: 180, di: 0.003, b: 0, slope: 0 }, qiAnchored: true },
-    // 5. Harmonic terminal decline: 650+ days
-    { tStart: 650, equation: "harmonic", params: { qi: 0, di: 0.005, b: 0, slope: 0 } },
-  ];
-
-  // Pre-compute effective qi once (outside useMemo since FIVE_SEG_DEFS is stable)
-  const FIVE_SEG_QI = (() => {
-    const qi: number[] = [FIVE_SEG_DEFS[0].params.qi];
-    for (let s = 1; s < FIVE_SEG_DEFS.length; s++) {
-      const seg = FIVE_SEG_DEFS[s];
-      if (seg.qiAnchored) {
-        qi.push(seg.params.qi);
-      } else {
-        const prev = FIVE_SEG_DEFS[s - 1];
-        const dt = seg.tStart - prev.tStart;
-        qi.push(evalSegment(prev.equation, { ...prev.params, qi: qi[s - 1] }, dt));
-      }
-    }
-    return qi;
-  })();
-
   const fiveSegData = useMemo(() => {
     const totalDays = 900;
     const time: number[] = [];
@@ -243,9 +242,7 @@ const DeclineCurvePage = () => {
         </div>
       </DemoCard>
 
-      <DemoCard
-        title={`Daily production (${dailyData.count} days) — 50-day offset-frac shut-in`}
-      >
+      <DemoCard title={`Daily production (${dailyData.count} days) — 50-day offset-frac shut-in`}>
         <div style={{ minHeight: 560 }}>
           <DeclineCurve
             production={dailyData.production}
@@ -267,13 +264,7 @@ const DeclineCurvePage = () => {
 
       <DemoCard title="Empty start — right-click the forecast line to add segments">
         <div style={{ minHeight: 540 }}>
-          <DeclineCurve
-            height={320}
-            varianceHeight={240}
-            unitsPerYear={12}
-            startDate="2024-01-01"
-            timeUnit="month"
-          />
+          <DeclineCurve height={320} varianceHeight={240} unitsPerYear={12} startDate="2024-01-01" timeUnit="month" />
         </div>
       </DemoCard>
 
@@ -325,28 +316,49 @@ const DeclineCurvePage = () => {
 
       <PropTable
         props={[
-          { name: "production", type: "number[]", description: "Actual production values. Generates sample data if omitted." },
+          {
+            name: "production",
+            type: "number[]",
+            description: "Actual production values. Generates sample data if omitted.",
+          },
           { name: "time", type: "number[]", description: "Time values. Defaults to 0..N-1." },
           {
             name: "initialSegments",
             type: "Segment[]",
-            description: "Preloaded multi-segment forecast. Overrides initialParams. Each segment has id, tStart, equation, and params.",
+            description:
+              "Preloaded multi-segment forecast. Overrides initialParams. Each segment has id, tStart, equation, and params.",
           },
           {
             name: "initialParams",
             type: "Partial<HyperbolicParams>",
-            description: "Starting qi/di/b for the default single hyperbolic segment. Ignored if initialSegments is provided.",
+            description:
+              "Starting qi/di/b for the default single hyperbolic segment. Ignored if initialSegments is provided.",
           },
           { name: "height", type: "number", default: "300", description: "Production chart height in pixels." },
-          { name: "varianceHeight", type: "number", default: "120", description: "Variance bar chart height in pixels." },
+          {
+            name: "varianceHeight",
+            type: "number",
+            default: "120",
+            description: "Variance bar chart height in pixels.",
+          },
           { name: "unit", type: "string", default: '"BBL/mo"', description: "Unit label for axes and tooltips." },
           {
             name: "onSegmentsChange",
             type: "(segments: Segment[]) => void",
             description: "Fires whenever the segment list or any segment's params change.",
           },
-          { name: "actualColor", type: "string", default: '"#10b981"', description: "Stroke color for actual production line." },
-          { name: "forecastColor", type: "string", default: '"#6366f1"', description: "Stroke color for forecast curve." },
+          {
+            name: "actualColor",
+            type: "string",
+            default: '"#10b981"',
+            description: "Stroke color for actual production line.",
+          },
+          {
+            name: "forecastColor",
+            type: "string",
+            default: '"#6366f1"',
+            description: "Stroke color for forecast curve.",
+          },
         ]}
       />
     </PageWrapper>

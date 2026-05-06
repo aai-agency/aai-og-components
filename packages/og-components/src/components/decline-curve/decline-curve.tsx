@@ -1,4 +1,19 @@
-import { Check, ChevronDown, ChevronRight, Lock, Maximize2, Minimize2, Minus, Pencil, Plus, RotateCcw, Settings, Sparkles, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Maximize2,
+  Minimize2,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Settings,
+  Sparkles,
+  Trash2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
@@ -6,19 +21,29 @@ import "uplot/dist/uPlot.min.css";
 import { cn } from "../../lib/utils";
 import { ACCENT, FONT_FAMILY, TEXT_FAINT } from "../../theme";
 import { formatNumber } from "../../utils";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "../ui/select";
 import {
-  type DeclineMathBuffers,
-  DEFAULT_SEGMENT_PARAMS,
-  type EquationType,
-  type HyperbolicParams,
-  type Segment,
-  type SegmentParams,
-  EQUATION_META,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
   ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
   type Annotation,
   type AnnotationType,
+  DEFAULT_SEGMENT_PARAMS,
+  type DeclineMathBuffers,
+  EQUATION_META,
+  type EquationType,
+  type HyperbolicParams,
+  MIN_SEGMENT_WIDTH,
+  type Segment,
+  type SegmentParams,
   bendSegmentToTarget,
   colorForAnnotation,
   computeAnnotationStats,
@@ -27,7 +52,6 @@ import {
   evalSegment,
   generateSampleProduction,
   insertSegmentAt,
-  MIN_SEGMENT_WIDTH,
   nextAnnotationId,
   nextSegmentId,
   normalizeSegments,
@@ -149,8 +173,7 @@ const tToDate = (base: Date, t: number, unit: TimeUnit): Date => {
 const dateToT = (base: Date, date: Date, unit: TimeUnit): number => {
   if (unit === "day") return (date.getTime() - base.getTime()) / 86400000;
   if (unit === "month") {
-    const months =
-      (date.getFullYear() - base.getFullYear()) * 12 + (date.getMonth() - base.getMonth());
+    const months = (date.getFullYear() - base.getFullYear()) * 12 + (date.getMonth() - base.getMonth());
     const dayDelta = (date.getDate() - base.getDate()) / 30.4375;
     return months + dayDelta;
   }
@@ -212,7 +235,12 @@ const tooltipPlugin = (
   /** Shared buffers — the variance chart's own series data doesn't include
    *  actual/forecast, so we pull everything from here regardless of which
    *  chart is hosting the tooltip. */
-  getBuffers: () => { actual: Float64Array; forecast: Float64Array; variance: Float64Array; time: Float64Array } | null = () => null,
+  getBuffers: () => {
+    actual: Float64Array;
+    forecast: Float64Array;
+    variance: Float64Array;
+    time: Float64Array;
+  } | null = () => null,
 ): uPlot.Plugin => {
   let tooltip: HTMLDivElement;
 
@@ -343,7 +371,6 @@ const tooltipPlugin = (
   };
 };
 
-
 // ── Variance Bars Plugin ─────────────────────────────────────────────────────
 
 type VarianceBarsMode = "off" | "sign" | "byAnnotation" | "combined";
@@ -447,8 +474,7 @@ const boundaryPlugin = (
       const selectedIdx = sorted.findIndex((s) => s.id === selectedId);
       const selectedColor = selectedIdx >= 0 ? colorForSegment(selectedIdx, sorted[selectedIdx]) : "#6366f1";
 
-      const toX = (t: number) =>
-        plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
+      const toX = (t: number) => plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
 
       ctx.save();
 
@@ -474,9 +500,8 @@ const boundaryPlugin = (
       // Emphasize the selected segment's start and end (both)
       if (selectedIdx >= 0) {
         const startT = sorted[selectedIdx].tStart;
-        const endT = selectedIdx + 1 < sorted.length
-          ? sorted[selectedIdx + 1].tStart
-          : (sorted[selectedIdx].tEnd ?? xMax);
+        const endT =
+          selectedIdx + 1 < sorted.length ? sorted[selectedIdx + 1].tStart : (sorted[selectedIdx].tEnd ?? xMax);
 
         ctx.setLineDash([5, 4]);
         ctx.strokeStyle = selectedColor;
@@ -638,9 +663,23 @@ const annotationRegionsPlugin = (
       const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
       return ap - bp;
     });
-    const toX = (t: number) =>
-      plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
-    return { ctx, plotLeft, plotWidth, plotTop, plotHeight, xMin, xMax, xRange, sorted, hoveredId, selectedId, drawing, background, toX };
+    const toX = (t: number) => plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
+    return {
+      ctx,
+      plotLeft,
+      plotWidth,
+      plotTop,
+      plotHeight,
+      xMin,
+      xMax,
+      xRange,
+      sorted,
+      hoveredId,
+      selectedId,
+      drawing,
+      background,
+      toX,
+    };
   };
 
   return {
@@ -679,98 +718,97 @@ const annotationRegionsPlugin = (
       },
       // Boundaries + labels on top (above the actual/forecast lines).
       draw: (u: uPlot) => {
-      const ctx = u.ctx;
-      const plotLeft = u.bbox.left;
-      const plotWidth = u.bbox.width;
-      const plotTop = u.bbox.top;
-      const plotHeight = u.bbox.height;
-      const times = u.data[0] as number[];
-      const xMin = u.scales.x.min ?? (times.length > 0 ? times[0] : 0);
-      const xMax = u.scales.x.max ?? (times.length > 0 ? times[times.length - 1] : 1);
-      const xRange = xMax - xMin;
-      if (xRange === 0) return;
-      const toX = (t: number) =>
-        plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
+        const ctx = u.ctx;
+        const plotLeft = u.bbox.left;
+        const plotWidth = u.bbox.width;
+        const plotTop = u.bbox.top;
+        const plotHeight = u.bbox.height;
+        const times = u.data[0] as number[];
+        const xMin = u.scales.x.min ?? (times.length > 0 ? times[0] : 0);
+        const xMax = u.scales.x.max ?? (times.length > 0 ? times[times.length - 1] : 1);
+        const xRange = xMax - xMin;
+        if (xRange === 0) return;
+        const toX = (t: number) => plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
 
-      const annotations = getAnnotations();
-      const hoveredId = getHoveredId();
-      const selectedId = getSelectedId();
-      const drawing = getDrawing();
-      const background = getBackground();
+        const annotations = getAnnotations();
+        const hoveredId = getHoveredId();
+        const selectedId = getSelectedId();
+        const drawing = getDrawing();
+        const background = getBackground();
 
-      ctx.save();
+        ctx.save();
 
-      // In-progress drag preview — boundaries are always shown while drawing.
-      if (drawing) {
-        const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
-        const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
-        ctx.strokeStyle = "rgba(99, 102, 241, 0.9)";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([5, 4]);
-        ctx.beginPath();
-        ctx.moveTo(dx1, plotTop);
-        ctx.lineTo(dx1, plotTop + plotHeight);
-        ctx.moveTo(dx2, plotTop);
-        ctx.lineTo(dx2, plotTop + plotHeight);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+        // In-progress drag preview — boundaries are always shown while drawing.
+        if (drawing) {
+          const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
+          const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
+          ctx.strokeStyle = "rgba(99, 102, 241, 0.9)";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.moveTo(dx1, plotTop);
+          ctx.lineTo(dx1, plotTop + plotHeight);
+          ctx.moveTo(dx2, plotTop);
+          ctx.lineTo(dx2, plotTop + plotHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
 
-      // Existing annotations — sort so selected/hovered render on top
-      const sorted = [...annotations].sort((a, b) => {
-        const ap = a.id === selectedId ? 2 : a.id === hoveredId ? 1 : 0;
-        const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
-        return ap - bp;
-      });
-      void background; // (fills handled in drawAxes hook below)
+        // Existing annotations — sort so selected/hovered render on top
+        const sorted = [...annotations].sort((a, b) => {
+          const ap = a.id === selectedId ? 2 : a.id === hoveredId ? 1 : 0;
+          const bp = b.id === selectedId ? 2 : b.id === hoveredId ? 1 : 0;
+          return ap - bp;
+        });
+        void background; // (fills handled in drawAxes hook below)
 
-      // Dashed boundaries + caps only show while annotating. Outside annotate
-      // mode the shaded fill (drawAxes hook) carries the visual on its own.
-      if (!getAnnotateMode()) {
-        ctx.restore();
-        return;
-      }
+        // Dashed boundaries + caps only show while annotating. Outside annotate
+        // mode the shaded fill (drawAxes hook) carries the visual on its own.
+        if (!getAnnotateMode()) {
+          ctx.restore();
+          return;
+        }
 
-      for (const a of sorted) {
-        const color = colorForAnnotation(a);
-        const startT = Math.min(a.tStart, a.tEnd);
-        const endT = Math.max(a.tStart, a.tEnd);
-        const x1 = toX(startT);
-        const x2 = toX(endT);
-        if (x2 <= x1) continue;
+        for (const a of sorted) {
+          const color = colorForAnnotation(a);
+          const startT = Math.min(a.tStart, a.tEnd);
+          const endT = Math.max(a.tStart, a.tEnd);
+          const x1 = toX(startT);
+          const x2 = toX(endT);
+          if (x2 <= x1) continue;
 
-        const isHovered = a.id === hoveredId;
-        const isSelected = a.id === selectedId;
-        const emphasized = isHovered || isSelected;
+          const isHovered = a.id === hoveredId;
+          const isSelected = a.id === selectedId;
+          const emphasized = isHovered || isSelected;
 
-        // Boundary lines (dashed, in annotation color)
-        ctx.strokeStyle = color;
-        ctx.lineWidth = emphasized ? 1.5 : 1;
-        ctx.setLineDash([5, 4]);
-        ctx.beginPath();
-        ctx.moveTo(x1, plotTop);
-        ctx.lineTo(x1, plotTop + plotHeight);
-        ctx.moveTo(x2, plotTop);
-        ctx.lineTo(x2, plotTop + plotHeight);
-        ctx.stroke();
-        ctx.setLineDash([]);
+          // Boundary lines (dashed, in annotation color)
+          ctx.strokeStyle = color;
+          ctx.lineWidth = emphasized ? 1.5 : 1;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x1, plotTop);
+          ctx.lineTo(x1, plotTop + plotHeight);
+          ctx.moveTo(x2, plotTop);
+          ctx.lineTo(x2, plotTop + plotHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        if (emphasized) {
-          // Triangle caps at top of each boundary
-          ctx.fillStyle = color;
-          for (const x of [x1, x2]) {
-            ctx.beginPath();
-            ctx.moveTo(x - 5, plotTop);
-            ctx.lineTo(x + 5, plotTop);
-            ctx.lineTo(x, plotTop + 6);
-            ctx.closePath();
-            ctx.fill();
+          if (emphasized) {
+            // Triangle caps at top of each boundary
+            ctx.fillStyle = color;
+            for (const x of [x1, x2]) {
+              ctx.beginPath();
+              ctx.moveTo(x - 5, plotTop);
+              ctx.lineTo(x + 5, plotTop);
+              ctx.lineTo(x, plotTop + 6);
+              ctx.closePath();
+              ctx.fill();
+            }
           }
         }
-      }
 
-      ctx.restore();
-    },
+        ctx.restore();
+      },
     },
   };
 };
@@ -1278,9 +1316,7 @@ const SegmentColorSwatch = ({
   return (
     <div ref={wrapRef} className="relative space-y-1">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Color
-        </label>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Color</span>
         {segment.color && !locked && (
           <button
             type="button"
@@ -1307,13 +1343,12 @@ const SegmentColorSwatch = ({
           className="inline-block h-4 w-4 rounded-sm border border-border/60"
           style={{ background: currentColor }}
         />
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {currentColor.toUpperCase()}
-        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">{currentColor.toUpperCase()}</span>
         <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
       {open && !locked && (
         <div
+          // biome-ignore lint/a11y/useSemanticElements: floating popover with custom positioning, not a native modal dialog
           role="dialog"
           className="absolute left-0 z-50 mt-1 w-[176px] rounded-md border border-border bg-popover p-2 shadow-lg"
         >
@@ -1484,9 +1519,7 @@ const SegmentEditorBody = ({
               onClick={() => setTimeMode("date")}
               className={cn(
                 "h-5 rounded-sm px-2 font-medium transition-colors",
-                timeMode === "date"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
+                timeMode === "date" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
               )}
             >
               date
@@ -1496,9 +1529,7 @@ const SegmentEditorBody = ({
               onClick={() => setTimeMode("days")}
               className={cn(
                 "h-5 rounded-sm px-2 font-medium transition-colors",
-                timeMode === "days"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
+                timeMode === "days" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {unitLabel}
@@ -1509,9 +1540,7 @@ const SegmentEditorBody = ({
 
       {!isFirst && (
         <div className="flex items-center gap-2">
-          <label className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Start
-          </label>
+          <span className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Start</span>
           {useDates && startAsDate ? (
             <input
               type="date"
@@ -1537,9 +1566,7 @@ const SegmentEditorBody = ({
                 className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
               />
               {startAsDate && (
-                <span className="w-24 text-right text-[10px] text-muted-foreground">
-                  {dateInputValue(startAsDate)}
-                </span>
+                <span className="w-24 text-right text-[10px] text-muted-foreground">{dateInputValue(startAsDate)}</span>
               )}
             </>
           )}
@@ -1548,9 +1575,7 @@ const SegmentEditorBody = ({
 
       {!isLast && length != null && (
         <div className="flex items-center gap-2">
-          <label className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            End
-          </label>
+          <span className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">End</span>
           {useDates && endAsDate ? (
             <input
               type="date"
@@ -1608,19 +1633,13 @@ const SegmentEditorBody = ({
               }}
               className="h-3.5 w-3.5 rounded border-border accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
             />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Open-ended
-            </span>
-            <span className="text-[10px] text-muted-foreground/70">
-              (runs to the forecast horizon)
-            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Open-ended</span>
+            <span className="text-[10px] text-muted-foreground/70">(runs to the forecast horizon)</span>
           </label>
 
           {segment.tEnd != null && (
             <div className="flex items-center gap-2">
-              <label className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                End
-              </label>
+              <span className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">End</span>
               {useDates && startDate ? (
                 <input
                   type="date"
@@ -1662,12 +1681,9 @@ const SegmentEditorBody = ({
         onChange={(color) => onChange({ ...segment, color })}
       />
 
-
       {/* Annotation / note */}
       <div className="space-y-1">
-        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Note
-        </label>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Note</span>
         <textarea
           value={segment.note ?? ""}
           disabled={locked}
@@ -1719,7 +1735,12 @@ const StatRow = ({
   </tr>
 );
 
-const SwatchButton = ({ color, name, active, onClick }: { color: string; name: string; active: boolean; onClick: () => void }) => (
+const SwatchButton = ({
+  color,
+  name,
+  active,
+  onClick,
+}: { color: string; name: string; active: boolean; onClick: () => void }) => (
   <button
     type="button"
     title={name}
@@ -1837,9 +1858,7 @@ const AnnotationRangeFields = ({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Range
-        </label>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Range</span>
         {supportsDates && (
           <div className="inline-flex h-6 items-center rounded-md border border-border bg-background p-0.5 text-[10px]">
             <button
@@ -1847,9 +1866,7 @@ const AnnotationRangeFields = ({
               onClick={() => setMode("days")}
               className={cn(
                 "h-5 rounded-sm px-2 font-medium transition-colors",
-                mode === "days"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
+                mode === "days" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {unitLabel}
@@ -1859,9 +1876,7 @@ const AnnotationRangeFields = ({
               onClick={() => setMode("date")}
               className={cn(
                 "h-5 rounded-sm px-2 font-medium transition-colors",
-                mode === "date"
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
+                mode === "date" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
               )}
             >
               date
@@ -1872,7 +1887,7 @@ const AnnotationRangeFields = ({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">Start</label>
+          <span className="text-[10px] text-muted-foreground">Start</span>
           {useDates && startAsDate ? (
             <input
               type="date"
@@ -1899,7 +1914,7 @@ const AnnotationRangeFields = ({
           )}
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">End</label>
+          <span className="text-[10px] text-muted-foreground">End</span>
           {useDates && endAsDate ? (
             <input
               type="date"
@@ -2003,6 +2018,7 @@ const AnnotationEditorPopover = ({
   return (
     <div
       ref={ref}
+      // biome-ignore lint/a11y/useSemanticElements: floating popover with custom positioning, not a native modal dialog
       role="dialog"
       aria-label="Edit annotation"
       className={cn(
@@ -2018,7 +2034,9 @@ const AnnotationEditorPopover = ({
       >
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm" style={{ background: color }} />
-          <span className="text-xs font-semibold">{annotation.label || ANNOTATION_TYPE_META[annotation.type].label}</span>
+          <span className="text-xs font-semibold">
+            {annotation.label || ANNOTATION_TYPE_META[annotation.type].label}
+          </span>
           <span className="text-[10px] text-muted-foreground">
             {formatT(annotation.tStart)} → {formatT(annotation.tEnd)}
           </span>
@@ -2065,22 +2083,12 @@ const AnnotationEditorPopover = ({
 
       <div className="space-y-3 px-3 py-3">
         {/* Start / End range — supports producing days (numeric) or calendar dates */}
-        <AnnotationRangeFields
-          annotation={annotation}
-          startDate={startDate}
-          timeUnit={timeUnit}
-          onChange={onChange}
-        />
+        <AnnotationRangeFields annotation={annotation} startDate={startDate} timeUnit={timeUnit} onChange={onChange} />
 
         {/* Type — doubles as the annotation's label. Color is derived from type. */}
         <div className="space-y-1">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Type
-          </label>
-          <Select
-            value={annotation.type}
-            onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}
-          >
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Type</span>
+          <Select value={annotation.type} onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}>
             <SelectTrigger className="h-8 w-full text-xs">
               <SelectValue>
                 <span className="inline-flex items-center gap-1.5">
@@ -2115,10 +2123,8 @@ const AnnotationEditorPopover = ({
         </div>
 
         {/* Description */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Description
-          </label>
+        <label className="block space-y-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Description</span>
           <textarea
             value={annotation.description ?? ""}
             placeholder="Add context (optional)"
@@ -2126,7 +2132,7 @@ const AnnotationEditorPopover = ({
             onChange={(e) => onChange({ ...annotation, description: e.target.value || undefined })}
             className="w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-[11px] leading-snug outline-none focus:ring-2 focus:ring-ring"
           />
-        </div>
+        </label>
 
         {/* Delete */}
         <button
@@ -2144,7 +2150,6 @@ const AnnotationEditorPopover = ({
     </div>
   );
 };
-
 
 const ParamInput = ({
   label,
@@ -2166,8 +2171,8 @@ const ParamInput = ({
   onChange: (v: number) => void;
 }) => {
   return (
-    <div className="flex items-center gap-2">
-      <label className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</label>
+    <label className="flex items-center gap-2">
+      <span className="w-14 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       <input
         type="number"
         value={value}
@@ -2188,7 +2193,7 @@ const ParamInput = ({
         className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       />
       {format && <span className="w-16 text-right text-[10px] text-muted-foreground">{format(value)}</span>}
-    </div>
+    </label>
   );
 };
 
@@ -2272,18 +2277,16 @@ const RangeSlider = ({
     };
   }, [fullMin, fullMax, range, onChange, isVertical]);
 
-  const startDrag =
-    (kind: "lo" | "hi" | "window") =>
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation();
-      e.preventDefault();
-      dragRef.current = {
-        kind,
-        startCoord: isVertical ? e.clientY : e.clientX,
-        startMin: value[0],
-        startMax: value[1],
-      };
+  const startDrag = (kind: "lo" | "hi" | "window") => (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    dragRef.current = {
+      kind,
+      startCoord: isVertical ? e.clientY : e.clientX,
+      startMin: value[0],
+      startMax: value[1],
     };
+  };
 
   const windowStyle: React.CSSProperties = isVertical
     ? { bottom: `${loPct}%`, top: `${100 - hiPct}%` }
@@ -2300,34 +2303,34 @@ const RangeSlider = ({
 
   // Reset button — × icon, sized to match the slider's footprint and tucked
   // at the end opposite the data flow (right of horizontal, top of vertical).
-  const resetButton = isZoomed && onReset ? (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onReset();
-      }}
-      className={cn(
-        "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70",
-        "hover:bg-muted hover:text-foreground transition-colors",
-      )}
-      title="Reset zoom"
-    >
-      <X className="h-2.5 w-2.5" />
-    </button>
-  ) : null;
+  const resetButton =
+    isZoomed && onReset ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onReset();
+        }}
+        className={cn(
+          "inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70",
+          "hover:bg-muted hover:text-foreground transition-colors",
+        )}
+        title="Reset zoom"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+    ) : null;
 
   return (
     <div
-      className={cn(
-        "flex items-center",
-        isVertical ? "h-full w-4 flex-col gap-1 py-0.5" : "w-full h-4 gap-1 px-0.5",
-      )}
+      className={cn("flex items-center", isVertical ? "h-full w-4 flex-col gap-1 py-0.5" : "w-full h-4 gap-1 px-0.5")}
     >
       {/* Reset button is at the "high" end — top for vertical (matches a y
           axis where high is up), right for horizontal. Reserve space when
           hidden so the track length stays stable as the user toggles zoom. */}
-      <div className={cn("flex items-center justify-center", isVertical ? "h-4 w-4 order-first" : "w-4 h-4 order-last")}>
+      <div
+        className={cn("flex items-center justify-center", isVertical ? "h-4 w-4 order-first" : "w-4 h-4 order-last")}
+      >
         {resetButton}
       </div>
       <div
@@ -2643,21 +2646,24 @@ export const DeclineCurve = memo(
       varChartRef.current?.setScale("x", { min: times[0], max: times[times.length - 1] });
       setIsZoomed(false);
     }, []);
-    const zoomBy = useCallback((factor: number) => {
-      const range = getCurrentRange();
-      const buffers = buffersRef.current;
-      if (!range || !buffers) return;
-      const [min, max] = range;
-      const fullMin = buffers.time[0];
-      const fullMax = buffers.time[buffers.time.length - 1];
-      const center = (min + max) / 2;
-      const half = (max - min) / 2 / factor;
-      const newMin = Math.max(fullMin, center - half);
-      const newMax = Math.min(fullMax, center + half);
-      if (newMax - newMin < 1) return;
-      applyXScale(newMin, newMax);
-      setIsZoomed(newMin > fullMin + 0.5 || newMax < fullMax - 0.5);
-    }, [applyXScale, getCurrentRange]);
+    const zoomBy = useCallback(
+      (factor: number) => {
+        const range = getCurrentRange();
+        const buffers = buffersRef.current;
+        if (!range || !buffers) return;
+        const [min, max] = range;
+        const fullMin = buffers.time[0];
+        const fullMax = buffers.time[buffers.time.length - 1];
+        const center = (min + max) / 2;
+        const half = (max - min) / 2 / factor;
+        const newMin = Math.max(fullMin, center - half);
+        const newMax = Math.min(fullMax, center + half);
+        if (newMax - newMin < 1) return;
+        applyXScale(newMin, newMax);
+        setIsZoomed(newMin > fullMin + 0.5 || newMax < fullMax - 0.5);
+      },
+      [applyXScale, getCurrentRange],
+    );
     const zoomIn = useCallback(() => zoomBy(1.4), [zoomBy]);
     const zoomOut = useCallback(() => zoomBy(1 / 1.4), [zoomBy]);
 
@@ -2776,7 +2782,12 @@ export const DeclineCurve = memo(
         }
         return { timeData: t, actualData: productionProp };
       }
-      const sample = generateSampleProduction(36, DEFAULT_SEGMENT_PARAMS.qi, DEFAULT_SEGMENT_PARAMS.di, DEFAULT_SEGMENT_PARAMS.b);
+      const sample = generateSampleProduction(
+        36,
+        DEFAULT_SEGMENT_PARAMS.qi,
+        DEFAULT_SEGMENT_PARAMS.di,
+        DEFAULT_SEGMENT_PARAMS.b,
+      );
       return { timeData: sample.time, actualData: sample.values };
     }, [productionProp, timeProp]);
 
@@ -2891,7 +2902,8 @@ export const DeclineCurve = memo(
         // Record click info for click-vs-drag discrimination on mouseup
         const rect = chart.over.getBoundingClientRect();
         const lx = e.clientX - rect.left;
-        const inBounds = lx >= 0 && lx <= rect.width && e.clientY - rect.top >= 0 && e.clientY - rect.top <= rect.height;
+        const inBounds =
+          lx >= 0 && lx <= rect.width && e.clientY - rect.top >= 0 && e.clientY - rect.top <= rect.height;
         if (inBounds) {
           // Prefer chart.posToVal when its scale has resolved; fall back to data range.
           let tVal = chart.posToVal(lx, "x");
@@ -3066,9 +3078,7 @@ export const DeclineCurve = memo(
           } else {
             const prev = sortedAtDown[i - 1];
             const dt = sortedAtDown[i].tStart - prev.tStart;
-            effectiveQis.push(
-              evalSegment(prev.equation, { ...prev.params, qi: effectiveQis[i - 1] }, dt),
-            );
+            effectiveQis.push(evalSegment(prev.equation, { ...prev.params, qi: effectiveQis[i - 1] }, dt));
           }
         }
         const prevSeg = segIdxAtDown > 0 ? sortedAtDown[segIdxAtDown - 1] : null;
@@ -3081,11 +3091,7 @@ export const DeclineCurve = memo(
         let nextOriginalEnd = 0;
         if (nextSeg && followerSeg) {
           const nextEffectiveQi = effectiveQis[segIdxAtDown + 1];
-          nextOriginalEnd = evalSegment(
-            nextSeg.equation,
-            { ...nextSeg.params, qi: nextEffectiveQi },
-            nextDt,
-          );
+          nextOriginalEnd = evalSegment(nextSeg.equation, { ...nextSeg.params, qi: nextEffectiveQi }, nextDt);
         }
         dragSnapshotRef.current = {
           segments: segmentsRef.current,
@@ -3157,9 +3163,7 @@ export const DeclineCurve = memo(
           // mid-drag (toolbar toggle, etc.), drop the rest of the drag.
           if (segToUpdate?.locked || sorted[bDrag.index - 1]?.locked) return;
           if (segToUpdate && segToUpdate.tStart !== newT) {
-            const nextSegments = segmentsRef.current.map((s) =>
-              s.id === segToUpdate.id ? { ...s, tStart: newT } : s,
-            );
+            const nextSegments = segmentsRef.current.map((s) => (s.id === segToUpdate.id ? { ...s, tStart: newT } : s));
             segmentsRef.current = nextSegments;
             const buffers = buffersRef.current;
             if (buffers) engineUpdateForecastAndVariance(buffers, nextSegments);
@@ -3188,11 +3192,7 @@ export const DeclineCurve = memo(
           if (!Number.isFinite(tVal)) return; // skip frame if conversion is non-finite
           const newT = Math.round(Math.max(aDrag.minT, Math.min(aDrag.maxT, tVal)));
           const next = annotationsRef.current.map((a) =>
-            a.id === aDrag.id
-              ? aDrag.side === "start"
-                ? { ...a, tStart: newT }
-                : { ...a, tEnd: newT }
-              : a,
+            a.id === aDrag.id ? (aDrag.side === "start" ? { ...a, tStart: newT } : { ...a, tEnd: newT }) : a,
           );
           annotationsRef.current = next;
           cancelAnimationFrame(rafIdRef.current);
@@ -3242,8 +3242,7 @@ export const DeclineCurve = memo(
                 const x1raw = chart.valToPos(Math.min(a.tStart, a.tEnd), "x");
                 const x2raw = chart.valToPos(Math.max(a.tStart, a.tEnd), "x");
                 const useFallback = !Number.isFinite(x1raw) || !Number.isFinite(x2raw);
-                const fX = (t: number) =>
-                  useFallback ? ((t - dMin) / xRange) * rect0.width : chart.valToPos(t, "x");
+                const fX = (t: number) => (useFallback ? ((t - dMin) / xRange) * rect0.width : chart.valToPos(t, "x"));
                 const px1 = fX(Math.min(a.tStart, a.tEnd));
                 const px2 = fX(Math.max(a.tStart, a.tEnd));
                 if (Math.abs(lx - px1) <= BOUNDARY_HIT_RADIUS_PX) {
@@ -3348,13 +3347,13 @@ export const DeclineCurve = memo(
             const raw = chart.valToPos(t, "x");
             if (Number.isFinite(raw)) return raw;
             if (tDataMax === tDataMin) return rect.width / 2;
-            return (t - tDataMin) / (tDataMax - tDataMin) * rect.width;
+            return ((t - tDataMin) / (tDataMax - tDataMin)) * rect.width;
           };
           const yToPx = (y: number): number => {
             const raw = chart.valToPos(y, "y");
             if (Number.isFinite(raw)) return raw;
             if (yMaxPlot === yMinPlot) return rect.height / 2;
-            return rect.height - (y - yMinPlot) / (yMaxPlot - yMinPlot) * rect.height;
+            return rect.height - ((y - yMinPlot) / (yMaxPlot - yMinPlot)) * rect.height;
           };
           const pxToT = (px: number): number => {
             const raw = chart.posToVal(px, "x");
@@ -3558,10 +3557,8 @@ export const DeclineCurve = memo(
             applyXScale(lo, hi);
             const buffers = buffersRef.current;
             const fullMin = buffers?.time?.[0];
-            const fullMax = buffers && buffers.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
-            setIsZoomed(
-              fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5,
-            );
+            const fullMax = buffers?.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
+            setIsZoomed(fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5);
           }
         }
         mouseDownInfoRef.current = null;
@@ -3702,11 +3699,7 @@ export const DeclineCurve = memo(
       // segment context menu wins; otherwise the annotation editor opens —
       // but only if the user is actively annotating.
       const annId = hoveredAnnotationIdRef.current;
-      if (
-        annotateModeRef.current &&
-        annId &&
-        !(editModeRef.current && isOverForecastRef.current)
-      ) {
+      if (annotateModeRef.current && annId && !(editModeRef.current && isOverForecastRef.current)) {
         e.preventDefault();
         e.stopPropagation();
         setSelectedAnnotationId(annId);
@@ -3912,8 +3905,12 @@ export const DeclineCurve = memo(
 
       const overlay = chart.over;
       overlay.style.cursor = "default";
-      const onEnterProd = () => { hoveredChartRef.current = "prod"; };
-      const onLeaveProd = () => { if (hoveredChartRef.current === "prod") hoveredChartRef.current = null; };
+      const onEnterProd = () => {
+        hoveredChartRef.current = "prod";
+      };
+      const onLeaveProd = () => {
+        if (hoveredChartRef.current === "prod") hoveredChartRef.current = null;
+      };
       overlay.addEventListener("mouseenter", onEnterProd);
       overlay.addEventListener("mouseleave", onLeaveProd);
       overlay.addEventListener("mousedown", handleMouseDown);
@@ -3934,7 +3931,20 @@ export const DeclineCurve = memo(
           prodChartRef.current = null;
         }
       };
-    }, [extendedTime, actualData, height, width, unit, actualColor, forecastColor, syncKey, handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu]);
+    }, [
+      extendedTime,
+      actualData,
+      height,
+      width,
+      unit,
+      actualColor,
+      forecastColor,
+      syncKey,
+      handleMouseDown,
+      handleMouseMove,
+      handleMouseUp,
+      handleContextMenu,
+    ]);
 
     // ── Variance chart ───────────────────────────────────────────────────────
     useLayoutEffect(() => {
@@ -4018,10 +4028,7 @@ export const DeclineCurve = memo(
             range: () => yVarZoomRangeRef.current ?? [-maxAbs, maxAbs],
           },
         },
-        series: [
-          {},
-          { label: "Variance", stroke: "transparent", width: 0, points: { show: false } },
-        ],
+        series: [{}, { label: "Variance", stroke: "transparent", width: 0, points: { show: false } }],
       };
 
       if (varChartRef.current) varChartRef.current.destroy();
@@ -4030,8 +4037,12 @@ export const DeclineCurve = memo(
       varChartRef.current = vChart;
 
       const varOverlay = vChart.over;
-      const onEnterVar = () => { hoveredChartRef.current = "var"; };
-      const onLeaveVar = () => { if (hoveredChartRef.current === "var") hoveredChartRef.current = null; };
+      const onEnterVar = () => {
+        hoveredChartRef.current = "var";
+      };
+      const onLeaveVar = () => {
+        if (hoveredChartRef.current === "var") hoveredChartRef.current = null;
+      };
       varOverlay.addEventListener("mouseenter", onEnterVar);
       varOverlay.addEventListener("mouseleave", onLeaveVar);
 
@@ -4159,10 +4170,7 @@ export const DeclineCurve = memo(
     return (
       <div
         ref={rootRef}
-        className={cn(
-          "w-full",
-          isFullscreen && "fixed inset-0 z-[9999] flex flex-col overflow-auto bg-background p-6",
-        )}
+        className={cn("w-full", isFullscreen && "fixed inset-0 z-[9999] flex flex-col overflow-auto bg-background p-6")}
         style={{ fontFamily: FONT_FAMILY }}
       >
         {/* ── Toolbar strip ──
@@ -4315,19 +4323,25 @@ export const DeclineCurve = memo(
                       <SelectItem value="sign" textValue="+/− sign">
                         <div className="flex flex-col">
                           <span className="text-xs font-medium">+/− sign</span>
-                          <span className="text-[9px] text-muted-foreground">Green when actual &gt; forecast, red when below</span>
+                          <span className="text-[9px] text-muted-foreground">
+                            Green when actual &gt; forecast, red when below
+                          </span>
                         </div>
                       </SelectItem>
                       <SelectItem value="byAnnotation" textValue="By annotation">
                         <div className="flex flex-col">
                           <span className="text-xs font-medium">By annotation</span>
-                          <span className="text-[9px] text-muted-foreground">Annotation color inside, gray outside</span>
+                          <span className="text-[9px] text-muted-foreground">
+                            Annotation color inside, gray outside
+                          </span>
                         </div>
                       </SelectItem>
                       <SelectItem value="combined" textValue="Combined">
                         <div className="flex flex-col">
                           <span className="text-xs font-medium">Combined</span>
-                          <span className="text-[9px] text-muted-foreground">+/− sign outside, annotation color inside</span>
+                          <span className="text-[9px] text-muted-foreground">
+                            +/− sign outside, annotation color inside
+                          </span>
                         </div>
                       </SelectItem>
                       <SelectSeparator />
@@ -4369,9 +4383,7 @@ export const DeclineCurve = memo(
                     />
                     <div className="flex flex-col">
                       <span className="text-xs font-medium">Variance sub-chart</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        Attached bars below the forecast.
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">Attached bars below the forecast.</span>
                     </div>
                   </label>
                 </div>
@@ -4484,234 +4496,242 @@ export const DeclineCurve = memo(
              column shrinks to accommodate. Panel can be collapsed to give
              the chart full width back. */}
         <div className="flex w-full gap-3">
-        <div className="flex-1 min-w-0 flex flex-col">
-        {/* ── Production chart + Y-axis slider row ──
+          <div className="flex-1 min-w-0 flex flex-col">
+            {/* ── Production chart + Y-axis slider row ──
              Y slider sits on the LEFT, outside uPlot's own y-axis labels, so
              the visual reading order is slider | axis labels | plot. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "stretch",
-            width: "100%",
-            flex: isFullscreen ? `${height} 1 0` : undefined,
-            // Explicit height (not just min-height) so percentage-height
-            // descendants like the slider's track can resolve correctly.
-            // In fullscreen the flex weight overrides this.
-            height: isFullscreen ? undefined : height,
-            minHeight: height,
-            gap: 4,
-          }}
-        >
-          {(() => {
-            // Compute the full data extent for Y so the slider's track maps
-            // to the same bounds the auto-range would derive.
-            let dataMax = 0;
-            for (const v of actualData) if (Number.isFinite(v) && v > dataMax) dataMax = v;
-            for (let i = 0; i < sortedSegments.length; i++) {
-              const q = effectiveQis[i] ?? sortedSegments[i].params.qi;
-              if (q > dataMax) dataMax = q;
-            }
-            const fullYMax = (dataMax || 1) * 1.1;
-            const value: [number, number] = zoomYRange ?? [0, fullYMax];
-            return (
-              <RangeSlider
-                orientation="vertical"
-                fullMin={0}
-                fullMax={fullYMax}
-                value={value}
-                onChange={(r) => applyYScale(r[0], r[1])}
-                onReset={resetYZoom}
-              />
-            );
-          })()}
-          <div
-            ref={prodChartContainerRef}
-            style={{
-              flex: "1 1 auto",
-              minWidth: 0,
-              minHeight: height,
-              userSelect: "none",
-            }}
-          />
-        </div>
-
-        {/* ── Variance sub-chart ── (attached to the forecast chart; toggle
-             in the gear menu). Shares the forecast chart's x-range and picks
-             up coloring from the current variance mode so annotation colors
-             propagate down. */}
-        {showVarianceChart && (
-          <>
-            {/* Visual divider — separates the forecast chart from the
-                attached variance sub-chart so it reads as "a different thing". */}
-            <div className="mt-2 h-px w-full bg-border" />
-            <div className="flex items-center justify-between pb-0.5 pt-1.5 text-[10px] font-semibold text-muted-foreground">
-              <span>Variance (Actual − Forecast)</span>
-              <button
-                type="button"
-                onClick={() => setShowVarianceChart(false)}
-                className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                title="Hide variance chart"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
             <div
               style={{
                 display: "flex",
                 alignItems: "stretch",
                 width: "100%",
-                flex: isFullscreen ? `${varianceHeight} 1 0` : undefined,
-                height: isFullscreen ? undefined : varianceHeight,
-                minHeight: varianceHeight,
+                flex: isFullscreen ? `${height} 1 0` : undefined,
+                // Explicit height (not just min-height) so percentage-height
+                // descendants like the slider's track can resolve correctly.
+                // In fullscreen the flex weight overrides this.
+                height: isFullscreen ? undefined : height,
+                minHeight: height,
                 gap: 4,
               }}
             >
               {(() => {
-                // Re-derive the variance chart's full y-range for the slider
-                // track. Mirrors the maxAbs calc in varChart init — kept
-                // here at render time so changes to actuals/segments update
-                // the slider's bounds without a remount.
-                const buffers = buffersRef.current;
-                let maxAbs = 0;
-                if (buffers) {
-                  for (let i = 0; i < buffers.length; i++) {
-                    const v = buffers.variance[i];
-                    if (!Number.isNaN(v) && Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
-                  }
+                // Compute the full data extent for Y so the slider's track maps
+                // to the same bounds the auto-range would derive.
+                let dataMax = 0;
+                for (const v of actualData) if (Number.isFinite(v) && v > dataMax) dataMax = v;
+                for (let i = 0; i < sortedSegments.length; i++) {
+                  const q = effectiveQis[i] ?? sortedSegments[i].params.qi;
+                  if (q > dataMax) dataMax = q;
                 }
-                const fullVar = maxAbs * 1.2 || 100;
-                const value: [number, number] = zoomVarYRange ?? [-fullVar, fullVar];
+                const fullYMax = (dataMax || 1) * 1.1;
+                const value: [number, number] = zoomYRange ?? [0, fullYMax];
                 return (
                   <RangeSlider
                     orientation="vertical"
-                    fullMin={-fullVar}
-                    fullMax={fullVar}
+                    fullMin={0}
+                    fullMax={fullYMax}
                     value={value}
-                    onChange={(r) => applyVarYScale(r[0], r[1])}
-                    onReset={resetVarYZoom}
+                    onChange={(r) => applyYScale(r[0], r[1])}
+                    onReset={resetYZoom}
                   />
                 );
               })()}
               <div
-                ref={varChartContainerRef}
+                ref={prodChartContainerRef}
                 style={{
                   flex: "1 1 auto",
                   minWidth: 0,
-                  minHeight: varianceHeight,
+                  minHeight: height,
+                  userSelect: "none",
                 }}
               />
             </div>
-          </>
-        )}
 
-        {/* ── Range slider ── pan/resize the visible window. Hidden in
-             fullscreen since the chart already fills the viewport. */}
-        {!isFullscreen && extendedTime.length > 1 && (() => {
-          const fullMin = extendedTime[0];
-          const fullMax = extendedTime[extendedTime.length - 1];
-          const value: [number, number] = zoomRange ?? [fullMin, fullMax];
-          return (
-            <RangeSlider
-              fullMin={fullMin}
-              fullMax={fullMax}
-              value={value}
-              onChange={(r) => applyXScale(r[0], r[1])}
-              onReset={resetZoom}
-            />
-          );
-        })()}
-        </div>{/* end chart column */}
-
-        {/* ── Segment side panel ── docks right of the chart column. Visible
-             only in edit mode + when opened. Empty when no segment selected. */}
-        {!annotateMode && segmentPanelOpen && selectedSegment && (() => {
-          const segIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
-          const next = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
-          const segLength = next ? next.tStart - selectedSegment.tStart : null;
-          return (
-            <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
-              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
-                    style={{ background: colorForSegment(segIdx, selectedSegment) }}
+            {/* ── Variance sub-chart ── (attached to the forecast chart; toggle
+             in the gear menu). Shares the forecast chart's x-range and picks
+             up coloring from the current variance mode so annotation colors
+             propagate down. */}
+            {showVarianceChart && (
+              <>
+                {/* Visual divider — separates the forecast chart from the
+                attached variance sub-chart so it reads as "a different thing". */}
+                <div className="mt-2 h-px w-full bg-border" />
+                <div className="flex items-center justify-between pb-0.5 pt-1.5 text-[10px] font-semibold text-muted-foreground">
+                  <span>Variance (Actual − Forecast)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowVarianceChart(false)}
+                    className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="Hide variance chart"
                   >
-                    {segIdx + 1}
-                  </span>
-                  <span className="text-xs font-semibold truncate">
-                    {EQUATION_LABELS[selectedSegment.equation]}
-                  </span>
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSegmentPanelOpen(false)}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  title="Collapse panel"
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "stretch",
+                    width: "100%",
+                    flex: isFullscreen ? `${varianceHeight} 1 0` : undefined,
+                    height: isFullscreen ? undefined : varianceHeight,
+                    minHeight: varianceHeight,
+                    gap: 4,
+                  }}
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {/* Panel matches the chart column's height (self-stretch on
+                  {(() => {
+                    // Re-derive the variance chart's full y-range for the slider
+                    // track. Mirrors the maxAbs calc in varChart init — kept
+                    // here at render time so changes to actuals/segments update
+                    // the slider's bounds without a remount.
+                    const buffers = buffersRef.current;
+                    let maxAbs = 0;
+                    if (buffers) {
+                      for (let i = 0; i < buffers.length; i++) {
+                        const v = buffers.variance[i];
+                        if (!Number.isNaN(v) && Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+                      }
+                    }
+                    const fullVar = maxAbs * 1.2 || 100;
+                    const value: [number, number] = zoomVarYRange ?? [-fullVar, fullVar];
+                    return (
+                      <RangeSlider
+                        orientation="vertical"
+                        fullMin={-fullVar}
+                        fullMax={fullVar}
+                        value={value}
+                        onChange={(r) => applyVarYScale(r[0], r[1])}
+                        onReset={resetVarYZoom}
+                      />
+                    );
+                  })()}
+                  <div
+                    ref={varChartContainerRef}
+                    style={{
+                      flex: "1 1 auto",
+                      minWidth: 0,
+                      minHeight: varianceHeight,
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ── Range slider ── pan/resize the visible window. Hidden in
+             fullscreen since the chart already fills the viewport. */}
+            {!isFullscreen &&
+              extendedTime.length > 1 &&
+              (() => {
+                const fullMin = extendedTime[0];
+                const fullMax = extendedTime[extendedTime.length - 1];
+                const value: [number, number] = zoomRange ?? [fullMin, fullMax];
+                return (
+                  <RangeSlider
+                    fullMin={fullMin}
+                    fullMax={fullMax}
+                    value={value}
+                    onChange={(r) => applyXScale(r[0], r[1])}
+                    onReset={resetZoom}
+                  />
+                );
+              })()}
+          </div>
+          {/* end chart column */}
+
+          {/* ── Segment side panel ── docks right of the chart column. Visible
+             only in edit mode + when opened. Empty when no segment selected. */}
+          {!annotateMode &&
+            segmentPanelOpen &&
+            selectedSegment &&
+            (() => {
+              const segIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
+              const next = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
+              const segLength = next ? next.tStart - selectedSegment.tStart : null;
+              return (
+                <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+                  <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
+                        style={{ background: colorForSegment(segIdx, selectedSegment) }}
+                      >
+                        {segIdx + 1}
+                      </span>
+                      <span className="text-xs font-semibold truncate">
+                        {EQUATION_LABELS[selectedSegment.equation]}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSegmentPanelOpen(false)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      title="Collapse panel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {/* Panel matches the chart column's height (self-stretch on
                    the parent flex). Inner area scrolls if the editor is
                    taller than the available height. */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-3">
-                <SegmentEditorBody
-                  segment={selectedSegment}
-                  isFirst={segIdx === 0}
-                  isLast={segIdx === sortedSegments.length - 1}
-                  effectiveQi={effectiveQis[segIdx] ?? selectedSegment.params.qi}
-                  length={segLength}
-                  locked={annotateMode || !!selectedSegment.locked}
-                  startDate={startDate}
-                  timeUnit={timeUnit}
-                  updateParam={(key, value) =>
-                    handleSegmentChange({
-                      ...selectedSegment,
-                      params: { ...selectedSegment.params, [key]: value },
-                    })
-                  }
-                  updateEquation={(eq) =>
-                    handleSegmentChange({ ...selectedSegment, equation: eq })
-                  }
-                  onChange={handleSegmentChange}
-                  onLengthChange={(newLen) => {
-                    if (!next) return;
-                    const newNextTStart = selectedSegment.tStart + newLen;
-                    setSegments((prev) =>
-                      normalizeSegments(
-                        prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s)),
-                      ),
-                    );
-                  }}
-                  onRemove={() => handleSegmentRemove(selectedSegment.id)}
-                />
-              </div>
-            </div>
-          );
-        })()}
+                  <div className="flex-1 min-h-0 overflow-y-auto p-3">
+                    <SegmentEditorBody
+                      segment={selectedSegment}
+                      isFirst={segIdx === 0}
+                      isLast={segIdx === sortedSegments.length - 1}
+                      effectiveQi={effectiveQis[segIdx] ?? selectedSegment.params.qi}
+                      length={segLength}
+                      locked={annotateMode || !!selectedSegment.locked}
+                      startDate={startDate}
+                      timeUnit={timeUnit}
+                      updateParam={(key, value) =>
+                        handleSegmentChange({
+                          ...selectedSegment,
+                          params: { ...selectedSegment.params, [key]: value },
+                        })
+                      }
+                      updateEquation={(eq) => handleSegmentChange({ ...selectedSegment, equation: eq })}
+                      onChange={handleSegmentChange}
+                      onLengthChange={(newLen) => {
+                        if (!next) return;
+                        const newNextTStart = selectedSegment.tStart + newLen;
+                        setSegments((prev) =>
+                          normalizeSegments(prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))),
+                        );
+                      }}
+                      onRemove={() => handleSegmentRemove(selectedSegment.id)}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
-        {/* Reopen handle — visible when the panel is closed but a segment
+          {/* Reopen handle — visible when the panel is closed but a segment
              is selected and we're in edit mode. Slim vertical button on the
              right edge that expands the panel back. */}
-        {!annotateMode && !segmentPanelOpen && selectedSegment && (
-          <button
-            type="button"
-            onClick={() => setSegmentPanelOpen(true)}
-            className={cn(
-              "flex-shrink-0 w-6 rounded-md border border-border bg-background",
-              "hover:bg-muted hover:border-indigo-500/40 transition-colors",
-              "flex flex-col items-center justify-center py-2 gap-1",
-            )}
-            title="Open segment panel"
-          >
-            <ChevronRight className="h-3 w-3 rotate-180 text-muted-foreground" />
-            <div
-              className="w-1 flex-1 rounded-full"
-              style={{ background: colorForSegment(sortedSegments.findIndex((s) => s.id === selectedSegment.id), selectedSegment) }}
-            />
-          </button>
-        )}
-        </div>{/* end chart-row flex */}
+          {!annotateMode && !segmentPanelOpen && selectedSegment && (
+            <button
+              type="button"
+              onClick={() => setSegmentPanelOpen(true)}
+              className={cn(
+                "flex-shrink-0 w-6 rounded-md border border-border bg-background",
+                "hover:bg-muted hover:border-indigo-500/40 transition-colors",
+                "flex flex-col items-center justify-center py-2 gap-1",
+              )}
+              title="Open segment panel"
+            >
+              <ChevronRight className="h-3 w-3 rotate-180 text-muted-foreground" />
+              <div
+                className="w-1 flex-1 rounded-full"
+                style={{
+                  background: colorForSegment(
+                    sortedSegments.findIndex((s) => s.id === selectedSegment.id),
+                    selectedSegment,
+                  ),
+                }}
+              />
+            </button>
+          )}
+        </div>
+        {/* end chart-row flex */}
 
         {/* The full per-segment list lived here in v0 — every selected
              segment's editor moved into the right-side panel for v1, and
@@ -4737,34 +4757,33 @@ export const DeclineCurve = memo(
           />
         )}
 
-        {annotationEditor && (() => {
-          const a = annotations.find((x) => x.id === annotationEditor.annotationId);
-          if (!a) return null;
-          const buffers = buffersRef.current;
-          const stats = buffers
-            ? computeAnnotationStats(buffers, Math.min(a.tStart, a.tEnd), Math.max(a.tStart, a.tEnd))
-            : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
-          return (
-            <AnnotationEditorPopover
-              annotation={a}
-              stats={stats}
-              clientX={annotationEditor.clientX}
-              clientY={annotationEditor.clientY}
-              startDate={startDate}
-              timeUnit={timeUnit}
-              unit={unit}
-              onChange={(next) =>
-                setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))
-              }
-              onRemove={() => {
-                setAnnotations((prev) => prev.filter((x) => x.id !== a.id));
-                if (selectedAnnotationId === a.id) setSelectedAnnotationId(null);
-                setAnnotationEditor(null);
-              }}
-              onClose={() => setAnnotationEditor(null)}
-            />
-          );
-        })()}
+        {annotationEditor &&
+          (() => {
+            const a = annotations.find((x) => x.id === annotationEditor.annotationId);
+            if (!a) return null;
+            const buffers = buffersRef.current;
+            const stats = buffers
+              ? computeAnnotationStats(buffers, Math.min(a.tStart, a.tEnd), Math.max(a.tStart, a.tEnd))
+              : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+            return (
+              <AnnotationEditorPopover
+                annotation={a}
+                stats={stats}
+                clientX={annotationEditor.clientX}
+                clientY={annotationEditor.clientY}
+                startDate={startDate}
+                timeUnit={timeUnit}
+                unit={unit}
+                onChange={(next) => setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))}
+                onRemove={() => {
+                  setAnnotations((prev) => prev.filter((x) => x.id !== a.id));
+                  if (selectedAnnotationId === a.id) setSelectedAnnotationId(null);
+                  setAnnotationEditor(null);
+                }}
+                onClose={() => setAnnotationEditor(null)}
+              />
+            );
+          })()}
       </div>
     );
   },

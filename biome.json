@@ -44,6 +44,15 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".vinxi", ".output", "*.gen.*", "data/*.json", "apps/playground/public/data/*.json", "**/wasm-pkg/**"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      ".vinxi",
+      ".output",
+      "*.gen.*",
+      "data/*.json",
+      "apps/playground/public/data/*.json",
+      "**/wasm-pkg/**"
+    ]
   }
 }

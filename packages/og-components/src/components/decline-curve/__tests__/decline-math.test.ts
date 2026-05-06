@@ -10,6 +10,10 @@ import {
 } from "../decline-math";
 import type { Segment, SegmentParams } from "../decline-math";
 
+function expectDefined<T>(value: T | null | undefined, message?: string): asserts value is T {
+  if (value == null) throw new Error(message ?? "expected defined value, got null/undefined");
+}
+
 const hyperbolic = (overrides?: Partial<Segment>): Segment => ({
   id: nextSegmentId(),
   tStart: 0,
@@ -40,9 +44,7 @@ describe("insertSegmentAt — resumption behavior is value-driven", () => {
     // a custom-named equation or a Flat/Linear that evaluated to 0). When we
     // bisect with ANY equation whose end value is 0, the resumption should
     // anchor to the original projected value, not stay at 0.
-    const base: Segment[] = [
-      { id: "a", tStart: 0, equation: "flat", params: { qi: 0, di: 0, b: 0, slope: 0 } },
-    ];
+    const base: Segment[] = [{ id: "a", tStart: 0, equation: "flat", params: { qi: 0, di: 0, b: 0, slope: 0 } }];
     // Insert another flat at t=5 with windowWidth=5 — flat at qi=0 ends at 0.
     const { segments: next } = insertSegmentAt(base, 5, "flat", 5);
     const sorted = [...next].sort((a, b) => a.tStart - b.tStart);
@@ -192,54 +194,55 @@ describe("bendSegmentToTarget", () => {
 
   it("exponential: bends di so qi · e^(−di·dt) = target", () => {
     const r = verify("exponential", 1000, 600, 30);
-    expect(r).not.toBeNull();
-    expect(r?.changedParam).toBe("di");
-    const landed = evalSegment(r!.segment.equation, r!.segment.params, 30);
+    expectDefined(r);
+    expect(r.changedParam).toBe("di");
+    const landed = evalSegment(r.segment.equation, r.segment.params, 30);
     expect(landed).toBeCloseTo(600, 6);
   });
 
   it("harmonic: bends di to land at target", () => {
     const r = verify("harmonic", 800, 200, 100);
-    expect(r).not.toBeNull();
-    expect(r?.changedParam).toBe("di");
-    const landed = evalSegment("harmonic", r!.segment.params, 100);
+    expectDefined(r);
+    expect(r.changedParam).toBe("di");
+    const landed = evalSegment("harmonic", r.segment.params, 100);
     expect(landed).toBeCloseTo(200, 6);
   });
 
   it("hyperbolic: bends di while holding b fixed", () => {
     const r = verify("hyperbolic", 1500, 400, 365, { b: 0.85 });
-    expect(r).not.toBeNull();
-    expect(r?.changedParam).toBe("di");
-    expect(r?.segment.params.b).toBe(0.85); // b untouched
-    const landed = evalSegment("hyperbolic", r!.segment.params, 365);
+    expectDefined(r);
+    expect(r.changedParam).toBe("di");
+    expect(r.segment.params.b).toBe(0.85); // b untouched
+    const landed = evalSegment("hyperbolic", r.segment.params, 365);
     expect(landed).toBeCloseTo(400, 5);
   });
 
   it("stretchedExponential: bends di while holding n=b fixed", () => {
     const r = verify("stretchedExponential", 1000, 250, 200, { b: 0.6 });
-    expect(r).not.toBeNull();
-    expect(r?.changedParam).toBe("di");
-    expect(r?.segment.params.b).toBe(0.6);
-    const landed = evalSegment("stretchedExponential", r!.segment.params, 200);
+    expectDefined(r);
+    expect(r.changedParam).toBe("di");
+    expect(r.segment.params.b).toBe(0.6);
+    const landed = evalSegment("stretchedExponential", r.segment.params, 200);
     expect(landed).toBeCloseTo(250, 5);
   });
 
   it("linear: bends slope to land at target (any direction)", () => {
     const up = verify("linear", 100, 500, 40);
-    expect(up).not.toBeNull();
-    expect(up?.changedParam).toBe("slope");
-    expect(evalSegment("linear", up!.segment.params, 40)).toBeCloseTo(500, 6);
+    expectDefined(up);
+    expect(up.changedParam).toBe("slope");
+    expect(evalSegment("linear", up.segment.params, 40)).toBeCloseTo(500, 6);
 
     const down = verify("linear", 500, 100, 40);
-    expect(down?.segment.params.slope).toBeLessThan(0);
-    expect(evalSegment("linear", down!.segment.params, 40)).toBeCloseTo(100, 6);
+    expectDefined(down);
+    expect(down.segment.params.slope).toBeLessThan(0);
+    expect(evalSegment("linear", down.segment.params, 40)).toBeCloseTo(100, 6);
   });
 
   it("flowback: bends slope (same shape as linear)", () => {
     const r = verify("flowback", 50, 1200, 60, { slope: 25 });
-    expect(r).not.toBeNull();
-    expect(r?.changedParam).toBe("slope");
-    expect(evalSegment("flowback", r!.segment.params, 60)).toBeCloseTo(1200, 6);
+    expectDefined(r);
+    expect(r.changedParam).toBe("slope");
+    expect(evalSegment("flowback", r.segment.params, 60)).toBeCloseTo(1200, 6);
   });
 
   it("flat / constrained / choked: only succeed when target ≈ qi", () => {

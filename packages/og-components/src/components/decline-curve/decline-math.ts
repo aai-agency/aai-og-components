@@ -160,8 +160,7 @@ export const ANNOTATION_TYPE_META: Record<AnnotationType, AnnotationTypeMeta> = 
 };
 
 let annotationIdCounter = 0;
-export const nextAnnotationId = (): string =>
-  `ann_${++annotationIdCounter}_${Date.now().toString(36)}`;
+export const nextAnnotationId = (): string => `ann_${++annotationIdCounter}_${Date.now().toString(36)}`;
 
 /** Resolve an annotation's display color (override → type → fallback). */
 export const colorForAnnotation = (a: Annotation): string =>
@@ -177,11 +176,7 @@ export interface AnnotationStats {
   samples: number;
 }
 
-export const computeAnnotationStats = (
-  buffers: DeclineMathBuffers,
-  tStart: number,
-  tEnd: number,
-): AnnotationStats => {
+export const computeAnnotationStats = (buffers: DeclineMathBuffers, tStart: number, tEnd: number): AnnotationStats => {
   const { time, actual, forecast, length } = buffers;
   let sumActual = 0;
   let sumForecast = 0;
@@ -592,32 +587,30 @@ export const insertSegmentAt = (
       safeT = s.tStart + MIN_SEGMENT_WIDTH;
     }
   }
-  t = safeT;
 
-  const active = findActiveSegment(segments, t);
-  const qiAtT = evalAtTime(segments, t);
+  const active = findActiveSegment(segments, safeT);
+  const qiAtT = evalAtTime(segments, safeT);
 
   const newId = nextSegmentId();
-  const nextBoundary = sorted.find((s) => s.tStart > t)?.tStart;
+  const nextBoundary = sorted.find((s) => s.tStart > safeT)?.tStart;
   // If we're inserting into the *last* segment and it has a finite tEnd
   // (closed-ended forecast), treat that tEnd as the right wall — otherwise
   // the resumption segment would be placed past the configured shutoff and
   // the forecast would silently extend forever.
-  const terminalCap =
-    active && nextBoundary == null && Number.isFinite(active.tEnd) ? (active.tEnd as number) : null;
+  const terminalCap = active && nextBoundary == null && Number.isFinite(active.tEnd) ? (active.tEnd as number) : null;
   const rightWall = nextBoundary ?? terminalCap ?? Number.POSITIVE_INFINITY;
   // Refuse to insert when there is no room before a closed terminal cap —
   // otherwise normalizeSegments would have to widen the inserted segment's
   // tEnd past the cap to satisfy MIN_SEGMENT_WIDTH, silently re-opening the
   // forecast the caller had explicitly closed.
-  if (terminalCap != null && t + MIN_SEGMENT_WIDTH > terminalCap) {
+  if (terminalCap != null && safeT + MIN_SEGMENT_WIDTH > terminalCap) {
     return { segments, insertedId: "" };
   }
-  const remaining = Number.isFinite(rightWall) ? rightWall - t : Number.POSITIVE_INFINITY;
+  const remaining = Number.isFinite(rightWall) ? rightWall - safeT : Number.POSITIVE_INFINITY;
   // Keep the default window width an integer so tEnd stays aligned with the
   // caller's t (which is expected to be an integer for day/month/year data).
   const defaultWidth = windowWidth ?? Math.max(1, Math.round(Math.min(10, remaining * 0.2)));
-  const tEnd = t + defaultWidth;
+  const tEnd = safeT + defaultWidth;
 
   // Start from the active segment's params so di/b/slope carry over, then set
   // qi from the forecast at t. Preset-specific overrides come last.
@@ -632,7 +625,7 @@ export const insertSegmentAt = (
 
   const newSeg: Segment = {
     id: newId,
-    tStart: t,
+    tStart: safeT,
     equation,
     params: baseParams,
     qiAnchored: equation === "shutIn",
@@ -670,9 +663,7 @@ export const insertSegmentAt = (
   // confusing stale state.
   let segmentsCopy = segments;
   if (terminalCap != null && active) {
-    segmentsCopy = segments.map((s) =>
-      s.id === active.id ? { ...s, tEnd: undefined } : s,
-    );
+    segmentsCopy = segments.map((s) => (s.id === active.id ? { ...s, tEnd: undefined } : s));
   }
   const next = [...segmentsCopy, newSeg];
   if (resumeSeg && tEnd < rightWall) {
