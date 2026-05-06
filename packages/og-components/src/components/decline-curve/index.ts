@@ -26,9 +26,10 @@ export {
   generateDailyProduction,
   generateSampleProduction,
   insertSegmentAt,
+  MIN_SEGMENT_WIDTH,
   nextAnnotationId,
   nextSegmentId,
+  normalizeSegments,
   removeSegment,
   updateForecastAndVariance,
 } from "./decline-math";
-export { initWasm, isWasmReady } from "./wasm-engine";

@@ -33,7 +33,7 @@ import {
   normalizeSegments,
   removeSegment,
 } from "./decline-math";
-import { engineUpdateForecastAndVariance, initWasm } from "./wasm-engine";
+import { engineUpdateForecastAndVariance } from "./wasm-engine";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -2689,7 +2689,20 @@ export const DeclineCurve = memo(
 
     // Build initial segments: prefer explicit initialSegments, else single segment from initialParams
     const [segments, setSegments] = useState<Segment[]>(() => {
-      if (initialSegments && initialSegments.length > 0) return initialSegments;
+      if (initialSegments && initialSegments.length > 0) {
+        // Sanitize consumer-provided input: drop non-finite tStart, dedupe IDs
+        // (a duplicate id would route every update/remove to multiple segments
+        // at once), then enforce the boundary-spacing invariant.
+        const seen = new Set<string>();
+        const cleaned: Segment[] = [];
+        for (const s of initialSegments) {
+          if (!s || !Number.isFinite(s.tStart)) continue;
+          const id = seen.has(s.id) ? nextSegmentId() : s.id;
+          seen.add(id);
+          cleaned.push(id === s.id ? s : { ...s, id });
+        }
+        if (cleaned.length > 0) return normalizeSegments(cleaned);
+      }
       return [
         {
           id: nextSegmentId(),
@@ -2983,10 +2996,6 @@ export const DeclineCurve = memo(
       engineUpdateForecastAndVariance(buffers, segmentsRef.current);
     }, [extendedTime, actualData]);
 
-    useEffect(() => {
-      initWasm();
-    }, []);
-
     // Recompute forecast whenever segments change (skip first run — chart is mounted with fresh forecast)
     const isFirstSegmentsRun = useRef(true);
     useEffect(() => {
@@ -3276,7 +3285,17 @@ export const DeclineCurve = memo(
         if (bDrag) {
           const rect = chart.over.getBoundingClientRect();
           const lx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-          const rawT = chart.posToVal(lx, "x");
+          let rawT = chart.posToVal(lx, "x");
+          // posToVal can return NaN/Inf when the x-scale hasn't resolved; fall
+          // back to the chart's own time data range so we never write a
+          // non-finite tStart that would corrupt downstream evaluation.
+          if (!Number.isFinite(rawT)) {
+            const data = chart.data[0] as number[];
+            if (data && data.length > 1 && rect.width > 0) {
+              rawT = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
+            }
+          }
+          if (!Number.isFinite(rawT)) return; // skip this frame, retry on next mousemove
           // Snap to integer first, then clamp into an integer-safe band so
           // post-clamp rounding can't snap up to the neighboring segment's
           // tStart (which would collapse this segment to zero width).
@@ -4319,7 +4338,19 @@ export const DeclineCurve = memo(
           snap.length !== segments.length ||
           segments.some((s, i) => {
             const a = snap[i];
-            if (!a || a.id !== s.id || a.tStart !== s.tStart || a.equation !== s.equation) return true;
+            if (!a) return true;
+            if (
+              a.id !== s.id ||
+              a.tStart !== s.tStart ||
+              a.tEnd !== s.tEnd ||
+              a.equation !== s.equation ||
+              a.qiAnchored !== s.qiAnchored ||
+              a.locked !== s.locked ||
+              a.color !== s.color ||
+              a.note !== s.note
+            ) {
+              return true;
+            }
             return (
               a.params.qi !== s.params.qi ||
               a.params.di !== s.params.di ||
