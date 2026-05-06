@@ -2699,16 +2699,25 @@ export const DeclineCurve = memo(
     // Build initial segments: prefer explicit initialSegments, else single segment from initialParams
     const [segments, setSegments] = useState<Segment[]>(() => {
       if (initialSegments && initialSegments.length > 0) {
-        // Sanitize consumer-provided input: drop non-finite tStart, dedupe IDs
-        // (a duplicate id would route every update/remove to multiple segments
-        // at once), then enforce the boundary-spacing invariant.
+        // Sanitize consumer-provided input: drop non-finite tStart, dedupe
+        // IDs (a duplicate would route every update/remove to multiple
+        // segments at once), reject unknown equation tags, coerce any
+        // non-finite numeric param to a safe default, then enforce the
+        // boundary-spacing invariant.
         const seen = new Set<string>();
         const cleaned: Segment[] = [];
         for (const s of initialSegments) {
           if (!s || !Number.isFinite(s.tStart)) continue;
+          if (!(s.equation in EQUATION_META)) continue;
           const id = seen.has(s.id) ? nextSegmentId() : s.id;
           seen.add(id);
-          cleaned.push(id === s.id ? s : { ...s, id });
+          const safeParams: SegmentParams = {
+            qi: Number.isFinite(s.params?.qi) ? s.params.qi : DEFAULT_SEGMENT_PARAMS.qi,
+            di: Number.isFinite(s.params?.di) ? s.params.di : DEFAULT_SEGMENT_PARAMS.di,
+            b: Number.isFinite(s.params?.b) ? s.params.b : DEFAULT_SEGMENT_PARAMS.b,
+            slope: Number.isFinite(s.params?.slope) ? s.params.slope : DEFAULT_SEGMENT_PARAMS.slope,
+          };
+          cleaned.push({ ...s, id, params: safeParams });
         }
         if (cleaned.length > 0) return normalizeSegments(cleaned);
       }
@@ -3332,7 +3341,10 @@ export const DeclineCurve = memo(
           // tStart (which would collapse this segment to zero width).
           const lo = Math.ceil(bDrag.minT);
           const hi = Math.floor(bDrag.maxT);
-          const newT = hi < lo ? lo : Math.min(hi, Math.max(lo, Math.round(rawT)));
+          // No valid integer slot left between neighbors — skip this frame
+          // rather than force a value onto a neighbor boundary.
+          if (hi < lo) return;
+          const newT = Math.min(hi, Math.max(lo, Math.round(rawT)));
           const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
           const segToUpdate = sorted[bDrag.index];
           if (segToUpdate && segToUpdate.tStart !== newT) {

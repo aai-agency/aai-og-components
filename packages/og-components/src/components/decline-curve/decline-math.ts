@@ -761,8 +761,15 @@ export const adjustQiFromDrag = (
   yRange: [number, number],
   chartHeight: number,
 ): number => {
+  // Guard against degenerate inputs (zero-height chart, non-finite
+  // pixelDelta, inverted/zero yRange) so this public helper never
+  // returns NaN/Infinity for callers in unusual layout states.
+  if (!Number.isFinite(chartHeight) || chartHeight <= 0) return currentQi;
+  if (!Number.isFinite(pixelDelta)) return currentQi;
   const [yMin, yMax] = yRange;
-  const scale = (yMax - yMin) / chartHeight;
+  const yDelta = yMax - yMin;
+  if (!Number.isFinite(yDelta) || yDelta <= 0) return currentQi;
+  const scale = yDelta / chartHeight;
   return Math.max(1, currentQi - pixelDelta * scale);
 };
 
