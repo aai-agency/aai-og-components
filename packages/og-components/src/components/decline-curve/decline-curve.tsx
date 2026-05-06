@@ -3151,8 +3151,16 @@ export const DeclineCurve = memo(
           const times = buffersRef.current?.time;
           const dataMax = times && times.length > 0 ? times[times.length - 1] : Number.POSITIVE_INFINITY;
           const minT = (sorted[boundaryIdx - 1]?.tStart ?? 0) + MIN_SEGMENT_WIDTH;
-          const maxT =
-            (boundaryIdx + 1 < sorted.length ? sorted[boundaryIdx + 1].tStart : dataMax) - MIN_SEGMENT_WIDTH;
+          // For the trailing boundary, also clamp to the closed-ended tEnd
+          // (when set) so a drag can never push tStart past its segment's end.
+          let maxT: number;
+          if (boundaryIdx + 1 < sorted.length) {
+            maxT = sorted[boundaryIdx + 1].tStart - MIN_SEGMENT_WIDTH;
+          } else {
+            const lastTEnd = sorted[boundaryIdx]?.tEnd;
+            const tail = Number.isFinite(lastTEnd) ? Math.min(dataMax, lastTEnd as number) : dataMax;
+            maxT = tail - MIN_SEGMENT_WIDTH;
+          }
           boundaryDragRef.current = { index: boundaryIdx, minT, maxT };
           chart.over.style.cursor = "col-resize";
           e.preventDefault();

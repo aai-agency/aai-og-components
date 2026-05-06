@@ -190,7 +190,9 @@ export const computeAnnotationStats = (
   let n = 0;
   for (let i = 0; i < length; i++) {
     const t = time[i];
-    if (t < tStart || t > tEnd) continue;
+    // Annotations declare `tEnd` as exclusive (see Annotation type docs), so
+    // adjacent ranges share a single boundary sample without double-counting.
+    if (t < tStart || t >= tEnd) continue;
     const a = actual[i];
     const f = forecast[i];
     if (!Number.isFinite(a) || !Number.isFinite(f)) continue;
@@ -391,7 +393,10 @@ export const MIN_SEGMENT_WIDTH = 0.5;
 export const normalizeSegments = (segments: Segment[], minWidth = MIN_SEGMENT_WIDTH): Segment[] => {
   if (segments.length === 0) return segments;
   const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
-  let mutated = false;
+  // Detect whether sort changed order — if so, we must return the new array
+  // even when no boundary clamp was needed, so the invariant "output is
+  // sorted by tStart" actually holds.
+  let mutated = sorted.some((seg, i) => seg !== segments[i]);
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1];
     const minStart = prev.tStart + minWidth;

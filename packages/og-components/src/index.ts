@@ -27,8 +27,10 @@ export {
   generateDailyProduction,
   generateSampleProduction,
   insertSegmentAt,
+  MIN_SEGMENT_WIDTH,
   nextAnnotationId,
   nextSegmentId,
+  normalizeSegments,
   removeSegment,
   updateForecastAndVariance,
 } from "./components";
