@@ -2404,7 +2404,16 @@ const ParamInput = ({
         min={min}
         max={max}
         disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          // Don't commit transient number-input states like "" / "-" / "." —
+          // Number("") is 0 and Number("-") is NaN, both of which would poison
+          // forecast/variance evaluation. Read the parsed numeric value and
+          // ignore non-finite intermediates; the field still shows what the
+          // user typed because the input is uncontrolled-on-text but
+          // controlled-on-number.
+          const parsed = e.currentTarget.valueAsNumber;
+          if (Number.isFinite(parsed)) onChange(parsed);
+        }}
         className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       />
       {format && <span className="w-16 text-right text-[10px] text-muted-foreground">{format(value)}</span>}
@@ -2717,8 +2726,22 @@ export const DeclineCurve = memo(
     });
     const segmentsRef = useRef<Segment[]>(segments);
 
-    // Annotations
-    const [annotations, setAnnotations] = useState<Annotation[]>(() => initialAnnotations ?? []);
+    // Annotations — sanitize consumer input the same way as initialSegments:
+    // dedupe ids (a duplicate routes every edit/delete to multiple rows),
+    // drop entries with non-finite tStart/tEnd, and ensure tStart <= tEnd.
+    const [annotations, setAnnotations] = useState<Annotation[]>(() => {
+      if (!initialAnnotations || initialAnnotations.length === 0) return [];
+      const seen = new Set<string>();
+      const cleaned: Annotation[] = [];
+      for (const a of initialAnnotations) {
+        if (!a || !Number.isFinite(a.tStart) || !Number.isFinite(a.tEnd)) continue;
+        const id = seen.has(a.id) ? nextAnnotationId() : a.id;
+        seen.add(id);
+        const fixed = a.tEnd >= a.tStart ? a : { ...a, tEnd: a.tStart };
+        cleaned.push(id === a.id ? fixed : { ...fixed, id });
+      }
+      return cleaned;
+    });
     const annotationsRef = useRef<Annotation[]>(annotations);
     useEffect(() => {
       annotationsRef.current = annotations;
@@ -3337,10 +3360,11 @@ export const DeclineCurve = memo(
           let tVal = chart.posToVal(lx, "x");
           if (!Number.isFinite(tVal) || (tVal === 0 && lx > 2)) {
             const data = chart.data[0] as number[];
-            if (data && data.length > 1) {
+            if (data && data.length > 1 && rect.width > 0) {
               tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
             }
           }
+          if (!Number.isFinite(tVal)) return; // skip frame if conversion is non-finite
           const newT = Math.round(Math.max(aDrag.minT, Math.min(aDrag.maxT, tVal)));
           const next = annotationsRef.current.map((a) =>
             a.id === aDrag.id
@@ -3365,10 +3389,11 @@ export const DeclineCurve = memo(
           let tVal = chart.posToVal(lx, "x");
           if (!Number.isFinite(tVal) || (tVal === 0 && lx > 2)) {
             const data = chart.data[0] as number[];
-            if (data && data.length > 1) {
+            if (data && data.length > 1 && rect.width > 0) {
               tVal = data[0] + (lx / rect.width) * (data[data.length - 1] - data[0]);
             }
           }
+          if (!Number.isFinite(tVal)) return; // skip frame if conversion is non-finite
           drawingRef.current = { ...drawingRef.current, tEnd: Math.round(tVal) };
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = requestAnimationFrame(() => {
