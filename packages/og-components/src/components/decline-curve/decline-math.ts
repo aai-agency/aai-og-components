@@ -241,25 +241,49 @@ export const nextSegmentId = (): string => `seg_${++segmentIdCounter}_${Date.now
 
 /** Evaluate a segment's equation at elapsed time dt (time since segment start). */
 export const evalSegment = (eq: EquationType, p: SegmentParams, dt: number): number => {
+  // Reject any non-finite input up front so a single bad caller can't leak
+  // NaN/Infinity into the chart buffers (and from there into stats, hit
+  // tests, and rendering). Domain checks below catch the math edge cases
+  // (e.g. harmonic denominators going to zero) that finite inputs can
+  // still produce.
+  if (!Number.isFinite(p.qi) || !Number.isFinite(dt)) return Number.NaN;
+
   switch (eq) {
     // Base math
     case "flat":
       return p.qi;
-    case "exponential":
-      return p.qi * Math.exp(-p.di * dt);
-    case "harmonic":
-      return p.qi / (1 + p.di * dt);
+    case "exponential": {
+      if (!Number.isFinite(p.di)) return Number.NaN;
+      const r = p.qi * Math.exp(-p.di * dt);
+      return Number.isFinite(r) ? r : Number.NaN;
+    }
+    case "harmonic": {
+      if (!Number.isFinite(p.di)) return Number.NaN;
+      const denom = 1 + p.di * dt;
+      if (!Number.isFinite(denom) || denom <= 0) return Number.NaN;
+      return p.qi / denom;
+    }
     case "hyperbolic": {
+      if (!Number.isFinite(p.di) || !Number.isFinite(p.b)) return Number.NaN;
       const b = p.b <= 0 ? 1e-6 : p.b;
-      return p.qi / (1 + b * p.di * dt) ** (1 / b);
+      const denom = 1 + b * p.di * dt;
+      if (!Number.isFinite(denom) || denom <= 0) return Number.NaN;
+      const r = p.qi / denom ** (1 / b);
+      return Number.isFinite(r) ? r : Number.NaN;
     }
     case "linear":
+      if (!Number.isFinite(p.slope)) return Number.NaN;
       return p.qi + p.slope * dt;
     case "stretchedExponential": {
       // q(t) = qi · exp(-(Di · t)^n) where n = b. n=1 → exponential.
+      if (!Number.isFinite(p.di) || !Number.isFinite(p.b)) return Number.NaN;
       const n = p.b <= 0 ? 1e-6 : p.b;
-      const exponent = (p.di * dt) ** n;
-      return p.qi * Math.exp(-exponent);
+      const base = p.di * dt;
+      // Negative bases with non-integer exponents are NaN; clamp to 0 so a
+      // malformed Di can't poison the buffer.
+      const exponent = base < 0 ? 0 : base ** n;
+      const r = p.qi * Math.exp(-exponent);
+      return Number.isFinite(r) ? r : Number.NaN;
     }
     // Named operational presets — same math as a base equation, defaults differ
     case "shutIn":
@@ -268,6 +292,7 @@ export const evalSegment = (eq: EquationType, p: SegmentParams, dt: number): num
     case "choked":
       return p.qi;
     case "flowback":
+      if (!Number.isFinite(p.slope)) return Number.NaN;
       return p.qi + p.slope * dt;
   }
 };
@@ -547,6 +572,13 @@ export const insertSegmentAt = (
   equation: EquationType = "flat",
   windowWidth?: number,
 ): { segments: Segment[]; insertedId: string } => {
+  // Hard-fail on non-finite inputs so a malformed caller can never seed
+  // NaN/Infinity into the segment graph (which would make sort/evaluation
+  // order unstable and corrupt subsequent edits).
+  if (!Number.isFinite(t)) return { segments, insertedId: "" };
+  if (windowWidth != null && (!Number.isFinite(windowWidth) || windowWidth <= 0)) {
+    return { segments, insertedId: "" };
+  }
   const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
 
   // Refuse to land an insert exactly on (or within MIN_SEGMENT_WIDTH of) an

@@ -2721,15 +2721,24 @@ export const DeclineCurve = memo(
         }
         if (cleaned.length > 0) return normalizeSegments(cleaned);
       }
+      // Sanitize initialParams the same way segment ingest does — finite
+      // numbers only, fall back to defaults on missing/invalid fields.
+      // initialParams is typed Partial<HyperbolicParams> (qi/di/b only); the
+      // single-segment fallback equation is "hyperbolic" so slope just gets
+      // the default — there's no consumer surface for it here.
+      const ip: Partial<HyperbolicParams> = initialParams ?? {};
+      const safeInitParams: SegmentParams = {
+        qi: Number.isFinite(ip.qi) ? (ip.qi as number) : DEFAULT_SEGMENT_PARAMS.qi,
+        di: Number.isFinite(ip.di) ? (ip.di as number) : DEFAULT_SEGMENT_PARAMS.di,
+        b: Number.isFinite(ip.b) ? (ip.b as number) : DEFAULT_SEGMENT_PARAMS.b,
+        slope: DEFAULT_SEGMENT_PARAMS.slope,
+      };
       return [
         {
           id: nextSegmentId(),
           tStart: 0,
           equation: "hyperbolic" as const,
-          params: {
-            ...DEFAULT_SEGMENT_PARAMS,
-            ...initialParams,
-          },
+          params: safeInitParams,
         },
       ];
     });
