@@ -2001,6 +2001,131 @@ interface AnnotationEditorProps {
   onClose: () => void;
 }
 
+/**
+ * Annotation editor body — the form content (stats table, range fields,
+ * type select, description, delete) rendered without any positioning. Used
+ * by both the on-chart popover (positioned absolute via clientX/clientY)
+ * and the side-panel editor view (rendered inline). Mirrors the segment
+ * SegmentEditorBody pattern.
+ */
+const AnnotationEditorBody = ({
+  annotation,
+  stats,
+  startDate,
+  timeUnit,
+  unit,
+  onChange,
+  onRemove,
+}: {
+  annotation: Annotation;
+  stats: ReturnType<typeof computeAnnotationStats>;
+  startDate: Date | null;
+  timeUnit: TimeUnit;
+  unit: string;
+  onChange: (next: Annotation) => void;
+  onRemove: () => void;
+}) => (
+  <>
+    {/* Stats table — always visible. */}
+    {stats.samples === 0 ? (
+      <div className="border-b border-border px-3 py-2.5 text-[11px] text-muted-foreground">
+        No actual data in this range.
+      </div>
+    ) : (
+      <div className="border-b border-border px-3 py-2.5">
+        <table className="w-full">
+          <tbody>
+            <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
+            <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} />
+            <StatRow
+              label="Δ %"
+              value={
+                stats.avgForecast && stats.avgForecast !== 0
+                  ? `${((stats.avgDelta ?? 0) / stats.avgForecast) * 100 >= 0 ? "+" : ""}${(((stats.avgDelta ?? 0) / stats.avgForecast) * 100).toFixed(1)} %`
+                  : "—"
+              }
+              tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
+            />
+            <StatRow
+              label="Total variance"
+              value={`${(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}${stats.cumulativeDelta?.toFixed(0)}`}
+              tone={(stats.cumulativeDelta ?? 0) >= 0 ? "pos" : "neg"}
+            />
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    <div className="space-y-3 px-3 py-3">
+      <AnnotationRangeFields annotation={annotation} startDate={startDate} timeUnit={timeUnit} onChange={onChange} />
+
+      <div className="space-y-1">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Type</span>
+        <Select value={annotation.type} onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}>
+          <SelectTrigger className="h-8 w-full text-xs">
+            <SelectValue>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: ANNOTATION_TYPE_META[annotation.type].color }}
+                />
+                {ANNOTATION_TYPE_META[annotation.type].label}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {ANNOTATION_TYPE_GROUPS.map((g, gi) => (
+              <SelectGroup key={g.label}>
+                {gi > 0 && <SelectSeparator />}
+                <SelectLabel>{g.label}</SelectLabel>
+                {g.types.map((t) => {
+                  const meta = ANNOTATION_TYPE_META[t];
+                  return (
+                    <SelectItem key={t} value={t} textValue={meta.label}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                        <span className="text-xs font-medium">{meta.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <label className="block space-y-1">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Description</span>
+        <textarea
+          value={annotation.description ?? ""}
+          placeholder="Add context (optional)"
+          rows={3}
+          onChange={(e) => onChange({ ...annotation, description: e.target.value || undefined })}
+          className="w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-[11px] leading-snug outline-none focus:ring-2 focus:ring-ring"
+        />
+      </label>
+
+      <div className="space-y-1.5 pt-2 mt-2 border-t border-border">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actions</span>
+        <div>
+          <button
+            type="button"
+            onClick={onRemove}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-red-500",
+              "hover:border-red-500/30 hover:bg-red-500/5",
+            )}
+          >
+            <Trash2 className="h-3 w-3" />
+            Delete annotation
+          </button>
+        </div>
+      </div>
+    </div>
+  </>
+);
+
 const AnnotationEditorPopover = ({
   annotation,
   stats,
@@ -2092,102 +2217,15 @@ const AnnotationEditorPopover = ({
         </button>
       </div>
 
-      {/* Stats table — always visible when popover is open */}
-      {stats.samples === 0 ? (
-        <div className="border-b border-border px-3 py-2.5 text-[11px] text-muted-foreground">
-          No actual data in this range.
-        </div>
-      ) : (
-        <div className="border-b border-border px-3 py-2.5">
-          <table className="w-full">
-            <tbody>
-              <StatRow label="Avg actual" value={`${stats.avgActual?.toFixed(0)} ${unit}`} />
-              <StatRow label="Avg forecast" value={`${stats.avgForecast?.toFixed(0)} ${unit}`} />
-              <StatRow
-                label="Δ %"
-                value={
-                  stats.avgForecast && stats.avgForecast !== 0
-                    ? `${((stats.avgDelta ?? 0) / stats.avgForecast) * 100 >= 0 ? "+" : ""}${(((stats.avgDelta ?? 0) / stats.avgForecast) * 100).toFixed(1)} %`
-                    : "—"
-                }
-                tone={(stats.avgDelta ?? 0) >= 0 ? "pos" : "neg"}
-              />
-              <StatRow
-                label="Total variance"
-                value={`${(stats.cumulativeDelta ?? 0) >= 0 ? "+" : ""}${stats.cumulativeDelta?.toFixed(0)}`}
-                tone={(stats.cumulativeDelta ?? 0) >= 0 ? "pos" : "neg"}
-              />
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="space-y-3 px-3 py-3">
-        {/* Start / End range — supports producing days (numeric) or calendar dates */}
-        <AnnotationRangeFields annotation={annotation} startDate={startDate} timeUnit={timeUnit} onChange={onChange} />
-
-        {/* Type — doubles as the annotation's label. Color is derived from type. */}
-        <div className="space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Type</span>
-          <Select value={annotation.type} onValueChange={(v) => onChange({ ...annotation, type: v as AnnotationType })}>
-            <SelectTrigger className="h-8 w-full text-xs">
-              <SelectValue>
-                <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: ANNOTATION_TYPE_META[annotation.type].color }}
-                  />
-                  {ANNOTATION_TYPE_META[annotation.type].label}
-                </span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {ANNOTATION_TYPE_GROUPS.map((g, gi) => (
-                <SelectGroup key={g.label}>
-                  {gi > 0 && <SelectSeparator />}
-                  <SelectLabel>{g.label}</SelectLabel>
-                  {g.types.map((t) => {
-                    const meta = ANNOTATION_TYPE_META[t];
-                    return (
-                      <SelectItem key={t} value={t} textValue={meta.label}>
-                        <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
-                          <span className="text-xs font-medium">{meta.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Description */}
-        <label className="block space-y-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Description</span>
-          <textarea
-            value={annotation.description ?? ""}
-            placeholder="Add context (optional)"
-            rows={3}
-            onChange={(e) => onChange({ ...annotation, description: e.target.value || undefined })}
-            className="w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-[11px] leading-snug outline-none focus:ring-2 focus:ring-ring"
-          />
-        </label>
-
-        {/* Delete */}
-        <button
-          type="button"
-          onClick={onRemove}
-          className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-red-500",
-            "hover:border-red-500/30 hover:bg-red-500/5",
-          )}
-        >
-          <Trash2 className="h-3 w-3" />
-          Delete annotation
-        </button>
-      </div>
+      <AnnotationEditorBody
+        annotation={annotation}
+        stats={stats}
+        startDate={startDate}
+        timeUnit={timeUnit}
+        unit={unit}
+        onChange={onChange}
+        onRemove={onRemove}
+      />
     </div>
   );
 };
@@ -2854,6 +2892,8 @@ export const DeclineCurve = memo(
      *  currently selected segment (chart-click entry). Back button in the
      *  editor returns to 'list'. */
     const [segmentPanelView, setSegmentPanelView] = useState<"list" | "editor">("list");
+    /** Same two-step list/editor navigation for the annotations panel. */
+    const [annotationPanelView, setAnnotationPanelView] = useState<"list" | "editor">("list");
 
     // Resolve production data — when both `production` and `time` are
     // supplied, truncate to the shorter length so an off-by-one in the
@@ -4839,10 +4879,12 @@ export const DeclineCurve = memo(
           {/* end chart column */}
 
           {/* ── Annotations side panel ── docks right of the chart column.
-             Timeline list of every annotation, sorted by tStart. Click a
-             row to select it (highlights on chart + scrolls into view).
-             Used by both edit and annotate modes — independent of which
-             interaction mode the chart is in. */}
+             Two views:
+             1. 'list' — every annotation as a row in chronological order;
+                click a row to switch to the editor for that annotation.
+             2. 'editor' — full annotation editor (stats + range + type +
+                description + delete) for the selected annotation. Has a
+                Back chevron in the header that returns to 'list'. */}
           {segmentPanelOpen &&
             panelMode === "annotations" &&
             (() => {
@@ -4854,6 +4896,68 @@ export const DeclineCurve = memo(
                 const d = tToDate(startDate, t, timeUnit);
                 return dateInputValue(d);
               };
+              const editorAnn =
+                annotationPanelView === "editor" && selectedAnnotationId
+                  ? annotations.find((a) => a.id === selectedAnnotationId)
+                  : null;
+
+              if (editorAnn) {
+                const buffers = buffersRef.current;
+                const stats = buffers
+                  ? computeAnnotationStats(
+                      buffers,
+                      Math.min(editorAnn.tStart, editorAnn.tEnd),
+                      Math.max(editorAnn.tStart, editorAnn.tEnd),
+                    )
+                  : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+                const meta = ANNOTATION_TYPE_META[editorAnn.type];
+                return (
+                  <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setAnnotationPanelView("list")}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+                          title="Back to annotation list"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                        </button>
+                        <span
+                          className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
+                          style={{ background: colorForAnnotation(editorAnn) }}
+                          aria-hidden
+                        />
+                        <span className="text-xs font-semibold truncate">{editorAnn.label || meta.label}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSegmentPanelOpen(false)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title="Close panel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto">
+                      <AnnotationEditorBody
+                        annotation={editorAnn}
+                        stats={stats}
+                        startDate={startDate}
+                        timeUnit={timeUnit}
+                        unit={unit}
+                        onChange={(next) => setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))}
+                        onRemove={() => {
+                          setAnnotations((prev) => prev.filter((x) => x.id !== editorAnn.id));
+                          setSelectedAnnotationId(null);
+                          setAnnotationPanelView("list");
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
@@ -4887,7 +4991,7 @@ export const DeclineCurve = memo(
                             type="button"
                             onClick={() => {
                               setSelectedAnnotationId(a.id);
-                              prodChartRef.current?.redraw();
+                              setAnnotationPanelView("editor");
                             }}
                             className={cn(
                               "w-full flex items-start gap-2 rounded-md border px-2 py-2 text-left transition-colors",
