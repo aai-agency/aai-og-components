@@ -15,8 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Side panel list/editor flow** — Segments and Annotations toolbar buttons each open the panel onto a list of items in chronological order. Click a row to enter the editor for that item; Back chevron returns to the list. Editors hold a local draft (Save / Discard buttons appear on dirty state, and navigating away with unsaved changes prompts a confirmation).
 - **Selection emphasis on both charts** — Clicking a segment or annotation (chart or panel list) draws solid full-height vertical lines + a faint color tint band on both the production and variance charts. Annotation regions plugin runs on both charts so selection is visible everywhere.
 - **Sample data** (`@aai-agency/og-components/sample-data`) — `sampleDeclineCurveProduction` (900-day Bakken-style well), `sampleDeclineCurveSegments` (matching 5-segment forecast), `sampleDeclineCurveAnnotations` (Flowback + Workover), and `generateSampleDeclineCurveProduction(totalDays, seed)` helper for tests.
-- **Multi-curve API (preview)** — `curves: Curve[]` prop accepts Oil + Gas + Water with per-curve `axis: 'y' | 'y2'`, `unit`, `color`, and `initialSegments`. Pill picker above the chart switches the active curve. Today only the active curve renders; full N-series dual-axis rendering is on the roadmap.
-- **Agent skill rules** (`skills/og-components/rules/decline-curve.md`) — AI-agent guide covering segment shape, equation table, common chaining mistakes, sample data usage, edit/annotate modes, callbacks, and multi-curve API.
+- **Agent skill rules** (`skills/og-components/rules/decline-curve.md`) — AI-agent guide covering segment shape, equation table, common chaining mistakes, sample data usage, edit/annotate modes, and callbacks.
 - **Component README** (`packages/og-components/src/components/decline-curve/README.md`) — Human-facing explainer for source browsers.
 
 ### Fixed

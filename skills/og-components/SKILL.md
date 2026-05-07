@@ -166,7 +166,6 @@ import type {
   Segment,
   Annotation,
   EquationType,
-  Curve,
 } from "@aai-agency/og-components";
 
 // Utilities

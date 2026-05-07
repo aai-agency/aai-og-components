@@ -1,52 +1,19 @@
 import {
   type Annotation,
   DeclineCurve,
-  type EquationType,
   type Segment,
-  evalSegment,
   generateSampleProduction,
   nextAnnotationId,
   nextSegmentId,
 } from "@aai-agency/og-components";
+import {
+  sampleDeclineCurveAnnotations,
+  sampleDeclineCurveProduction,
+  sampleDeclineCurveSegments,
+} from "@aai-agency/og-components/sample-data";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
-
-// ── 5-segment definitions (module-scoped: pure, no closure deps) ────────────
-// Realistic Bakken-style well: flowback → hyperbolic → shut-in → exponential → harmonic
-const FIVE_SEG_DEFS: Array<{
-  tStart: number;
-  equation: EquationType;
-  params: { qi: number; di: number; b: number; slope: number };
-  qiAnchored?: boolean;
-}> = [
-  // 1. Flowback ramp-up: 0-20 days, gentle climb
-  { tStart: 0, equation: "flowback", params: { qi: 200, di: 0, b: 0, slope: 15 } },
-  // 2. Hyperbolic primary decline: 20-350 days
-  { tStart: 20, equation: "hyperbolic", params: { qi: 0, di: 0.006, b: 1.0, slope: 0 } },
-  // 3. Shut-in for workover: 350-390 days
-  { tStart: 350, equation: "shutIn", params: { qi: 0, di: 0, b: 0, slope: 0 }, qiAnchored: true },
-  // 4. Exponential post-workover: 390-650 days
-  { tStart: 390, equation: "exponential", params: { qi: 180, di: 0.003, b: 0, slope: 0 }, qiAnchored: true },
-  // 5. Harmonic terminal decline: 650+ days
-  { tStart: 650, equation: "harmonic", params: { qi: 0, di: 0.005, b: 0, slope: 0 } },
-];
-
-// Pre-compute effective qi once at module load — FIVE_SEG_DEFS is static.
-const FIVE_SEG_QI: number[] = (() => {
-  const qi: number[] = [FIVE_SEG_DEFS[0].params.qi];
-  for (let s = 1; s < FIVE_SEG_DEFS.length; s++) {
-    const seg = FIVE_SEG_DEFS[s];
-    if (seg.qiAnchored) {
-      qi.push(seg.params.qi);
-    } else {
-      const prev = FIVE_SEG_DEFS[s - 1];
-      const dt = seg.tStart - prev.tStart;
-      qi.push(evalSegment(prev.equation, { ...prev.params, qi: qi[s - 1] }, dt));
-    }
-  }
-  return qi;
-})();
 
 const DeclineCurvePage = () => {
   const [segmentSummary, setSegmentSummary] = useState<Segment[] | null>(null);
@@ -144,76 +111,11 @@ const DeclineCurvePage = () => {
   );
 
   // ── 5-segment daily demo ──────────────────────────────────────────────────
-  const fiveSegData = useMemo(() => {
-    const totalDays = 900;
-    const time: number[] = [];
-    const production: number[] = [];
-
-    let seed = 31;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-
-    let wander = 0;
-    for (let d = 0; d < totalDays; d++) {
-      let sIdx = 0;
-      for (let s = 1; s < FIVE_SEG_DEFS.length; s++) {
-        if (d >= FIVE_SEG_DEFS[s].tStart) sIdx = s;
-        else break;
-      }
-      const seg = FIVE_SEG_DEFS[sIdx];
-      const dt = d - seg.tStart;
-      const p = { ...seg.params, qi: FIVE_SEG_QI[sIdx] };
-      const base = evalSegment(seg.equation, p, dt);
-
-      if (seg.equation === "shutIn") {
-        time.push(d);
-        production.push(0);
-      } else {
-        wander += (rand() - 0.5) * 0.02 - wander * 0.005;
-        const noise = 1 + wander + (rand() - 0.5) * 0.08;
-        time.push(d);
-        production.push(Math.max(0, base * noise));
-      }
-    }
-
-    return { time, production, count: totalDays };
-  }, []);
-
-  const fiveSegSegments = useMemo<Segment[]>(
-    () =>
-      FIVE_SEG_DEFS.map((def) => ({
-        id: nextSegmentId(),
-        tStart: def.tStart,
-        equation: def.equation,
-        params: { ...def.params },
-        qiAnchored: def.qiAnchored,
-      })),
-    [],
-  );
-
-  const fiveSegAnnotations = useMemo<Annotation[]>(
-    () => [
-      {
-        id: nextAnnotationId(),
-        tStart: 0,
-        tEnd: 20,
-        type: "flowback" as const,
-        label: "Flowback",
-        description: "Initial flowback period, well cleaning up.",
-      },
-      {
-        id: nextAnnotationId(),
-        tStart: 350,
-        tEnd: 390,
-        type: "shutInWorkover" as const,
-        label: "Workover",
-        description: "40-day workover. ESP replacement + rod pump install.",
-      },
-    ],
-    [],
-  );
+  // Pulled from `@aai-agency/og-components/sample-data` so the playground
+  // dogfoods the same dataset external consumers get.
+  const fiveSegData = sampleDeclineCurveProduction;
+  const fiveSegSegments = sampleDeclineCurveSegments;
+  const fiveSegAnnotations = sampleDeclineCurveAnnotations;
 
   return (
     <PageWrapper
@@ -223,7 +125,7 @@ const DeclineCurvePage = () => {
       <DemoCard>
         <div style={{ minHeight: 560 }}>
           <DeclineCurve
-            production={fiveSegData.production}
+            production={fiveSegData.values}
             time={fiveSegData.time}
             initialSegments={fiveSegSegments}
             initialAnnotations={fiveSegAnnotations}

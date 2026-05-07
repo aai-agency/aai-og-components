@@ -201,20 +201,6 @@ Length changes (which move the next segment's `tStart`), lock toggle, and Delete
 
 `onSegmentsChange` and `onSave` fire together on every commit — pick whichever name reads better in your code.
 
-## Multi-Curve Mode (preview)
+## Multi-Curve (roadmap)
 
-For multi-fluid wells (Oil + Gas + Water), pass a `curves` array instead of `production`/`time`:
-
-```tsx
-import type { Curve } from "@aai-agency/og-components";
-
-const curves: Curve[] = [
-  { id: "oil",   label: "Oil",   unit: "BBL/mo",  time, actual: oilActuals,   axis: "y",  initialSegments: oilSegments },
-  { id: "gas",   label: "Gas",   unit: "MCF/mo",  time, actual: gasActuals,   axis: "y2", initialSegments: gasSegments },
-  { id: "water", label: "Water", unit: "BBL/mo",  time, actual: waterActuals, axis: "y",  initialSegments: waterSegments },
-];
-
-<DeclineCurve curves={curves} />
-```
-
-The chart renders pills at the top to switch the active curve. Edits operate on whichever curve is active. Today only the active curve's actuals + forecast render — full N-series rendering on dual y-axes is on the roadmap.
+A multi-fluid API (Oil + Gas + Water on dual y-axes) is being designed for a follow-up release. For now, render one fluid per `<DeclineCurve>` instance. If you need to show multiple fluids today, stack two or three components and synchronize their `time` arrays.
