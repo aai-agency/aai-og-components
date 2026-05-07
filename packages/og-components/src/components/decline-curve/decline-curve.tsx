@@ -1752,6 +1752,177 @@ const SegmentEditorBody = ({
   );
 };
 
+/**
+ * Save-aware wrapper around SegmentEditorBody. Owns a local draft so that
+ * inline edits don't auto-commit; the user explicitly clicks Save (or
+ * Discard). Navigation away (Back / Close / select a different segment)
+ * prompts via window.confirm when the draft is dirty. Length changes are
+ * cross-segment (they move the next segment's tStart) so they auto-commit
+ * via `onLengthChange` and don't show in the draft.
+ */
+const SegmentEditorPanelView = ({
+  segment,
+  isFirst,
+  isLast,
+  effectiveQi,
+  length,
+  locked,
+  startDate,
+  timeUnit,
+  onCommit,
+  onLengthChange,
+  onRemove,
+  onBack,
+  onClose,
+  onToggleLock,
+  segIdx,
+}: {
+  segment: Segment;
+  isFirst: boolean;
+  isLast: boolean;
+  effectiveQi: number;
+  length: number | null;
+  locked: boolean;
+  startDate: Date | null;
+  timeUnit: TimeUnit;
+  onCommit: (next: Segment) => void;
+  onLengthChange: (newLength: number) => void;
+  onRemove: () => void;
+  onBack: () => void;
+  onClose: () => void;
+  onToggleLock: () => void;
+  segIdx: number;
+}) => {
+  const [draft, setDraft] = useState<Segment>(segment);
+  // When the user navigates to a different segment, reset the draft to that
+  // segment's authoritative state. (We compare ids — re-rendering with the
+  // SAME segment shouldn't blow away in-flight edits.)
+  const lastIdRef = useRef(segment.id);
+  useEffect(() => {
+    if (lastIdRef.current !== segment.id) {
+      lastIdRef.current = segment.id;
+      setDraft(segment);
+    }
+  }, [segment]);
+
+  const isDirty = useMemo(() => {
+    // Compare draft vs the live segment prop — anything you can edit in the
+    // body is included. Stringify is fine here (small Segment object).
+    return JSON.stringify(draft) !== JSON.stringify(segment);
+  }, [draft, segment]);
+
+  const safeNav = (action: () => void) => {
+    if (isDirty && !window.confirm("Discard unsaved changes to this segment?")) return;
+    action();
+  };
+
+  const save = () => {
+    onCommit(draft);
+  };
+  const discard = () => {
+    setDraft(segment);
+  };
+
+  return (
+    <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => safeNav(onBack)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+            title="Back to segment list"
+          >
+            <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+          </button>
+          <span
+            className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
+            style={{ background: colorForSegment(segIdx, segment) }}
+          >
+            {segIdx + 1}
+          </span>
+          <span className="text-xs font-semibold truncate">{EQUATION_LABELS[draft.equation]}</span>
+          {isDirty && (
+            <span
+              className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"
+              title="Unsaved changes"
+              aria-label="Unsaved changes"
+            />
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleLock}
+            className={cn(
+              "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+              segment.locked
+                ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+            title={segment.locked ? "Unlock segment (allow edits)" : "Lock segment (pin in place)"}
+            aria-pressed={!!segment.locked}
+          >
+            {segment.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => safeNav(onClose)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="Close panel"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+      {isDirty && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/5 px-3 py-1.5 flex-shrink-0">
+          <span className="text-[10px] font-medium text-amber-700">Unsaved changes</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={discard}
+              className="inline-flex h-6 items-center rounded-md border border-border bg-background px-2 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Revert all changes"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              className="inline-flex h-6 items-center rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-[10px] font-medium text-indigo-700 hover:bg-indigo-500/15 transition-colors"
+              title="Save changes"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3">
+        <SegmentEditorBody
+          segment={draft}
+          isFirst={isFirst}
+          isLast={isLast}
+          effectiveQi={effectiveQi}
+          length={length}
+          locked={locked}
+          startDate={startDate}
+          timeUnit={timeUnit}
+          updateParam={(key, value) => setDraft((prev) => ({ ...prev, params: { ...prev.params, [key]: value } }))}
+          updateEquation={(eq) => setDraft((prev) => ({ ...prev, equation: eq }))}
+          onChange={(next) => setDraft(next)}
+          onLengthChange={onLengthChange}
+          onRemove={() => {
+            // Removing a segment is a destructive action with its own confirm
+            // path. Skip the unsaved-changes prompt and just discard.
+            onRemove();
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
 // ── Annotation editor helpers ───────────────────────────────────────────────
 
 const StatRow = ({
@@ -2125,6 +2296,132 @@ const AnnotationEditorBody = ({
     </div>
   </>
 );
+
+/**
+ * Save-aware wrapper around AnnotationEditorBody. Mirrors
+ * SegmentEditorPanelView — owns a local draft, prompts on navigate-away if
+ * dirty, exposes Save/Discard inline. Stats aren't editable, so they're
+ * computed off the draft's tStart/tEnd whenever the user changes the range.
+ */
+const AnnotationEditorPanelView = ({
+  annotation,
+  buffersRef,
+  startDate,
+  timeUnit,
+  unit,
+  onCommit,
+  onRemove,
+  onBack,
+  onClose,
+}: {
+  annotation: Annotation;
+  buffersRef: { current: DeclineMathBuffers | null };
+  startDate: Date | null;
+  timeUnit: TimeUnit;
+  unit: string;
+  onCommit: (next: Annotation) => void;
+  onRemove: () => void;
+  onBack: () => void;
+  onClose: () => void;
+}) => {
+  const [draft, setDraft] = useState<Annotation>(annotation);
+  const lastIdRef = useRef(annotation.id);
+  useEffect(() => {
+    if (lastIdRef.current !== annotation.id) {
+      lastIdRef.current = annotation.id;
+      setDraft(annotation);
+    }
+  }, [annotation]);
+
+  const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(annotation), [draft, annotation]);
+
+  const buffers = buffersRef.current;
+  const stats = buffers
+    ? computeAnnotationStats(buffers, Math.min(draft.tStart, draft.tEnd), Math.max(draft.tStart, draft.tEnd))
+    : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+
+  const safeNav = (action: () => void) => {
+    if (isDirty && !window.confirm("Discard unsaved changes to this annotation?")) return;
+    action();
+  };
+
+  const meta = ANNOTATION_TYPE_META[draft.type];
+  return (
+    <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => safeNav(onBack)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+            title="Back to annotation list"
+          >
+            <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+          </button>
+          <span
+            className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
+            style={{ background: colorForAnnotation(draft) }}
+            aria-hidden
+          />
+          <span className="text-xs font-semibold truncate">{draft.label || meta.label}</span>
+          {isDirty && (
+            <span
+              className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"
+              title="Unsaved changes"
+              aria-label="Unsaved changes"
+            />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => safeNav(onClose)}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title="Close panel"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {isDirty && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/5 px-3 py-1.5 flex-shrink-0">
+          <span className="text-[10px] font-medium text-amber-700">Unsaved changes</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setDraft(annotation)}
+              className="inline-flex h-6 items-center rounded-md border border-border bg-background px-2 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Revert all changes"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={() => onCommit(draft)}
+              className="inline-flex h-6 items-center rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-[10px] font-medium text-indigo-700 hover:bg-indigo-500/15 transition-colors"
+              title="Save changes"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <AnnotationEditorBody
+          annotation={draft}
+          stats={stats}
+          startDate={startDate}
+          timeUnit={timeUnit}
+          unit={unit}
+          onChange={(next) => setDraft(next)}
+          onRemove={() => {
+            // Delete is destructive with its own implicit confirmation
+            // (the deletion itself); skip the unsaved-changes prompt.
+            onRemove();
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 const AnnotationEditorPopover = ({
   annotation,
@@ -4902,59 +5199,26 @@ export const DeclineCurve = memo(
                   : null;
 
               if (editorAnn) {
-                const buffers = buffersRef.current;
-                const stats = buffers
-                  ? computeAnnotationStats(
-                      buffers,
-                      Math.min(editorAnn.tStart, editorAnn.tEnd),
-                      Math.max(editorAnn.tStart, editorAnn.tEnd),
-                    )
-                  : { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
-                const meta = ANNOTATION_TYPE_META[editorAnn.type];
                 return (
-                  <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
-                    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => setAnnotationPanelView("list")}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
-                          title="Back to annotation list"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                        </button>
-                        <span
-                          className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
-                          style={{ background: colorForAnnotation(editorAnn) }}
-                          aria-hidden
-                        />
-                        <span className="text-xs font-semibold truncate">{editorAnn.label || meta.label}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSegmentPanelOpen(false)}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        title="Close panel"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
-                      <AnnotationEditorBody
-                        annotation={editorAnn}
-                        stats={stats}
-                        startDate={startDate}
-                        timeUnit={timeUnit}
-                        unit={unit}
-                        onChange={(next) => setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))}
-                        onRemove={() => {
-                          setAnnotations((prev) => prev.filter((x) => x.id !== editorAnn.id));
-                          setSelectedAnnotationId(null);
-                          setAnnotationPanelView("list");
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <AnnotationEditorPanelView
+                    annotation={editorAnn}
+                    buffersRef={buffersRef}
+                    startDate={startDate}
+                    timeUnit={timeUnit}
+                    unit={unit}
+                    onCommit={(next) => setAnnotations((prev) => prev.map((x) => (x.id === next.id ? next : x)))}
+                    onRemove={() => {
+                      setAnnotations((prev) => prev.filter((x) => x.id !== editorAnn.id));
+                      setSelectedAnnotationId(null);
+                      setAnnotationPanelView("list");
+                    }}
+                    onBack={() => setAnnotationPanelView("list")}
+                    onClose={() => {
+                      setSegmentPanelOpen(false);
+                      setSelectedId(null);
+                      setSelectedAnnotationId(null);
+                    }}
+                  />
                 );
               }
 
@@ -5119,78 +5383,33 @@ export const DeclineCurve = memo(
               const nextSeg = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
               const segLength = nextSeg ? nextSeg.tStart - seg.tStart : null;
               return (
-                <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
-                  <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => setSegmentPanelView("list")}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
-                        title="Back to segment list"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                      </button>
-                      <span
-                        className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
-                        style={{ background: colorForSegment(segIdx, seg) }}
-                      >
-                        {segIdx + 1}
-                      </span>
-                      <span className="text-xs font-semibold truncate">{EQUATION_LABELS[seg.equation]}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleSegmentChange({ ...seg, locked: !seg.locked })}
-                        className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-                          seg.locked
-                            ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        )}
-                        title={seg.locked ? "Unlock segment (allow edits)" : "Lock segment (pin in place)"}
-                        aria-pressed={!!seg.locked}
-                      >
-                        {seg.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSegmentPanelOpen(false)}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        title="Close panel"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto p-3">
-                    <SegmentEditorBody
-                      segment={seg}
-                      isFirst={segIdx === 0}
-                      isLast={segIdx === sortedSegments.length - 1}
-                      effectiveQi={effectiveQis[segIdx] ?? seg.params.qi}
-                      length={segLength}
-                      locked={annotateMode || !!seg.locked}
-                      startDate={startDate}
-                      timeUnit={timeUnit}
-                      updateParam={(key, value) =>
-                        handleSegmentChange({ ...seg, params: { ...seg.params, [key]: value } })
-                      }
-                      updateEquation={(eq) => handleSegmentChange({ ...seg, equation: eq })}
-                      onChange={handleSegmentChange}
-                      onLengthChange={(newLen) => {
-                        if (!nextSeg) return;
-                        const newNextTStart = seg.tStart + newLen;
-                        setSegments((prev) =>
-                          normalizeSegments(
-                            prev.map((s) => (s.id === nextSeg.id ? { ...s, tStart: newNextTStart } : s)),
-                          ),
-                        );
-                      }}
-                      onRemove={() => handleSegmentRemove(seg.id)}
-                    />
-                  </div>
-                </div>
+                <SegmentEditorPanelView
+                  segment={seg}
+                  segIdx={segIdx}
+                  isFirst={segIdx === 0}
+                  isLast={segIdx === sortedSegments.length - 1}
+                  effectiveQi={effectiveQis[segIdx] ?? seg.params.qi}
+                  length={segLength}
+                  locked={annotateMode || !!seg.locked}
+                  startDate={startDate}
+                  timeUnit={timeUnit}
+                  onCommit={(next) => handleSegmentChange(next)}
+                  onLengthChange={(newLen) => {
+                    if (!nextSeg) return;
+                    const newNextTStart = seg.tStart + newLen;
+                    setSegments((prev) =>
+                      normalizeSegments(prev.map((s) => (s.id === nextSeg.id ? { ...s, tStart: newNextTStart } : s))),
+                    );
+                  }}
+                  onRemove={() => handleSegmentRemove(seg.id)}
+                  onBack={() => setSegmentPanelView("list")}
+                  onClose={() => {
+                    setSegmentPanelOpen(false);
+                    setSelectedId(null);
+                    setSelectedAnnotationId(null);
+                  }}
+                  onToggleLock={() => handleSegmentChange({ ...seg, locked: !seg.locked })}
+                />
               );
             })()}
 
