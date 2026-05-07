@@ -2722,6 +2722,32 @@ export const DeclineCurve = memo(
       };
     }, [settingsOpen]);
 
+    /** Actions menu — replaces the standalone Forecast and Annotate toggles
+     *  with one explicit-choice dropdown. Keeps the toolbar tight and makes
+     *  "what mode am I in" a single popover instead of two scattered
+     *  toggle buttons. */
+    const [actionsOpen, setActionsOpen] = useState(false);
+    const actionsRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+      if (!actionsOpen) return;
+      const handler = (e: MouseEvent) => {
+        if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) setActionsOpen(false);
+      };
+      const keyHandler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setActionsOpen(false);
+      };
+      window.addEventListener("mousedown", handler);
+      window.addEventListener("keydown", keyHandler);
+      return () => {
+        window.removeEventListener("mousedown", handler);
+        window.removeEventListener("keydown", keyHandler);
+      };
+    }, [actionsOpen]);
+
+    /** Side panel mode: which list/editor is showing. Each toolbar list
+     *  button (Segments / Annotations) flips this to the matching mode. */
+    const [panelMode, setPanelMode] = useState<"segments" | "annotations">("segments");
+
     const [drawingAnnotation, setDrawingAnnotation] = useState<{
       tStart: number;
       tEnd: number;
@@ -4409,77 +4435,148 @@ export const DeclineCurve = memo(
               )}
             </div>
 
-            {/* ── Mode toggles + panel: Forecast · Annotate · Segments ──
-                One button family with a single shared visual treatment:
-                idle = muted text on background, hover = foreground on
-                muted, active = indigo tint. Identical class strings so
-                the only differences are state + label. */}
-            {!annotateMode && (
+            {/* ── Toolbar buttons ─────────────────────────────────────────
+                Three buttons total, all share one visual style:
+                  idle  = muted text on background
+                  active = indigo tint (border + bg + text)
+                Layout (left → right after the icon controls):
+                  Actions ▼  ·  Segments  ·  Annotations
+                Actions opens a dropdown with the two mode toggles
+                (Forecast / Annotate). Segments + Annotations open the
+                side panel onto their respective list view. */}
+
+            {/* Actions dropdown — explicit Forecast / Annotate choice. */}
+            <div className="relative" ref={actionsRef}>
               <button
                 type="button"
-                onClick={() => setEditForecastMode((v) => !v)}
+                onClick={() => setActionsOpen((v) => !v)}
                 className={cn(
-                  "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
-                  editForecastMode
+                  "inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors",
+                  editForecastMode || annotateMode
                     ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
                     : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
-                title={
-                  editForecastMode
-                    ? "Done — click to leave edit mode"
-                    : "Edit the forecast — drag, right-click, reshape segments"
-                }
-                aria-pressed={editForecastMode}
+                title="Forecast or Annotate actions"
+                aria-haspopup="menu"
+                aria-expanded={actionsOpen}
               >
-                Forecast
+                <span>{editForecastMode ? "Forecast" : annotateMode ? "Annotate" : "Actions"}</span>
+                <ChevronDown className="h-3 w-3" />
               </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                if (annotateMode) {
-                  setAnnotateMode(false);
-                  setSelectedAnnotationId(null);
-                  setHoveredAnnotationId(null);
-                  setDrawingAnnotation(null);
-                  drawingRef.current = null;
-                } else {
-                  setAnnotateMode(true);
-                }
-              }}
-              className={cn(
-                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
-                annotateMode
-                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+              {actionsOpen && (
+                <div
+                  role="menu"
+                  className={cn(
+                    "absolute right-0 z-[100003] mt-1 w-[200px] rounded-md border border-border bg-popover p-1 shadow-lg",
+                    "animate-in fade-in-0 zoom-in-95",
+                  )}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      // Switching to forecast clears annotate-mode
+                      // (mutually exclusive). If already in forecast,
+                      // toggle off (back to read-only).
+                      if (annotateMode) {
+                        setAnnotateMode(false);
+                        setSelectedAnnotationId(null);
+                        setHoveredAnnotationId(null);
+                        setDrawingAnnotation(null);
+                        drawingRef.current = null;
+                      }
+                      setEditForecastMode((v) => !v);
+                      setActionsOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium transition-colors",
+                      editForecastMode ? "bg-indigo-500/10 text-indigo-700" : "text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <span>Forecast</span>
+                    <span className="text-[10px] text-muted-foreground/80">
+                      {editForecastMode ? "✓ on" : "drag · right-click"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      if (editForecastMode) setEditForecastMode(false);
+                      if (annotateMode) {
+                        setAnnotateMode(false);
+                        setSelectedAnnotationId(null);
+                        setHoveredAnnotationId(null);
+                        setDrawingAnnotation(null);
+                        drawingRef.current = null;
+                      } else {
+                        setAnnotateMode(true);
+                      }
+                      setActionsOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium transition-colors",
+                      annotateMode ? "bg-indigo-500/10 text-indigo-700" : "text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <span>Annotate</span>
+                    <span className="text-[10px] text-muted-foreground/80">
+                      {annotateMode ? "✓ on" : "draw regions"}
+                    </span>
+                  </button>
+                </div>
               )}
-              title={annotateMode ? "Done annotating" : "Draw annotation regions on the chart"}
-              aria-pressed={annotateMode}
-            >
-              Annotate
-            </button>
+            </div>
 
+            {/* Segments — side panel list view of every segment. */}
             <button
               type="button"
               onClick={() => {
-                if (segmentPanelOpen) {
+                if (segmentPanelOpen && panelMode === "segments") {
                   setSegmentPanelOpen(false);
                 } else {
                   setSegmentPanelOpen(true);
+                  setPanelMode("segments");
                   setSegmentPanelView("list");
                 }
               }}
               className={cn(
                 "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
-                segmentPanelOpen
+                segmentPanelOpen && panelMode === "segments"
                   ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
                   : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
-              title={segmentPanelOpen ? "Hide segments panel" : "Show segments panel"}
-              aria-pressed={segmentPanelOpen}
+              title={segmentPanelOpen && panelMode === "segments" ? "Hide segments panel" : "Show segments panel"}
+              aria-pressed={segmentPanelOpen && panelMode === "segments"}
             >
               Segments
+            </button>
+
+            {/* Annotations — side panel timeline view of every annotation.
+                Same toggle pattern as Segments; panel mode flips so they
+                share the same docked area. */}
+            <button
+              type="button"
+              onClick={() => {
+                if (segmentPanelOpen && panelMode === "annotations") {
+                  setSegmentPanelOpen(false);
+                } else {
+                  setSegmentPanelOpen(true);
+                  setPanelMode("annotations");
+                }
+              }}
+              className={cn(
+                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
+                segmentPanelOpen && panelMode === "annotations"
+                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+              title={
+                segmentPanelOpen && panelMode === "annotations" ? "Hide annotations panel" : "Show annotations timeline"
+              }
+              aria-pressed={segmentPanelOpen && panelMode === "annotations"}
+            >
+              Annotations
             </button>
           </div>
         </div>
@@ -4644,6 +4741,103 @@ export const DeclineCurve = memo(
           </div>
           {/* end chart column */}
 
+          {/* ── Annotations side panel ── docks right of the chart column.
+             Timeline list of every annotation, sorted by tStart. Click a
+             row to select it (highlights on chart + scrolls into view).
+             Used by both edit and annotate modes — independent of which
+             interaction mode the chart is in. */}
+          {segmentPanelOpen &&
+            panelMode === "annotations" &&
+            (() => {
+              const sortedAnnotations = [...annotations].sort(
+                (a, b) => Math.min(a.tStart, a.tEnd) - Math.min(b.tStart, b.tEnd),
+              );
+              const fmtT = (t: number) => {
+                if (!startDate) return t.toFixed(0);
+                const d = tToDate(startDate, t, timeUnit);
+                return dateInputValue(d);
+              };
+              return (
+                <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+                  <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+                    <span className="text-xs font-semibold">Annotations ({sortedAnnotations.length})</span>
+                    <button
+                      type="button"
+                      onClick={() => setSegmentPanelOpen(false)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      title="Close panel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
+                    {sortedAnnotations.length === 0 ? (
+                      <div className="px-2 py-6 text-center text-[11px] text-muted-foreground">
+                        No annotations yet.
+                        <br />
+                        Use the Actions menu → Annotate to draw range annotations on the chart.
+                      </div>
+                    ) : (
+                      sortedAnnotations.map((a) => {
+                        const isSelected = a.id === selectedAnnotationId;
+                        const lo = Math.min(a.tStart, a.tEnd);
+                        const hi = Math.max(a.tStart, a.tEnd);
+                        const dur = hi - lo;
+                        const meta = ANNOTATION_TYPE_META[a.type];
+                        return (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAnnotationId(a.id);
+                              prodChartRef.current?.redraw();
+                            }}
+                            className={cn(
+                              "w-full flex items-start gap-2 rounded-md border px-2 py-2 text-left transition-colors",
+                              isSelected
+                                ? "border-indigo-500/40 bg-indigo-500/5"
+                                : "border-border bg-background hover:bg-muted",
+                            )}
+                          >
+                            <span
+                              className="mt-0.5 inline-block h-2 w-2 rounded-full flex-shrink-0"
+                              style={{ background: colorForAnnotation(a) }}
+                              aria-hidden
+                            />
+                            <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold truncate">{a.label || meta.label}</span>
+                                {a.label && (
+                                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 flex-shrink-0">
+                                    {meta.label}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <span>{fmtT(lo)}</span>
+                                <span aria-hidden>→</span>
+                                <span>{fmtT(hi)}</span>
+                                <span className="text-muted-foreground/60">
+                                  {" · "}
+                                  {dur.toFixed(0)}
+                                  {timeUnit === "day" ? "d" : timeUnit === "month" ? "mo" : "y"}
+                                </span>
+                              </div>
+                              {a.description && (
+                                <span className="mt-0.5 text-[10px] text-muted-foreground/80 line-clamp-2">
+                                  {a.description}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
           {/* ── Segment side panel ── docks right of the chart column.
              Two views:
              1. 'list' — every segment as a row; click a row to edit it.
@@ -4654,6 +4848,7 @@ export const DeclineCurve = memo(
                 Edit. Has a "Back" button that returns to 'list'. */}
           {!annotateMode &&
             segmentPanelOpen &&
+            panelMode === "segments" &&
             (() => {
               const isList = segmentPanelView === "list" || !selectedSegment;
               if (isList) {
