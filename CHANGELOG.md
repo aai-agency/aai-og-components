@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`DeclineCurve` component** — Interactive piecewise decline-curve editor for production forecasting. Multi-segment forecasts that chain C0-continuously, drag-to-reshape (`qi`/`di`/`b`/`slope`), right-click insert with bisect-resumption that anchors back to the original curve when a shut-in is dropped in. 10 equation types split across base math (flat / linear / exponential / harmonic / hyperbolic / stretched-exponential) and operational presets (flowback / shut-in / constrained / choked).
+- **Range annotations** — Time-range overlays for operational events (flowback ramps, workovers, ESP fails, shut-ins). Aggregate Δ stats inside each range (avg actual / avg forecast / Δ% / total variance), variance-fill recoloring by annotation, dashed boundary lines, and a clean timeline list view in the side panel.
+- **Toolbar mode menu** — Single Actions dropdown replaces scattered Forecast / Annotate toggles. Explicit "Exit X mode" row when a mode is active.
+- **Side panel list/editor flow** — Segments and Annotations toolbar buttons each open the panel onto a list of items in chronological order. Click a row to enter the editor for that item; Back chevron returns to the list. Editors hold a local draft (Save / Discard buttons appear on dirty state, and navigating away with unsaved changes prompts a confirmation).
+- **Selection emphasis on both charts** — Clicking a segment or annotation (chart or panel list) draws solid full-height vertical lines + a faint color tint band on both the production and variance charts. Annotation regions plugin runs on both charts so selection is visible everywhere.
+- **Sample data** (`@aai-agency/og-components/sample-data`) — `sampleDeclineCurveProduction` (900-day Bakken-style well), `sampleDeclineCurveSegments` (matching 5-segment forecast), `sampleDeclineCurveAnnotations` (Flowback + Workover), and `generateSampleDeclineCurveProduction(totalDays, seed)` helper for tests.
+- **Multi-curve API (preview)** — `curves: Curve[]` prop accepts Oil + Gas + Water with per-curve `axis: 'y' | 'y2'`, `unit`, `color`, and `initialSegments`. Pill picker above the chart switches the active curve. Today only the active curve renders; full N-series dual-axis rendering is on the roadmap.
+- **Agent skill rules** (`skills/og-components/rules/decline-curve.md`) — AI-agent guide covering segment shape, equation table, common chaining mistakes, sample data usage, edit/annotate modes, callbacks, and multi-curve API.
+- **Component README** (`packages/og-components/src/components/decline-curve/README.md`) — Human-facing explainer for source browsers.
+
+### Fixed
+
+- **CI lint script** — Renamed local-only `pnpm lint` (which ran `biome check --write`) and added a CI-safe `pnpm lint:ci` that runs `biome check` without writes. The `--write` form was masking real failures in CI.
+- **A11y labels + role="dialog"** — 15 a11y / style lint errors that had accumulated across earlier codex review rounds.
+
 ## [0.1.0] - 2026-04-02
 
 Foundation overhaul. Sets up the repo as an agent-first, Tailwind-native component library following shadcn/ui patterns.

@@ -62,12 +62,14 @@ const App = () => (
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
 - **Production Charts** — Time series with dual Y-axis, powered by uPlot for 10,000+ data points
+- **Decline Curve Editor** — Interactive piecewise forecast editor: drag-to-fit, right-click insert, 10 equation types (hyperbolic, exponential, harmonic, flowback, shut-in, …), range annotations with Δ-stats, Save/Discard draft flow
 - **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
 - **Data Persistence** — LocalStorage or in-browser SQLite for large datasets
 - **Validation Schemas** — Zod schemas for assets, production records, overlays, and configuration
+- **Sample Data** — Real-looking demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day Bakken-style well for the DeclineCurve
 
 ## Requirements
 
