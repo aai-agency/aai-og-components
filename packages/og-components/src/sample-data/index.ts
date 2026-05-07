@@ -1,6 +1,13 @@
 import type { Asset } from "../types";
 import wellsJson from "./wells.json";
 
+export {
+  generateSampleDeclineCurveProduction,
+  sampleDeclineCurveAnnotations,
+  sampleDeclineCurveProduction,
+  sampleDeclineCurveSegments,
+} from "./decline-curve";
+
 /**
  * 50 real production wells from the Bakken and DJ basins.
  * 25 from each basin, all with 24-month timeSeries data.

@@ -6,6 +6,7 @@ Production-grade O&G React components for AI coding agents. This skill helps age
 
 - User wants to add a map, chart, or O&G visualization
 - User mentions wells, pipelines, assets, or production data
+- User wants to forecast production, fit a decline curve, or annotate operational events
 - Project has `@aai-agency/og-components` in package.json
 - User wants to upload KMZ/KML/GeoJSON overlays
 
@@ -24,19 +25,21 @@ Read these before generating code:
 - [Map usage rules](./rules/map.md) — Required props, common mistakes, controls
 - [Data rules](./rules/data.md) — Asset schema, validation, stores
 - [Chart rules](./rules/charts.md) — TimeSeries format, LineChart vs ProductionChart
+- [DeclineCurve rules](./rules/decline-curve.md) — Segments, equations, annotations, edit modes
 - [Styling rules](./rules/styling.md) — Tailwind, theme tokens, z-index
 
 ## Component Selection
 
-| Need                     | Component                        | Key props                                |
-| ------------------------ | -------------------------------- | ---------------------------------------- |
-| Interactive asset map    | `Map`                            | `assets`, `mapboxAccessToken`, `colorBy` |
-| Production time series   | `LineChart` or `ProductionChart` | `series: TimeSeries[]`                   |
-| Asset info on click      | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
-| Multi-asset selection    | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
-| File overlay management  | `OverlayManager`                 | `overlays`, `onUpload`                   |
-| Browser data persistence | `LocalStorageStore`              | `new LocalStorageStore(namespace)`       |
-| Large dataset storage    | `SqliteStore`                    | `await createSqliteStore(namespace)`     |
+| Need                            | Component                        | Key props                                |
+| ------------------------------- | -------------------------------- | ---------------------------------------- |
+| Interactive asset map           | `Map`                            | `assets`, `mapboxAccessToken`, `colorBy` |
+| Production time series          | `LineChart` or `ProductionChart` | `series: TimeSeries[]`                   |
+| Decline curve / forecast editor | `DeclineCurve`                   | `production`, `time`, `initialSegments`  |
+| Asset info on click             | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
+| Multi-asset selection           | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
+| File overlay management         | `OverlayManager`                 | `overlays`, `onUpload`                   |
+| Browser data persistence        | `LocalStorageStore`              | `new LocalStorageStore(namespace)`       |
+| Large dataset storage           | `SqliteStore`                    | `await createSqliteStore(namespace)`     |
 
 ## Install Workflow
 
@@ -146,6 +149,7 @@ import {
   Map,
   LineChart,
   ProductionChart,
+  DeclineCurve,
   AssetDetailCard,
   SelectionPanel,
   OverlayManager,
@@ -159,6 +163,10 @@ import type {
   MapViewState,
   ColorScheme,
   MapOverlay,
+  Segment,
+  Annotation,
+  EquationType,
+  Curve,
 } from "@aai-agency/og-components";
 
 // Utilities
@@ -187,21 +195,55 @@ import {
   migrateStore,
 } from "@aai-agency/og-components/services";
 
-// Sample data (50 real wells + KMZ overlay for testing)
-import { sampleAssets, sampleKMZ } from "@aai-agency/og-components/sample-data";
+// Sample data
+import {
+  sampleAssets,
+  sampleKMZ,
+  sampleDeclineCurveProduction,
+  sampleDeclineCurveSegments,
+  sampleDeclineCurveAnnotations,
+  generateSampleDeclineCurveProduction,
+} from "@aai-agency/og-components/sample-data";
 ```
 
 ## Sample Data
 
-Ship with 50 real production wells (Bakken + DJ Basin) and a sample KMZ overlay. Use for demos and testing.
+Ship with three datasets for instant prototyping — no synthesizing your own:
+
+- **`sampleAssets`** — 50 real production wells (25 Bakken + 25 DJ Basin) with 24-month timeSeries data.
+- **`sampleKMZ`** — base64-encoded KMZ with 3 lease boundary polygons (for testing overlay upload).
+- **`sampleDeclineCurveProduction` + `sampleDeclineCurveSegments` + `sampleDeclineCurveAnnotations`** — 900-day Bakken-style well: flowback ramp → hyperbolic decline → 40-day workover → exponential post-workover → harmonic terminal. The segments and annotations match the production data so the chart looks right out of the box.
 
 ```tsx
+// Map demo with real production data
 import { sampleAssets } from "@aai-agency/og-components/sample-data";
 import { Map } from "@aai-agency/og-components";
 
-// Instant working demo with real production data
-const Demo = () => (
+const MapDemo = () => (
   <Map assets={sampleAssets} mapboxAccessToken={token} colorBy="status" showDetailCard />
+);
+```
+
+```tsx
+// DeclineCurve demo with the sample well
+import {
+  sampleDeclineCurveProduction,
+  sampleDeclineCurveSegments,
+  sampleDeclineCurveAnnotations,
+} from "@aai-agency/og-components/sample-data";
+import { DeclineCurve } from "@aai-agency/og-components";
+
+const DeclineDemo = () => (
+  <DeclineCurve
+    production={sampleDeclineCurveProduction.values}
+    time={sampleDeclineCurveProduction.time}
+    initialSegments={sampleDeclineCurveSegments}
+    initialAnnotations={sampleDeclineCurveAnnotations}
+    timeUnit="day"
+    unit="BBL/day"
+    unitsPerYear={365}
+    startDate="2024-01-01"
+  />
 );
 ```
 
