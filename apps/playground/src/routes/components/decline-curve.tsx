@@ -220,9 +220,7 @@ const DeclineCurvePage = () => {
       title="DeclineCurve"
       description="Piecewise decline curve analysis with per-segment equations. Right-click the forecast line to insert a new segment at that point. Segments stay C0-continuous — each new segment starts at the prior segment's end value."
     >
-      <DemoCard
-        title={`5-segment daily (${fiveSegData.count} days) — flowback → hyperbolic → shut-in → exponential → harmonic`}
-      >
+      <DemoCard>
         <div style={{ minHeight: 560 }}>
           <DeclineCurve
             production={fiveSegData.production}

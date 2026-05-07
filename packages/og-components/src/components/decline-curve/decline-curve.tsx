@@ -2,6 +2,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Lock,
   Maximize2,
   Minimize2,
   Pencil,
@@ -10,6 +11,7 @@ import {
   Settings,
   Sparkles,
   Trash2,
+  Unlock,
   X,
   ZoomIn,
   ZoomOut,
@@ -4618,14 +4620,36 @@ export const DeclineCurve = memo(
                         {EQUATION_LABELS[selectedSegment.equation]}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSegmentPanelOpen(false)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                      title="Collapse panel"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {/* Lock / Unlock toggle — when locked, the segment's
+                          equation, params, and tStart/length are pinned: drag
+                          on the chart skips it, neighbor bend-back skips it,
+                          and the side panel inputs disable. Visible state in
+                          the panel header so the user can flip it without
+                          digging into the row editor. */}
+                      <button
+                        type="button"
+                        onClick={() => handleSegmentChange({ ...selectedSegment, locked: !selectedSegment.locked })}
+                        className={cn(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+                          selectedSegment.locked
+                            ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                        title={selectedSegment.locked ? "Unlock segment (allow edits)" : "Lock segment (pin in place)"}
+                        aria-pressed={!!selectedSegment.locked}
+                      >
+                        {selectedSegment.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSegmentPanelOpen(false)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title="Collapse panel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                   {/* Panel matches the chart column's height (self-stretch on
                    the parent flex). Inner area scrolls if the editor is
