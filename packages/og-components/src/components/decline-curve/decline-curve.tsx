@@ -478,9 +478,21 @@ const boundaryPlugin = (
 
       ctx.save();
 
-      // (Segment tint intentionally removed — the dashed start/end boundaries
-      // in the segment color carry the activation cue without competing with
-      // variance fills or annotations.)
+      // Faint segment-color tint over the SELECTED segment's range — makes
+      // the panel-list selection match a clear chart region. Low alpha so it
+      // doesn't fight the variance fill or annotation backgrounds.
+      if (selectedIdx >= 0) {
+        const startT = sorted[selectedIdx].tStart;
+        const endT =
+          selectedIdx + 1 < sorted.length ? sorted[selectedIdx + 1].tStart : (sorted[selectedIdx].tEnd ?? xMax);
+        const x1 = toX(Math.max(xMin, startT));
+        const x2 = toX(Math.min(xMax, endT));
+        if (x2 > x1) {
+          const hex = selectedColor.replace("#", "");
+          ctx.fillStyle = `#${hex}14`; // ~8% alpha
+          ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
+        }
+      }
 
       // Faint inter-segment boundaries (all of them, skip segment[0]'s left edge)
       ctx.setLineDash([4, 4]);
@@ -706,11 +718,17 @@ const annotationRegionsPlugin = (
           if (x2 <= x1) continue;
           const isHovered = a.id === hoveredId;
           const isSelected = a.id === selectedId;
-          const emphasized = isHovered || isSelected;
           const hex = colorForAnnotation(a).replace("#", "");
+          // Selected annotations get a noticeably brighter fill — the
+          // background-mode and no-background-mode tracks each get a
+          // 3-step ramp (idle → hover → selected) so the panel-list
+          // selection lights up clearly on the chart.
           let fillAlpha: string;
-          if (background) fillAlpha = emphasized ? "30" : "22";
-          else fillAlpha = emphasized ? "1c" : "0a";
+          if (background) {
+            fillAlpha = isSelected ? "55" : isHovered ? "30" : "22";
+          } else {
+            fillAlpha = isSelected ? "33" : isHovered ? "1c" : "0a";
+          }
           ctx.fillStyle = `#${hex}${fillAlpha}`;
           ctx.fillRect(x1, plotTop, x2 - x1, plotHeight);
         }
@@ -781,9 +799,11 @@ const annotationRegionsPlugin = (
           const isSelected = a.id === selectedId;
           const emphasized = isHovered || isSelected;
 
-          // Boundary lines (dashed, in annotation color)
+          // Boundary lines (dashed, in annotation color). Selected gets
+          // a notably thicker outline so panel-list clicks light up the
+          // matching annotation on the chart.
           ctx.strokeStyle = color;
-          ctx.lineWidth = emphasized ? 1.5 : 1;
+          ctx.lineWidth = isSelected ? 2.5 : isHovered ? 1.5 : 1;
           ctx.setLineDash([5, 4]);
           ctx.beginPath();
           ctx.moveTo(x1, plotTop);
@@ -794,13 +814,14 @@ const annotationRegionsPlugin = (
           ctx.setLineDash([]);
 
           if (emphasized) {
-            // Triangle caps at top of each boundary
+            // Triangle caps at top of each boundary, scaled up when selected.
             ctx.fillStyle = color;
+            const capSize = isSelected ? 7 : 5;
             for (const x of [x1, x2]) {
               ctx.beginPath();
-              ctx.moveTo(x - 5, plotTop);
-              ctx.lineTo(x + 5, plotTop);
-              ctx.lineTo(x, plotTop + 6);
+              ctx.moveTo(x - capSize, plotTop);
+              ctx.lineTo(x + capSize, plotTop);
+              ctx.lineTo(x, plotTop + capSize + 1);
               ctx.closePath();
               ctx.fill();
             }
@@ -1061,10 +1082,10 @@ const forecastSegmentsPlugin = (
         const editing = getEditMode();
         ctx.strokeStyle = color;
         if (editing) {
-          ctx.lineWidth = isSelected ? 3.5 : 3;
+          ctx.lineWidth = isSelected ? 5 : 3;
           ctx.setLineDash([]);
         } else {
-          ctx.lineWidth = isSelected ? 3 : 2.5;
+          ctx.lineWidth = isSelected ? 4 : 2.5;
           ctx.setLineDash([8, 5]);
         }
         ctx.beginPath();
