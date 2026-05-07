@@ -2407,7 +2407,11 @@ export const DeclineCurve = memo(
     onSegmentsChange,
     onSave,
     forecastHorizon,
-    unitsPerYear,
+    // unitsPerYear is currently unused at the component level (the strip that
+    // showed the friendly "N years" suffix is gone). Kept on the prop type
+    // for API stability; pull it out so the rest of the destructure doesn't
+    // see it as a missing field.
+    unitsPerYear: _unitsPerYear,
     startDate: startDateProp,
     timeUnit = "month",
     initialAnnotations,
@@ -4179,10 +4183,6 @@ export const DeclineCurve = memo(
              Display-only stuff (legend swatches, variance mode picker) lives
              inside the Settings popover now. */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pb-2">
-          <span className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
-            {segments.length} {segments.length === 1 ? "segment" : "segments"}
-          </span>
-
           <div className="ml-auto flex items-center gap-1.5">
             {/* Zoom controls — zoom in / out / reset. Both charts track the
                 same x-range via applyXScale. */}
@@ -4435,53 +4435,11 @@ export const DeclineCurve = memo(
           </div>
         </div>
 
-        {/* ── Edit controls row: drag target + horizon ── */}
-        {!annotateMode && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-1.5 text-[10px] text-muted-foreground">
-            {availableDragParams.length > 1 && (
-              <div className="flex items-center gap-2">
-                <span>Drag to adjust</span>
-                <Select value={dragParam} onValueChange={(v) => setDragParam(v as typeof dragParam)}>
-                  <SelectTrigger className="h-6 w-[130px] text-[10px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDragParams.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1.5">
-              <span>Horizon</span>
-              <input
-                type="number"
-                value={Number(horizon.toFixed(2))}
-                step={unitsPerYear ?? 1}
-                min={lastActualT}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (Number.isFinite(v) && v >= lastActualT) setHorizon(v);
-                }}
-                className="h-6 w-[88px] rounded-md border border-border bg-background px-1.5 text-[10px] outline-none focus:ring-2 focus:ring-ring"
-              />
-              {unitsPerYear ? (
-                <span className="text-muted-foreground/70">
-                  ({(horizon / unitsPerYear).toFixed(1)}y · +{((horizon - lastActualT) / unitsPerYear).toFixed(1)}y)
-                </span>
-              ) : (
-                <span className="text-muted-foreground/70">(+{(horizon - lastActualT).toFixed(1)})</span>
-              )}
-            </div>
-
-            <span className="text-muted-foreground/70">· right-click forecast to add a segment</span>
-            <span className="text-muted-foreground/70">· drag chart background to zoom in</span>
-          </div>
-        )}
+        {/* The drag-target Select, Horizon input, and "right-click forecast"
+            / "drag chart background" hints used to live in a strip here.
+            Removed — drag target is implicit (qi is the only meaningful drag
+            for most workflows), the horizon input lives in the segment side
+            panel, and the affordance hints clutter the toolbar. */}
 
         {/* ── Selected segment toolbar (contextual) ──
              Surfaces the selected segment's equation + params + lock here at
