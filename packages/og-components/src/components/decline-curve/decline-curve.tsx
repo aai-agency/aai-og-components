@@ -3660,8 +3660,11 @@ export const DeclineCurve = memo(
         if (downInfo && editModeRef.current) {
           const dx = Math.abs(e.clientX - downInfo.clientX);
           const dy = Math.abs(e.clientY - downInfo.clientY);
+          // Click without movement on a selected segment — switch the panel
+          // view to the editor for that segment, but don't auto-open the
+          // panel (it's intrusive during drag-clicks). User opens via the
+          // toolbar Segments button.
           if (dx <= 4 && dy <= 4 && selectedIdRef.current) {
-            setSegmentPanelOpen(true);
             setSegmentPanelView("editor");
           }
         }
@@ -3703,10 +3706,10 @@ export const DeclineCurve = memo(
       const hitId = sorted[hitIdx].id;
       setSelectedId(hitId);
       if (editModeRef.current) {
-        // Open the side panel rather than a click-anchored popup. Side panel
-        // stays put as the user clicks between segments, lets them keep
-        // interacting with the chart, and folds away on demand.
-        setSegmentPanelOpen(true);
+        // Switch the panel view to the editor for this segment, but don't
+        // auto-open the panel. User opens via the toolbar Segments button —
+        // auto-opening on every chart click was getting in the way of drag
+        // gestures and click-to-select-without-edit.
         setSegmentPanelView("editor");
       }
     }, []);
@@ -4436,7 +4439,7 @@ export const DeclineCurve = memo(
                   title="Edit the forecast — drag, right-click, reshape segments"
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                  Edit forecast
+                  Forecast
                 </button>
               ))}
 
