@@ -2800,6 +2800,13 @@ export const DeclineCurve = memo(
     const selectedAnnotationIdRef = useRef<string | null>(null);
     useEffect(() => {
       selectedAnnotationIdRef.current = selectedAnnotationId;
+      // Redraw so the annotation plugins pick up the new selection (solid
+      // boundary lines, brighter fill, larger triangle caps). Without this
+      // a chart-click that changes selectedAnnotationId only updates the
+      // ref — the canvas stays painted from the prior frame until another
+      // hover or interaction triggers a redraw.
+      prodChartRef.current?.redraw();
+      varChartRef.current?.redraw();
     }, [selectedAnnotationId]);
 
     const [annotationEditor, setAnnotationEditor] = useState<{
@@ -3623,14 +3630,33 @@ export const DeclineCurve = memo(
           const lo = Math.min(start, endT);
           const hi = Math.max(start, endT);
           // Need at least 1 unit of range to count as a zoom; otherwise treat
-          // as a stray click and skip (avoids accidentally collapsing the x
-          // scale to a single point).
+          // as a stray click and select whatever's under the cursor (segment
+          // or annotation) so the chart highlights the selection cleanly.
           if (hi - lo >= 1) {
             applyXScale(lo, hi);
             const buffers = buffersRef.current;
             const fullMin = buffers?.time?.[0];
             const fullMax = buffers?.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
             setIsZoomed(fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5);
+          } else {
+            // Click without zoom — annotation hit takes priority, then
+            // segment under the click position.
+            const clickT = start;
+            const annHit = annotationsRef.current.find(
+              (a) => clickT >= Math.min(a.tStart, a.tEnd) && clickT <= Math.max(a.tStart, a.tEnd),
+            );
+            if (annHit) {
+              setSelectedAnnotationId(annHit.id);
+            } else {
+              const sortedClick = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
+              if (sortedClick.length > 0) {
+                let hitIdx = 0;
+                for (let i = 0; i < sortedClick.length; i++) {
+                  if (sortedClick[i].tStart <= clickT) hitIdx = i;
+                }
+                setSelectedId(sortedClick[hitIdx].id);
+              }
+            }
           }
         }
         mouseDownInfoRef.current = null;
