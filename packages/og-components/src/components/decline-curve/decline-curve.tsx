@@ -4422,6 +4422,18 @@ export const DeclineCurve = memo(
         width: chartWidth,
         height: varianceHeight,
         plugins: [
+          // Annotation regions — same plugin used on the production chart so
+          // a selected annotation lights up on both charts (background fill
+          // + dashed boundaries + solid full-height lines on the selected
+          // one). Honors the showAnnotationsOnChart toggle exactly like the
+          // production chart.
+          annotationRegionsPlugin(
+            () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
+            () => hoveredAnnotationIdRef.current,
+            () => selectedAnnotationIdRef.current,
+            () => drawingRef.current,
+            () => varianceModeRef.current === "byAnnotation" || varianceModeRef.current === "combined",
+          ),
           varianceBarsPlugin(
             getVariance,
             () => varianceModeRef.current,
@@ -5154,8 +5166,11 @@ export const DeclineCurve = memo(
               </>
             )}
 
-            {/* ── Range slider ── pan/resize the visible window. Hidden in
-             fullscreen since the chart already fills the viewport. */}
+            {/* ── X-axis range slider ── pan/resize the visible window.
+             Track is left-padded to line up exactly with the chart's plot
+             area: y-slider (16px) + gap (4px) + y-axis labels (55px) = 75px.
+             Hidden in fullscreen since the chart already fills the
+             viewport. */}
             {!isFullscreen &&
               extendedTime.length > 1 &&
               (() => {
@@ -5163,13 +5178,17 @@ export const DeclineCurve = memo(
                 const fullMax = extendedTime[extendedTime.length - 1];
                 const value: [number, number] = zoomRange ?? [fullMin, fullMax];
                 return (
-                  <RangeSlider
-                    fullMin={fullMin}
-                    fullMax={fullMax}
-                    value={value}
-                    onChange={(r) => applyXScale(r[0], r[1])}
-                    onReset={resetZoom}
-                  />
+                  <div className="flex items-center" style={{ paddingLeft: 75 }}>
+                    <div className="flex-1 min-w-0">
+                      <RangeSlider
+                        fullMin={fullMin}
+                        fullMax={fullMax}
+                        value={value}
+                        onChange={(r) => applyXScale(r[0], r[1])}
+                        onReset={resetZoom}
+                      />
+                    </div>
+                  </div>
                 );
               })()}
           </div>
