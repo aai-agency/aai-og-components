@@ -2677,7 +2677,8 @@ const RangeSlider = ({
     ? { bottom: `${hiPct}%`, transform: "translate(-50%, 50%)", left: "50%" }
     : { left: `${hiPct}%`, transform: "translate(-50%, -50%)", top: "50%" };
 
-  // Reset button — × icon, sized to match the slider's footprint and tucked
+  // Reset button — RotateCcw icon (matches the toolbar zoom-reset button so
+  // the affordance reads as one consistent "reset" across the chart). Tucked
   // at the end opposite the data flow (right of horizontal, top of vertical).
   const resetButton =
     isZoomed && onReset ? (
@@ -2693,7 +2694,7 @@ const RangeSlider = ({
         )}
         title="Reset zoom"
       >
-        <X className="h-2.5 w-2.5" />
+        <RotateCcw className="h-2.5 w-2.5" />
       </button>
     ) : null;
 
