@@ -4524,6 +4524,34 @@ export const DeclineCurve = memo(
                       {annotateMode ? "✓ on" : "draw regions"}
                     </span>
                   </button>
+                  {/* Exit current mode — visible only when a mode is active.
+                      Separator + dedicated row so the user has a clear
+                      "leave the mode I'm in" affordance instead of having
+                      to remember that the same row toggles off. */}
+                  {(editForecastMode || annotateMode) && (
+                    <>
+                      <div className="my-1 h-px bg-border" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setEditForecastMode(false);
+                          if (annotateMode) {
+                            setAnnotateMode(false);
+                            setSelectedAnnotationId(null);
+                            setHoveredAnnotationId(null);
+                            setDrawingAnnotation(null);
+                            drawingRef.current = null;
+                          }
+                          setActionsOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-500/5 transition-colors"
+                      >
+                        <span>Exit {editForecastMode ? "Forecast" : "Annotate"} mode</span>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
