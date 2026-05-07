@@ -1697,17 +1697,22 @@ const SegmentEditorBody = ({
       </div>
 
       {!isFirst && !locked && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-red-500",
-            "hover:border-red-500/30 hover:bg-red-500/5",
-          )}
-        >
-          <Trash2 className="h-3 w-3" />
-          Remove segment
-        </button>
+        <div className="space-y-1.5 pt-2 mt-2 border-t border-border">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actions</span>
+          <div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2 text-[11px] font-medium text-red-500",
+                "hover:border-red-500/30 hover:bg-red-500/5",
+              )}
+            >
+              <Trash2 className="h-3 w-3" />
+              Remove segment
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
