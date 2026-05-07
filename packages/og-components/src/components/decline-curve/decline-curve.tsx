@@ -1,5 +1,4 @@
 import {
-  Check,
   ChevronDown,
   ChevronRight,
   Lock,
@@ -4410,79 +4409,57 @@ export const DeclineCurve = memo(
               )}
             </div>
 
-            {/* Edit forecast — chart is read-only by default; user opts in
-                here to drag/right-click/edit segments. Annotate-mode wins
-                over edit-mode (mutually exclusive). */}
-            {!annotateMode &&
-              (editForecastMode ? (
-                <button
-                  type="button"
-                  onClick={() => setEditForecastMode(false)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-xs font-medium text-indigo-700",
-                    "hover:bg-indigo-500/15 transition-colors",
-                  )}
-                  title="Done editing"
-                  aria-pressed
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Done
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setEditForecastMode(true)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
-                    "hover:bg-muted hover:border-indigo-500/40 hover:text-indigo-600 transition-colors",
-                  )}
-                  title="Edit the forecast — drag, right-click, reshape segments"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Forecast
-                </button>
-              ))}
-
-            {/* Annotate — draw range annotations on the chart. Toggle
-                same as Edit-forecast. No icon (the label carries enough
-                weight on its own). */}
-            {annotateMode ? (
+            {/* ── Mode toggles + panel: Forecast · Annotate · Segments ──
+                One button family with a single shared visual treatment:
+                idle = muted text on background, hover = foreground on
+                muted, active = indigo tint. Identical class strings so
+                the only differences are state + label. */}
+            {!annotateMode && (
               <button
                 type="button"
-                onClick={() => {
+                onClick={() => setEditForecastMode((v) => !v)}
+                className={cn(
+                  "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
+                  editForecastMode
+                    ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                title={
+                  editForecastMode
+                    ? "Done — click to leave edit mode"
+                    : "Edit the forecast — drag, right-click, reshape segments"
+                }
+                aria-pressed={editForecastMode}
+              >
+                Forecast
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (annotateMode) {
                   setAnnotateMode(false);
                   setSelectedAnnotationId(null);
                   setHoveredAnnotationId(null);
                   setDrawingAnnotation(null);
                   drawingRef.current = null;
-                }}
-                className={cn(
-                  "inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 text-xs font-medium text-amber-700",
-                  "hover:bg-amber-500/15 transition-colors",
-                )}
-                title="Done annotating"
-                aria-pressed
-              >
-                <Check className="h-3.5 w-3.5" />
-                Done
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAnnotateMode(true)}
-                className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
-                  "hover:bg-muted hover:border-amber-500/40 hover:text-amber-600 transition-colors",
-                )}
-                title="Draw annotation regions on the chart"
-              >
-                Annotate
-              </button>
-            )}
+                } else {
+                  setAnnotateMode(true);
+                }
+              }}
+              className={cn(
+                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
+                annotateMode
+                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+              title={annotateMode ? "Done annotating" : "Draw annotation regions on the chart"}
+              aria-pressed={annotateMode}
+            >
+              Annotate
+            </button>
 
-            {/* Segments — opens the side panel and shows the segment list.
-                Far right of the toolbar. Always available, regardless of
-                edit/annotate mode. */}
             <button
               type="button"
               onClick={() => {
@@ -4494,17 +4471,15 @@ export const DeclineCurve = memo(
                 }
               }}
               className={cn(
-                "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
-                "hover:bg-muted transition-colors",
+                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
                 segmentPanelOpen
                   ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               title={segmentPanelOpen ? "Hide segments panel" : "Show segments panel"}
               aria-pressed={segmentPanelOpen}
             >
-              <span>Segments</span>
-              <ChevronRight className={cn("h-3 w-3 transition-transform", segmentPanelOpen ? "" : "rotate-180")} />
+              Segments
             </button>
           </div>
         </div>
