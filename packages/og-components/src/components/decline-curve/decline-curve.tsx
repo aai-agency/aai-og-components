@@ -455,7 +455,6 @@ const boundaryPlugin = (
 ): uPlot.Plugin => ({
   hooks: {
     draw: (u: uPlot) => {
-      if (!getEditMode()) return;
       const segments = getSegments();
       if (segments.length < 1) return;
 
@@ -473,6 +472,7 @@ const boundaryPlugin = (
       const selectedId = getSelectedId();
       const selectedIdx = sorted.findIndex((s) => s.id === selectedId);
       const selectedColor = selectedIdx >= 0 ? colorForSegment(selectedIdx, sorted[selectedIdx]) : "#6366f1";
+      const editing = getEditMode();
 
       const toX = (t: number) => plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
 
@@ -480,7 +480,9 @@ const boundaryPlugin = (
 
       // Faint segment-color tint over the SELECTED segment's range — makes
       // the panel-list selection match a clear chart region. Low alpha so it
-      // doesn't fight the variance fill or annotation backgrounds.
+      // doesn't fight the variance fill or annotation backgrounds. Drawn in
+      // both edit and read-only modes so the solid vertical lines + tint are
+      // always visible whenever a segment is selected.
       if (selectedIdx >= 0) {
         const startT = sorted[selectedIdx].tStart;
         const endT =
@@ -494,22 +496,28 @@ const boundaryPlugin = (
         }
       }
 
-      // Faint inter-segment boundaries (all of them, skip segment[0]'s left edge)
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = "rgba(100, 116, 139, 0.35)";
-      ctx.lineWidth = 1;
-      for (let s = 1; s < sorted.length; s++) {
-        if (s === selectedIdx || s === selectedIdx + 1) continue; // drawn later as emphasized
-        const t = sorted[s].tStart;
-        if (t < xMin || t > xMax) continue;
-        const x = toX(t);
-        ctx.beginPath();
-        ctx.moveTo(x, plotTop);
-        ctx.lineTo(x, plotTop + plotHeight);
-        ctx.stroke();
+      // Faint inter-segment boundaries — visual scaffolding for when the
+      // user is actively editing the forecast. Outside edit mode they
+      // distract from the forecast line, so they're hidden.
+      if (editing) {
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.35)";
+        ctx.lineWidth = 1;
+        for (let s = 1; s < sorted.length; s++) {
+          if (s === selectedIdx || s === selectedIdx + 1) continue; // drawn later as emphasized
+          const t = sorted[s].tStart;
+          if (t < xMin || t > xMax) continue;
+          const x = toX(t);
+          ctx.beginPath();
+          ctx.moveTo(x, plotTop);
+          ctx.lineTo(x, plotTop + plotHeight);
+          ctx.stroke();
+        }
       }
 
-      // Emphasize the selected segment's start and end (both)
+      // Emphasize the selected segment's start and end (both) — solid lines
+      // in the segment color, drawn in any mode so a selection is always
+      // visually obvious.
       if (selectedIdx >= 0) {
         const startT = sorted[selectedIdx].tStart;
         const endT =
