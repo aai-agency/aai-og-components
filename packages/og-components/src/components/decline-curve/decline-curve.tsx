@@ -515,29 +515,31 @@ const boundaryPlugin = (
         const endT =
           selectedIdx + 1 < sorted.length ? sorted[selectedIdx + 1].tStart : (sorted[selectedIdx].tEnd ?? xMax);
 
-        ctx.setLineDash([5, 4]);
+        // Selected segment boundaries — solid vertical lines spanning the
+        // full plot height with triangle caps. The dashed style was harder
+        // to spot when the user wanted "clearly which segment am I looking
+        // at"; solid + thicker reads at a glance.
+        ctx.setLineDash([]);
         ctx.strokeStyle = selectedColor;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
 
         const drawBoundary = (t: number) => {
           if (t < xMin || t > xMax) return;
           const x = toX(t);
-          // Dashed vertical line
+          // Solid vertical line, full plot height
           ctx.beginPath();
           ctx.moveTo(x, plotTop);
           ctx.lineTo(x, plotTop + plotHeight);
           ctx.stroke();
 
           // Triangle cap at top
-          ctx.setLineDash([]);
           ctx.fillStyle = selectedColor;
           ctx.beginPath();
-          ctx.moveTo(x - 5, plotTop);
-          ctx.lineTo(x + 5, plotTop);
-          ctx.lineTo(x, plotTop + 6);
+          ctx.moveTo(x - 6, plotTop);
+          ctx.lineTo(x + 6, plotTop);
+          ctx.lineTo(x, plotTop + 7);
           ctx.closePath();
           ctx.fill();
-          ctx.setLineDash([5, 4]);
         };
 
         drawBoundary(startT);
@@ -799,12 +801,17 @@ const annotationRegionsPlugin = (
           const isSelected = a.id === selectedId;
           const emphasized = isHovered || isSelected;
 
-          // Boundary lines (dashed, in annotation color). Selected gets
-          // a notably thicker outline so panel-list clicks light up the
-          // matching annotation on the chart.
+          // Boundary lines — solid + thicker for the selected annotation,
+          // dashed (idle/hover) for the rest. Solid lines on the selected
+          // one give the panel-list click an unmistakable chart cue.
           ctx.strokeStyle = color;
-          ctx.lineWidth = isSelected ? 2.5 : isHovered ? 1.5 : 1;
-          ctx.setLineDash([5, 4]);
+          if (isSelected) {
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([]);
+          } else {
+            ctx.lineWidth = isHovered ? 1.5 : 1;
+            ctx.setLineDash([5, 4]);
+          }
           ctx.beginPath();
           ctx.moveTo(x1, plotTop);
           ctx.lineTo(x1, plotTop + plotHeight);
