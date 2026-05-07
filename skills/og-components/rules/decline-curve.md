@@ -49,22 +49,61 @@ interface Segment {
 
 `tStart` values must be unique (ids on a timeline). The first segment's `tStart` is typically 0. Subsequent segments inherit `qi` from the prior segment's end value unless `qiAnchored` is true.
 
-## Equation Types
+## Equation Reference
 
-| Equation              | Group        | qi | di | b | slope | Notes                                      |
-| --------------------- | ------------ | -- | -- | - | ----- | ------------------------------------------ |
-| `flat`                | base         | ✅ |     |   |       | Constant rate                              |
-| `linear`              | base         | ✅ |     |   | ✅    | Straight-line ramp                         |
-| `exponential`         | base         | ✅ | ✅ |   |       | qi · e^(−di·dt)                            |
-| `harmonic`            | base         | ✅ | ✅ |   |       | qi / (1 + di·dt)                           |
-| `hyperbolic`          | base         | ✅ | ✅ | ✅ |       | qi / (1 + b·di·dt)^(1/b)                   |
-| `stretchedExponential` | base        | ✅ | ✅ | ✅ |       | qi · e^(−(di·dt)^b)                        |
-| `flowback`            | operational  | ✅ |     |   | ✅    | Linear ramp (well cleaning up)             |
-| `shutIn`              | operational  | (qi forced to 0) |    |   |       | Hard zero rate (well offline)              |
-| `constrained`         | operational  | ✅ |     |   |       | Plateau (choke or pipeline limited)        |
-| `choked`              | operational  | ✅ |     |   |       | Plateau at a lower rate than `constrained` |
+All ten equations evaluate `q(t) = …` where `t` is time *since this segment's `tStart`* (i.e. local time, not absolute). Every equation reads `qi` from `params.qi` (the rate at the segment's start). The other slots in `SegmentParams` (`di`, `b`, `slope`) are only consulted by equations that actually use them — the segment editor hides the inputs that don't apply, but the data model carries all four for type uniformity.
 
-The 4 operational presets carry semantic meaning even though some share math with base equations. Prefer the operational name when modeling a real event.
+`qi` is the standard O&G letter for **initial production rate**, which doubles as the y-intercept for the family of decline curves below. That's why every equation references it — it isn't being force-fit; it's the same physical quantity (production at `t=0`) seen from different decline shapes.
+
+### Base math (Decline group)
+
+| Key                   | Label             | Formula                                  | Editable params           |
+| --------------------- | ----------------- | ---------------------------------------- | ------------------------- |
+| `flat`                | Flat              | q(t) = qi                                | qi                        |
+| `linear`              | Linear            | q(t) = qi + slope · t                    | qi, slope                 |
+| `exponential`         | Exponential       | q(t) = qi · e<sup>−Di · t</sup>          | qi, Di                    |
+| `harmonic`            | Harmonic          | q(t) = qi / (1 + Di · t)                 | qi, Di                    |
+| `hyperbolic`          | Hyperbolic        | q(t) = qi / (1 + b · Di · t)<sup>1/b</sup> | qi, Di, b               |
+| `stretchedExponential` | Stretched Exp    | q(t) = qi · e<sup>−(Di · t)<sup>n</sup></sup> | qi, Di, n            |
+
+Mapping to standard math notation:
+
+- **Linear** is the same `y = mx + b` you'd see in any algebra textbook — here `b = qi` (y-intercept = initial rate) and `m = slope`. We call it `slope` instead of `m` so the variable name reads like the physical thing it describes.
+- **Stretched exponential** uses `n` as the stretching exponent in the formula, but the data field is reused from `params.b` (the same slot hyperbolic uses for its decline exponent). The editor labels the input `b` for consistency; the formula displays `n` because that's the standard stretched-exponential notation.
+- **Di** is the nominal decline rate per unit time (e.g. 0.05 = 5% per month for a monthly chart).
+
+### Operational presets (Operations group)
+
+| Key            | Label                | Formula                | Editable params | Notes                                                                    |
+| -------------- | -------------------- | ---------------------- | --------------- | ------------------------------------------------------------------------ |
+| `flowback`     | Flowback             | q(t) = qi + slope · t  | qi, slope       | Same math as `linear` — defaults to `slope = +25` so the curve ramps up. Use this name when modeling the well's clean-up phase. |
+| `shutIn`       | Shut-in              | q(t) = 0               | (none — qi forced to 0) | Forces production to zero regardless of `qi`. Used for any well-offline period (offset frac shut-in, workover, freeze-off, etc.). The bisect-resumption logic also keys off `q ≈ 0` to anchor the next segment back to the original curve. |
+| `constrained`  | Constrained          | q(t) = qi              | qi              | Plateau — same math as `flat`, but the name signals "production is being held back" (choke, pipeline limit, etc.). |
+| `choked`       | Choked               | q(t) = qi              | qi              | Plateau — identical math to `constrained`. The split exists for terminology: a "choked" well is one the operator has explicitly throttled vs. `constrained` which often means the surface infrastructure is the limit. |
+
+The four operational presets carry semantic meaning even though some share math with base equations. Prefer the operational name when modeling a real event so:
+
+- Other consumers reading the segment data can tell flowback from a generic linear ramp at a glance.
+- The bisect-resumption math (which auto-anchors a resumption segment back to the pre-event curve when the inserted segment ends at zero) catches every shut-in regardless of which operational name was used.
+
+## Param semantics by equation
+
+`SegmentParams` is `{ qi, di, b, slope }` for every equation, but only the fields below have any effect:
+
+| Equation              | qi  | Di  | b / n | slope |
+| --------------------- | --- | --- | ----- | ----- |
+| `flat`                | ✓   |     |       |       |
+| `linear`              | ✓   |     |       | ✓     |
+| `exponential`         | ✓   | ✓   |       |       |
+| `harmonic`            | ✓   | ✓   |       |       |
+| `hyperbolic`          | ✓   | ✓   | ✓     |       |
+| `stretchedExponential` | ✓   | ✓   | ✓ (n) |       |
+| `flowback`            | ✓   |     |       | ✓     |
+| `shutIn`              | (0) |     |       |       |
+| `constrained`         | ✓   |     |       |       |
+| `choked`              | ✓   |     |       |       |
+
+Unused fields are stored as zeros — they're never read for the equations that don't list them. The editor hides input rows that aren't in the equation's editable list.
 
 ## Common Mistakes
 

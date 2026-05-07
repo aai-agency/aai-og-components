@@ -53,12 +53,26 @@ The sample dataset is a 900-day Bakken-style well: flowback → hyperbolic → w
 
 A `Segment` is one piece of the forecast curve. The full forecast is a sorted array of segments, each with its own equation, params, and start time. Segments chain together C0-continuously: segment N's `qi` is automatically the value of segment N-1 evaluated at N.tStart, unless `qiAnchored: true` is set (then the explicit `qi` overrides the chain).
 
-Ten supported equations split into two groups:
+Ten supported equations, all evaluating `q(t) = …` where `t` is time *since this segment's `tStart`*:
 
-- **Base math:** `flat`, `linear`, `exponential`, `harmonic`, `hyperbolic`, `stretchedExponential`
-- **Operational presets:** `flowback`, `shutIn`, `constrained`, `choked`
+| Key                    | Group         | Formula                                                    |
+| ---------------------- | ------------- | ---------------------------------------------------------- |
+| `flat`                 | Decline       | q(t) = qi                                                  |
+| `linear`               | Decline       | q(t) = qi + slope · t                                      |
+| `exponential`          | Decline       | q(t) = qi · e<sup>−Di · t</sup>                            |
+| `harmonic`             | Decline       | q(t) = qi / (1 + Di · t)                                   |
+| `hyperbolic`           | Decline       | q(t) = qi / (1 + b · Di · t)<sup>1/b</sup>                 |
+| `stretchedExponential` | Decline       | q(t) = qi · e<sup>−(Di · t)<sup>n</sup></sup> (`n = params.b`) |
+| `flowback`             | Operations    | q(t) = qi + slope · t (defaults to `slope = +25`)          |
+| `shutIn`               | Operations    | q(t) = 0 (qi is forced to zero)                            |
+| `constrained`          | Operations    | q(t) = qi (plateau — surface/pipeline limited)             |
+| `choked`               | Operations    | q(t) = qi (plateau — operator-throttled)                   |
 
-The presets carry semantic meaning even when they share math with a base equation (e.g. `flowback` is a linear ramp; `shutIn` forces qi=0). Use the operational name when modeling a real event so the right behaviors apply (e.g. shut-in resumption auto-anchors back to the original curve).
+`qi` is the standard O&G letter for **initial production rate**, which doubles as the y-intercept of every decline curve in the table — that's why every equation reads from it. `Linear` is exactly `y = mx + b` (slope=`m`, qi=`b`); `slope` is named for the physical quantity rather than the textbook letter.
+
+The four operational presets carry semantic meaning even when they share math with a base equation. Prefer the operational name when modeling a real event so consumers can tell a flowback ramp from a generic linear, and so the bisect-resumption math (which anchors the next segment back to the pre-event curve when the inserted segment ends at zero) catches every shut-in.
+
+The full param-by-equation table and notation mapping live in `skills/og-components/rules/decline-curve.md`.
 
 ### Annotations
 
