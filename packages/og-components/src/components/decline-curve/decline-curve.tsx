@@ -9,7 +9,6 @@ import {
   Plus,
   RotateCcw,
   Settings,
-  Sparkles,
   Trash2,
   Unlock,
   X,
@@ -2564,15 +2563,20 @@ export const DeclineCurve = memo(
 
     const [annotateMode, setAnnotateMode] = useState(false);
     const annotateModeRef = useRef(false);
+    /** Edit forecast mode — chart is read-only by default. The user enters
+     *  edit mode via the toolbar "Edit forecast" button to drag, right-click,
+     *  and reshape the forecast. Annotate mode forces edit off. */
+    const [editForecastMode, setEditForecastMode] = useState(false);
     useEffect(() => {
       annotateModeRef.current = annotateMode;
-      // editMode is the inverse of annotate mode — when the user is drawing
-      // annotation regions, the chart suppresses forecast drag/right-click.
-      editModeRef.current = !annotateMode;
+      // Edit mode is gated on BOTH the explicit edit toggle AND not-in-
+      // annotate mode. Annotate-mode wins for the sake of clean, mutually
+      // exclusive interaction modes.
+      editModeRef.current = editForecastMode && !annotateMode;
       // Plugins gate on the ref — force a repaint when mode flips so the
       // dashed boundary lines appear/disappear instantly.
       prodChartRef.current?.redraw();
-    }, [annotateMode]);
+    }, [annotateMode, editForecastMode]);
 
     type VarianceMode = "off" | "sign" | "byAnnotation" | "combined";
     const [varianceMode, setVarianceMode] = useState<VarianceMode>(showVariance ? "sign" : "off");
@@ -2754,11 +2758,10 @@ export const DeclineCurve = memo(
       segmentsRef.current = segments;
     }, [segments]);
 
-    // v1: the chart is always editable. Edit-mode is the inverse of annotate-mode
-    // — entering "Annotate" disables drag/right-click on the forecast so the
-    // user is just drawing annotation regions. There is no longer a Save/Cancel
-    // wrapper; segment changes auto-commit through onSave on every mutation.
-    const editModeRef = useRef<boolean>(true);
+    // Read-only by default — the user must click "Edit forecast" in the
+    // toolbar to enter editing mode. Drag, right-click, and the inline
+    // segment editor are all gated on this. Annotate-mode forces this off.
+    const editModeRef = useRef<boolean>(false);
 
     const [selectedId, setSelectedId] = useState<string | null>(() => segments[0]?.id ?? null);
     const selectedIdRef = useRef<string | null>(selectedId);
@@ -2775,6 +2778,11 @@ export const DeclineCurve = memo(
      *  selected segment. Open on click in edit mode, collapsible via the
      *  panel header's chevron. */
     const [segmentPanelOpen, setSegmentPanelOpen] = useState(false);
+    /** Side panel two-step navigation: 'list' shows every segment in order
+     *  (toolbar Segment button entry), 'editor' shows the form for the
+     *  currently selected segment (chart-click entry). Back button in the
+     *  editor returns to 'list'. */
+    const [segmentPanelView, setSegmentPanelView] = useState<"list" | "editor">("list");
 
     // Resolve production data — when both `production` and `time` are
     // supplied, truncate to the shorter length so an off-by-one in the
@@ -3654,6 +3662,7 @@ export const DeclineCurve = memo(
           const dy = Math.abs(e.clientY - downInfo.clientY);
           if (dx <= 4 && dy <= 4 && selectedIdRef.current) {
             setSegmentPanelOpen(true);
+            setSegmentPanelView("editor");
           }
         }
         return;
@@ -3698,6 +3707,7 @@ export const DeclineCurve = memo(
         // stays put as the user clicks between segments, lets them keep
         // interacting with the chart, and folds away on demand.
         setSegmentPanelOpen(true);
+        setSegmentPanelView("editor");
       }
     }, []);
 
@@ -4191,31 +4201,6 @@ export const DeclineCurve = memo(
              inside the Settings popover now. */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pb-2">
           <div className="ml-auto flex items-center gap-1.5">
-            {/* Segment panel toggle — visible when a segment is selected
-                and we're in edit mode. Click to open/close the side panel.
-                Replaces the old slim vertical bar that lived between the
-                chart and the panel. */}
-            {!annotateMode && selectedSegment && (
-              <button
-                type="button"
-                onClick={() => setSegmentPanelOpen((v) => !v)}
-                className={cn(
-                  "inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-background px-2 text-[10px] font-medium",
-                  "hover:bg-muted hover:text-foreground transition-colors",
-                  segmentPanelOpen ? "border-indigo-500/40 text-indigo-600" : "text-muted-foreground",
-                )}
-                title={segmentPanelOpen ? "Hide segment panel" : "Show segment panel"}
-                aria-pressed={segmentPanelOpen}
-              >
-                {segmentPanelOpen ? (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                )}
-                <span>Segment</span>
-              </button>
-            )}
-
             {/* Zoom controls — zoom in / out / reset. Both charts track the
                 same x-range via applyXScale. */}
             <div className="inline-flex h-6 items-center overflow-hidden rounded-md border border-border bg-background">
@@ -4422,34 +4407,62 @@ export const DeclineCurve = memo(
               )}
             </div>
 
-            {/* v1 auto-commits every change — Save/Cancel/Edit toggle is gone.
-                The chart is always editable; toggle into annotate-mode when
-                drawing range annotations on top of the forecast. */}
-            {annotateMode ? (
-              <>
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-                  <Pencil className="h-3 w-3" />
-                  Annotating
-                </span>
+            {/* Edit forecast — chart is read-only by default; user opts in
+                here to drag/right-click/edit segments. Annotate-mode wins
+                over edit-mode (mutually exclusive). */}
+            {!annotateMode &&
+              (editForecastMode ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAnnotateMode(false);
-                    setSelectedAnnotationId(null);
-                    setHoveredAnnotationId(null);
-                    setDrawingAnnotation(null);
-                    drawingRef.current = null;
-                  }}
+                  onClick={() => setEditForecastMode(false)}
                   className={cn(
-                    "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground",
-                    "hover:bg-muted hover:text-foreground transition-colors",
+                    "inline-flex h-7 items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-xs font-medium text-indigo-700",
+                    "hover:bg-indigo-500/15 transition-colors",
                   )}
-                  title="Done annotating"
+                  title="Done editing"
+                  aria-pressed
                 >
                   <Check className="h-3.5 w-3.5" />
                   Done
                 </button>
-              </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditForecastMode(true)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
+                    "hover:bg-muted hover:border-indigo-500/40 hover:text-indigo-600 transition-colors",
+                  )}
+                  title="Edit the forecast — drag, right-click, reshape segments"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit forecast
+                </button>
+              ))}
+
+            {/* Annotate — draw range annotations on the chart. Toggle
+                same as Edit-forecast. No icon (the label carries enough
+                weight on its own). */}
+            {annotateMode ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAnnotateMode(false);
+                  setSelectedAnnotationId(null);
+                  setHoveredAnnotationId(null);
+                  setDrawingAnnotation(null);
+                  drawingRef.current = null;
+                }}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 text-xs font-medium text-amber-700",
+                  "hover:bg-amber-500/15 transition-colors",
+                )}
+                title="Done annotating"
+                aria-pressed
+              >
+                <Check className="h-3.5 w-3.5" />
+                Done
+              </button>
             ) : (
               <button
                 type="button"
@@ -4460,10 +4473,36 @@ export const DeclineCurve = memo(
                 )}
                 title="Draw annotation regions on the chart"
               >
-                <Sparkles className="h-3.5 w-3.5" />
                 Annotate
               </button>
             )}
+
+            {/* Segments — opens the side panel and shows the segment list.
+                Far right of the toolbar. Always available, regardless of
+                edit/annotate mode. */}
+            <button
+              type="button"
+              onClick={() => {
+                if (segmentPanelOpen) {
+                  setSegmentPanelOpen(false);
+                } else {
+                  setSegmentPanelOpen(true);
+                  setSegmentPanelView("list");
+                }
+              }}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium",
+                "hover:bg-muted transition-colors",
+                segmentPanelOpen
+                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title={segmentPanelOpen ? "Hide segments panel" : "Show segments panel"}
+              aria-pressed={segmentPanelOpen}
+            >
+              <span>Segments</span>
+              <ChevronRight className={cn("h-3 w-3 transition-transform", segmentPanelOpen ? "" : "rotate-180")} />
+            </button>
           </div>
         </div>
 
@@ -4627,89 +4666,154 @@ export const DeclineCurve = memo(
           </div>
           {/* end chart column */}
 
-          {/* ── Segment side panel ── docks right of the chart column. Visible
-             only in edit mode + when opened. Empty when no segment selected. */}
+          {/* ── Segment side panel ── docks right of the chart column.
+             Two views:
+             1. 'list' — every segment as a row; click a row to edit it.
+                Entered via the toolbar Segments button.
+             2. 'editor' — the form for the currently selected segment.
+                Entered via clicking a row in the list, clicking a segment
+                on the chart, or right-clicking on the chart and choosing
+                Edit. Has a "Back" button that returns to 'list'. */}
           {!annotateMode &&
             segmentPanelOpen &&
-            selectedSegment &&
             (() => {
-              const segIdx = sortedSegments.findIndex((s) => s.id === selectedSegment.id);
-              const next = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
-              const segLength = next ? next.tStart - selectedSegment.tStart : null;
+              const isList = segmentPanelView === "list" || !selectedSegment;
+              if (isList) {
+                return (
+                  <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
+                      <span className="text-xs font-semibold">Segments ({sortedSegments.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => setSegmentPanelOpen(false)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title="Close panel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
+                      {sortedSegments.map((s, idx) => {
+                        const next = sortedSegments[idx + 1];
+                        const segLen = next ? next.tStart - s.tStart : null;
+                        const isSelected = s.id === selectedId;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedId(s.id);
+                              setSegmentPanelView("editor");
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-2 rounded-md border px-2 py-2 text-left transition-colors",
+                              isSelected
+                                ? "border-indigo-500/40 bg-indigo-500/5"
+                                : "border-border bg-background hover:bg-muted",
+                            )}
+                          >
+                            <span
+                              className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
+                              style={{ background: colorForSegment(idx, s) }}
+                            >
+                              {idx + 1}
+                            </span>
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="text-xs font-semibold truncate">{EQUATION_LABELS[s.equation]}</span>
+                              <span className="text-[10px] text-muted-foreground truncate">
+                                t≥{s.tStart.toFixed(0)}
+                                {segLen != null
+                                  ? ` · ${segLen.toFixed(0)} ${timeUnit === "day" ? "d" : timeUnit === "month" ? "mo" : "y"}`
+                                  : " · open-ended"}
+                                {" · qi="}
+                                {(effectiveQis[idx] ?? s.params.qi).toFixed(0)}
+                              </span>
+                            </div>
+                            {s.locked && <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" aria-label="Locked" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              // Editor view — selectedSegment is guaranteed non-null here
+              // because isList catches `!selectedSegment` above.
+              const seg = selectedSegment;
+              if (!seg) return null;
+              const segIdx = sortedSegments.findIndex((s) => s.id === seg.id);
+              const nextSeg = segIdx >= 0 ? sortedSegments[segIdx + 1] : null;
+              const segLength = nextSeg ? nextSeg.tStart - seg.tStart : null;
               return (
                 <div className="w-[300px] flex-shrink-0 self-stretch flex flex-col rounded-md border border-border bg-background shadow-sm">
                   <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 flex-shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSegmentPanelView("list")}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+                        title="Back to segment list"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                      </button>
                       <span
                         className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-sm px-1.5 text-[10px] font-semibold text-white flex-shrink-0"
-                        style={{ background: colorForSegment(segIdx, selectedSegment) }}
+                        style={{ background: colorForSegment(segIdx, seg) }}
                       >
                         {segIdx + 1}
                       </span>
-                      <span className="text-xs font-semibold truncate">
-                        {EQUATION_LABELS[selectedSegment.equation]}
-                      </span>
+                      <span className="text-xs font-semibold truncate">{EQUATION_LABELS[seg.equation]}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {/* Lock / Unlock toggle — when locked, the segment's
-                          equation, params, and tStart/length are pinned: drag
-                          on the chart skips it, neighbor bend-back skips it,
-                          and the side panel inputs disable. Visible state in
-                          the panel header so the user can flip it without
-                          digging into the row editor. */}
                       <button
                         type="button"
-                        onClick={() => handleSegmentChange({ ...selectedSegment, locked: !selectedSegment.locked })}
+                        onClick={() => handleSegmentChange({ ...seg, locked: !seg.locked })}
                         className={cn(
                           "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-                          selectedSegment.locked
+                          seg.locked
                             ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
-                        title={selectedSegment.locked ? "Unlock segment (allow edits)" : "Lock segment (pin in place)"}
-                        aria-pressed={!!selectedSegment.locked}
+                        title={seg.locked ? "Unlock segment (allow edits)" : "Lock segment (pin in place)"}
+                        aria-pressed={!!seg.locked}
                       >
-                        {selectedSegment.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                        {seg.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSegmentPanelOpen(false)}
                         className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        title="Collapse panel"
+                        title="Close panel"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
-                  {/* Panel matches the chart column's height (self-stretch on
-                   the parent flex). Inner area scrolls if the editor is
-                   taller than the available height. */}
                   <div className="flex-1 min-h-0 overflow-y-auto p-3">
                     <SegmentEditorBody
-                      segment={selectedSegment}
+                      segment={seg}
                       isFirst={segIdx === 0}
                       isLast={segIdx === sortedSegments.length - 1}
-                      effectiveQi={effectiveQis[segIdx] ?? selectedSegment.params.qi}
+                      effectiveQi={effectiveQis[segIdx] ?? seg.params.qi}
                       length={segLength}
-                      locked={annotateMode || !!selectedSegment.locked}
+                      locked={annotateMode || !!seg.locked}
                       startDate={startDate}
                       timeUnit={timeUnit}
                       updateParam={(key, value) =>
-                        handleSegmentChange({
-                          ...selectedSegment,
-                          params: { ...selectedSegment.params, [key]: value },
-                        })
+                        handleSegmentChange({ ...seg, params: { ...seg.params, [key]: value } })
                       }
-                      updateEquation={(eq) => handleSegmentChange({ ...selectedSegment, equation: eq })}
+                      updateEquation={(eq) => handleSegmentChange({ ...seg, equation: eq })}
                       onChange={handleSegmentChange}
                       onLengthChange={(newLen) => {
-                        if (!next) return;
-                        const newNextTStart = selectedSegment.tStart + newLen;
+                        if (!nextSeg) return;
+                        const newNextTStart = seg.tStart + newLen;
                         setSegments((prev) =>
-                          normalizeSegments(prev.map((s) => (s.id === next.id ? { ...s, tStart: newNextTStart } : s))),
+                          normalizeSegments(
+                            prev.map((s) => (s.id === nextSeg.id ? { ...s, tStart: newNextTStart } : s)),
+                          ),
                         );
                       }}
-                      onRemove={() => handleSegmentRemove(selectedSegment.id)}
+                      onRemove={() => handleSegmentRemove(seg.id)}
                     />
                   </div>
                 </div>
@@ -4735,6 +4839,7 @@ export const DeclineCurve = memo(
               if (contextMenu.activeSegmentId) {
                 setSelectedId(contextMenu.activeSegmentId);
                 setSegmentPanelOpen(true);
+                setSegmentPanelView("editor");
               }
             }}
             onRemove={() => {
