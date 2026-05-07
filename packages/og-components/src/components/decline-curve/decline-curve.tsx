@@ -4191,6 +4191,31 @@ export const DeclineCurve = memo(
              inside the Settings popover now. */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pb-2">
           <div className="ml-auto flex items-center gap-1.5">
+            {/* Segment panel toggle — visible when a segment is selected
+                and we're in edit mode. Click to open/close the side panel.
+                Replaces the old slim vertical bar that lived between the
+                chart and the panel. */}
+            {!annotateMode && selectedSegment && (
+              <button
+                type="button"
+                onClick={() => setSegmentPanelOpen((v) => !v)}
+                className={cn(
+                  "inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-background px-2 text-[10px] font-medium",
+                  "hover:bg-muted hover:text-foreground transition-colors",
+                  segmentPanelOpen ? "border-indigo-500/40 text-indigo-600" : "text-muted-foreground",
+                )}
+                title={segmentPanelOpen ? "Hide segment panel" : "Show segment panel"}
+                aria-pressed={segmentPanelOpen}
+              >
+                {segmentPanelOpen ? (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                )}
+                <span>Segment</span>
+              </button>
+            )}
+
             {/* Zoom controls — zoom in / out / reset. Both charts track the
                 same x-range via applyXScale. */}
             <div className="inline-flex h-6 items-center overflow-hidden rounded-md border border-border bg-background">
@@ -4691,32 +4716,9 @@ export const DeclineCurve = memo(
               );
             })()}
 
-          {/* Reopen handle — visible when the panel is closed but a segment
-             is selected and we're in edit mode. Slim vertical button on the
-             right edge that expands the panel back. */}
-          {!annotateMode && !segmentPanelOpen && selectedSegment && (
-            <button
-              type="button"
-              onClick={() => setSegmentPanelOpen(true)}
-              className={cn(
-                "flex-shrink-0 w-6 rounded-md border border-border bg-background",
-                "hover:bg-muted hover:border-indigo-500/40 transition-colors",
-                "flex flex-col items-center justify-center py-2 gap-1",
-              )}
-              title="Open segment panel"
-            >
-              <ChevronRight className="h-3 w-3 rotate-180 text-muted-foreground" />
-              <div
-                className="w-1 flex-1 rounded-full"
-                style={{
-                  background: colorForSegment(
-                    sortedSegments.findIndex((s) => s.id === selectedSegment.id),
-                    selectedSegment,
-                  ),
-                }}
-              />
-            </button>
-          )}
+          {/* Reopen handle moved to the toolbar (above the chart) — see the
+             Segment toggle button there. The old slim vertical bar that used
+             to sit between the chart and panel is gone. */}
         </div>
         {/* end chart-row flex */}
 
