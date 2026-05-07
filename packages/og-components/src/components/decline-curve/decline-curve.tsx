@@ -2831,7 +2831,10 @@ export const DeclineCurve = memo(
     // segment editor are all gated on this. Annotate-mode forces this off.
     const editModeRef = useRef<boolean>(false);
 
-    const [selectedId, setSelectedId] = useState<string | null>(() => segments[0]?.id ?? null);
+    // No initial selection — the user must explicitly click a segment (in
+    // the chart or the side panel list) to highlight one. Avoids the
+    // surprise of segment[0] showing the selection band on first paint.
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const selectedIdRef = useRef<string | null>(selectedId);
     useEffect(() => {
       selectedIdRef.current = selectedId;
@@ -4624,6 +4627,8 @@ export const DeclineCurve = memo(
               onClick={() => {
                 if (segmentPanelOpen && panelMode === "segments") {
                   setSegmentPanelOpen(false);
+                  setSelectedId(null);
+                  setSelectedAnnotationId(null);
                 } else {
                   setSegmentPanelOpen(true);
                   setPanelMode("segments");
@@ -4650,6 +4655,8 @@ export const DeclineCurve = memo(
               onClick={() => {
                 if (segmentPanelOpen && panelMode === "annotations") {
                   setSegmentPanelOpen(false);
+                  setSelectedId(null);
+                  setSelectedAnnotationId(null);
                 } else {
                   setSegmentPanelOpen(true);
                   setPanelMode("annotations");
