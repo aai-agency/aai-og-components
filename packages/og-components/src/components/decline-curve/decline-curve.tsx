@@ -3988,15 +3988,17 @@ export const DeclineCurve = memo(
             const fullMax = buffers?.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
             setIsZoomed(fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5);
           } else {
-            // Click without zoom — annotation hit takes priority, then
-            // segment under the click position.
+            // Click without zoom — annotations are still selectable in any
+            // mode (they're a separate concern from forecast editing), but
+            // segment selection only fires in forecast mode. Outside of it
+            // the chart should feel like a read-only viewer with zoom.
             const clickT = start;
             const annHit = annotationsRef.current.find(
               (a) => clickT >= Math.min(a.tStart, a.tEnd) && clickT <= Math.max(a.tStart, a.tEnd),
             );
             if (annHit) {
               setSelectedAnnotationId(annHit.id);
-            } else {
+            } else if (editModeRef.current) {
               const sortedClick = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
               if (sortedClick.length > 0) {
                 let hitIdx = 0;
@@ -4646,7 +4648,7 @@ export const DeclineCurve = memo(
           <div className="ml-auto flex items-center gap-1.5">
             {/* Zoom controls — zoom in / out / reset. Both charts track the
                 same x-range via applyXScale. */}
-            <div className="inline-flex h-6 items-center overflow-hidden rounded-md border border-border bg-background">
+            <div className="inline-flex h-6 items-center overflow-hidden rounded-md border border-border bg-background order-1">
               <button
                 type="button"
                 onClick={zoomOut}
@@ -4678,13 +4680,15 @@ export const DeclineCurve = memo(
               </button>
             </div>
 
-            {/* Fullscreen toggle */}
+            {/* Fullscreen toggle — visually pushed to the far right via
+                CSS order. Stays here in DOM order to keep its grouping
+                with Settings (both are meta/chrome controls). */}
             <button
               type="button"
               onClick={toggleFullscreen}
               className={cn(
                 "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
-                "hover:text-foreground hover:bg-muted transition-colors",
+                "hover:text-foreground hover:bg-muted transition-colors order-6",
                 isFullscreen && "border-indigo-500/40 text-indigo-600",
               )}
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -4692,8 +4696,8 @@ export const DeclineCurve = memo(
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
 
-            {/* Settings popover (gear) */}
-            <div className="relative">
+            {/* Settings popover (gear) — far-right via order-7. */}
+            <div className="relative order-7">
               <button
                 type="button"
                 onClick={() => setSettingsOpen((v) => !v)}
@@ -4861,7 +4865,7 @@ export const DeclineCurve = memo(
                 side panel onto their respective list view. */}
 
             {/* Actions dropdown — explicit Forecast / Annotate choice. */}
-            <div className="relative" ref={actionsRef}>
+            <div className="relative order-2" ref={actionsRef}>
               <button
                 type="button"
                 onClick={() => setActionsOpen((v) => !v)}
@@ -4986,7 +4990,7 @@ export const DeclineCurve = memo(
                 }
               }}
               className={cn(
-                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
+                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors order-3",
                 segmentPanelOpen && panelMode === "segments"
                   ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
                   : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -5013,7 +5017,7 @@ export const DeclineCurve = memo(
                 }
               }}
               className={cn(
-                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors",
+                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors order-4",
                 segmentPanelOpen && panelMode === "annotations"
                   ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
                   : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
