@@ -9,6 +9,11 @@ export default defineConfig({
   envDir: "../../",
   resolve: {
     alias: {
+      // More specific aliases first — Vite picks the first match.
+      "@aai-agency/og-components/sample-data": path.resolve(
+        __dirname,
+        "../../packages/og-components/src/sample-data/index.ts",
+      ),
       "@aai-agency/og-components": path.resolve(__dirname, "../../packages/og-components/src/index.ts"),
     },
   },

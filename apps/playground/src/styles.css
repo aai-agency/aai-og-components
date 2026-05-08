@@ -1,17 +1,24 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "mapbox-gl/dist/mapbox-gl.css";
+
+/* Scan og-components source so its Tailwind classes get included in the build */
+@source "../../../packages/og-components/src/**/*.{ts,tsx}";
 
 @theme {
   --color-background: #ffffff;
   --color-foreground: #0a0a0a;
-  --color-muted: #fafafa;
-  --color-muted-foreground: #737373;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
   --color-border: #e5e5e5;
+  --color-input: #e5e5e5;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
   --color-primary: #18181b;
   --color-primary-foreground: #fafafa;
   --color-accent: #f4f4f5;
   --color-accent-foreground: #18181b;
-  --color-ring: #18181b;
+  --color-ring: #6366f1;
   --radius: 0.5rem;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;

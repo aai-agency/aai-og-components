@@ -6,6 +6,7 @@
     "build": "pnpm --filter @aai-agency/og-components build",
     "build:docs": "pnpm --filter playground build",
     "lint": "biome check --write .",
+    "lint:ci": "biome check .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @aai-agency/og-components test",
     "test:watch": "pnpm --filter @aai-agency/og-components test:watch"

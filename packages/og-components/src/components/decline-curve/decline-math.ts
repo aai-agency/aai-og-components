@@ -1,0 +1,887 @@
+/**
+ * Piecewise segmented decline curve math using TypedArrays.
+ *
+ * Pre-allocated Float64Arrays avoid GC pressure during interactive dragging.
+ * Segments are contiguous; each begins at its tStart and runs until the next
+ * segment's tStart (or end of data). The first segment owns an explicit qi;
+ * subsequent segments inherit qi = q(tStart) from the prior segment to
+ * guarantee C0 continuity (no gaps in the forecast line).
+ */
+
+export type EquationType =
+  // Base math
+  | "flat"
+  | "linear"
+  | "exponential"
+  | "harmonic"
+  | "hyperbolic"
+  | "stretchedExponential"
+  // Named operational presets (resolve to base math)
+  | "shutIn"
+  | "flowback"
+  | "constrained"
+  | "choked";
+
+export interface SegmentParams {
+  /** Initial production rate at segment start. For segments[0] this is user-defined; for later segments this is inherited from the prior segment's end value and ignored as input. */
+  qi: number;
+  /** Initial decline rate (fraction per unit time). Used by exponential/harmonic/hyperbolic. */
+  di: number;
+  /** Hyperbolic exponent (0 < b <= 2). Used only by hyperbolic. */
+  b: number;
+  /** Rate of change per unit time. Used only by linear. Positive = growing. */
+  slope: number;
+}
+
+export interface Segment {
+  id: string;
+  /** Time (in same units as data) where this segment begins. segments[0].tStart is typically 0. */
+  tStart: number;
+  equation: EquationType;
+  params: SegmentParams;
+  /**
+   * If true, the segment uses its own params.qi as the starting value (breaking
+   * C0 continuity with the prior segment). Defaults to false: qi is inherited
+   * from the prior segment's value at tStart. The first segment is always
+   * effectively anchored.
+   */
+  qiAnchored?: boolean;
+  /**
+   * Optional explicit end time. Only meaningful on the last segment — when set,
+   * the forecast terminates here instead of running to the chart horizon.
+   * Middle segments derive their end from the next segment's tStart and ignore
+   * this field.
+   */
+  tEnd?: number;
+  /** Free-text note attached to this segment (for plans, context, etc.). */
+  note?: string;
+  /** Optional explicit color for this segment. Falls back to the position-based palette. */
+  color?: string;
+  /**
+   * Pin the segment's params in place. A locked segment is never bent by a
+   * neighbor's drag (the bend is skipped and the boundary visibly breaks if
+   * needed) and can't be dragged directly — its forecast line ignores the
+   * grab gesture so the user can't accidentally tweak it. Toggle from the
+   * lock icon in the segment row.
+   */
+  locked?: boolean;
+}
+
+export interface DeclineMathBuffers {
+  time: Float64Array;
+  forecast: Float64Array;
+  actual: Float64Array;
+  variance: Float64Array;
+  length: number;
+}
+
+/** Legacy alias kept for compatibility with the old single-segment API. */
+export type HyperbolicParams = Pick<SegmentParams, "qi" | "di" | "b">;
+
+// ── Annotations ──────────────────────────────────────────────────────────────
+
+export type AnnotationType =
+  // Operations
+  | "flowback"
+  | "shutInOffset"
+  | "shutInWorkover"
+  | "chokeChange"
+  | "trim"
+  | "fracJob"
+  | "workover"
+  // Failures
+  | "pumpFail"
+  | "espFail"
+  | "tubingLeak"
+  | "casingFailure"
+  | "compressorDown"
+  // Plans / general
+  | "plan"
+  | "note"
+  | "other";
+
+/** Logical grouping for the dropdown — keep in sync with ANNOTATION_TYPE_META. */
+export const ANNOTATION_TYPE_GROUPS: Array<{ label: string; types: AnnotationType[] }> = [
+  {
+    label: "Operations",
+    types: ["flowback", "shutInOffset", "shutInWorkover", "chokeChange", "trim", "fracJob", "workover"],
+  },
+  {
+    label: "Failures",
+    types: ["pumpFail", "espFail", "tubingLeak", "casingFailure", "compressorDown"],
+  },
+  {
+    label: "Other",
+    types: ["plan", "note", "other"],
+  },
+];
+
+export interface Annotation {
+  id: string;
+  /** Range start (same units as the chart's time axis, anchored to startDate). */
+  tStart: number;
+  /** Range end (exclusive). */
+  tEnd: number;
+  /** User-facing label. */
+  label?: string;
+  /** Longer free-text context for the annotation. */
+  description?: string;
+  /** Preset type — drives default color and grouping. */
+  type: AnnotationType;
+  /** Optional override color (hex). Falls back to the type's palette color. */
+  color?: string;
+}
+
+export interface AnnotationTypeMeta {
+  label: string;
+  color: string;
+  description?: string;
+}
+
+export const ANNOTATION_TYPE_META: Record<AnnotationType, AnnotationTypeMeta> = {
+  // Operations — blues / cool tones
+  flowback: { label: "Flowback", color: "#0ea5e9", description: "Initial flowback period" },
+  shutInOffset: { label: "Shut-in (offset frac)", color: "#06b6d4", description: "Shut-in due to nearby completion" },
+  shutInWorkover: { label: "Shut-in (workover)", color: "#0891b2", description: "Shut-in for workover" },
+  chokeChange: { label: "Choke change", color: "#14b8a6", description: "Choke size adjustment" },
+  trim: { label: "Trim", color: "#10b981", description: "Production optimization" },
+  fracJob: { label: "Frac job", color: "#6366f1", description: "Hydraulic fracturing event" },
+  workover: { label: "Workover", color: "#8b5cf6", description: "Major workover operation" },
+  // Failures — red / amber tones
+  pumpFail: { label: "Pump fail", color: "#ef4444", description: "Pump failure event" },
+  espFail: { label: "ESP fail", color: "#dc2626", description: "ESP failure event" },
+  tubingLeak: { label: "Tubing leak", color: "#f43f5e", description: "Tubing integrity issue" },
+  casingFailure: { label: "Casing failure", color: "#e11d48", description: "Casing integrity issue" },
+  compressorDown: { label: "Compressor down", color: "#f59e0b", description: "Surface compressor outage" },
+  // General
+  plan: { label: "Plan", color: "#6366f1", description: "Planned event" },
+  note: { label: "Note", color: "#64748b", description: "General observation" },
+  other: { label: "Other", color: "#94a3b8", description: "Uncategorised" },
+};
+
+let annotationIdCounter = 0;
+export const nextAnnotationId = (): string => `ann_${++annotationIdCounter}_${Date.now().toString(36)}`;
+
+/** Resolve an annotation's display color (override → type → fallback). */
+export const colorForAnnotation = (a: Annotation): string =>
+  a.color ?? ANNOTATION_TYPE_META[a.type]?.color ?? "#64748b";
+
+export interface AnnotationStats {
+  avgActual: number | null;
+  avgForecast: number | null;
+  avgDelta: number | null;
+  /** Integrated variance over the range (sum of (actual − forecast) · dt). */
+  cumulativeDelta: number | null;
+  /** Number of buffer samples that contributed (excluding NaN actual). */
+  samples: number;
+}
+
+export const computeAnnotationStats = (buffers: DeclineMathBuffers, tStart: number, tEnd: number): AnnotationStats => {
+  const { time, actual, forecast, length } = buffers;
+  let sumActual = 0;
+  let sumForecast = 0;
+  let sumDelta = 0;
+  let cum = 0;
+  let n = 0;
+  for (let i = 0; i < length; i++) {
+    const t = time[i];
+    // Annotations declare `tEnd` as exclusive (see Annotation type docs), so
+    // adjacent ranges share a single boundary sample without double-counting.
+    if (t < tStart || t >= tEnd) continue;
+    const a = actual[i];
+    const f = forecast[i];
+    if (!Number.isFinite(a) || !Number.isFinite(f)) continue;
+    sumActual += a;
+    sumForecast += f;
+    sumDelta += a - f;
+    const dt = i + 1 < length ? time[i + 1] - time[i] : 0;
+    cum += (a - f) * dt;
+    n++;
+  }
+  if (n === 0) {
+    return { avgActual: null, avgForecast: null, avgDelta: null, cumulativeDelta: null, samples: 0 };
+  }
+  return {
+    avgActual: sumActual / n,
+    avgForecast: sumForecast / n,
+    avgDelta: sumDelta / n,
+    cumulativeDelta: cum,
+    samples: n,
+  };
+};
+
+// ── Buffer Management ────────────────────────────────────────────────────────
+
+export const createBuffers = (length: number): DeclineMathBuffers => ({
+  time: new Float64Array(length),
+  forecast: new Float64Array(length),
+  actual: new Float64Array(length),
+  variance: new Float64Array(length),
+  length,
+});
+
+// ── Defaults ─────────────────────────────────────────────────────────────────
+
+export const DEFAULT_SEGMENT_PARAMS: SegmentParams = {
+  qi: 800,
+  di: 0.08,
+  b: 0.8,
+  slope: 0,
+};
+
+let segmentIdCounter = 0;
+export const nextSegmentId = (): string => `seg_${++segmentIdCounter}_${Date.now().toString(36)}`;
+
+// ── Single-equation evaluation ───────────────────────────────────────────────
+
+/** Evaluate a segment's equation at elapsed time dt (time since segment start). */
+export const evalSegment = (eq: EquationType, p: SegmentParams, dt: number): number => {
+  // Reject any non-finite input up front so a single bad caller can't leak
+  // NaN/Infinity into the chart buffers (and from there into stats, hit
+  // tests, and rendering). Domain checks below catch the math edge cases
+  // (e.g. harmonic denominators going to zero) that finite inputs can
+  // still produce.
+  if (!Number.isFinite(p.qi) || !Number.isFinite(dt)) return Number.NaN;
+
+  switch (eq) {
+    // Base math
+    case "flat":
+      return p.qi;
+    case "exponential": {
+      if (!Number.isFinite(p.di)) return Number.NaN;
+      const r = p.qi * Math.exp(-p.di * dt);
+      return Number.isFinite(r) ? r : Number.NaN;
+    }
+    case "harmonic": {
+      if (!Number.isFinite(p.di)) return Number.NaN;
+      const denom = 1 + p.di * dt;
+      if (!Number.isFinite(denom) || denom <= 0) return Number.NaN;
+      return p.qi / denom;
+    }
+    case "hyperbolic": {
+      if (!Number.isFinite(p.di) || !Number.isFinite(p.b)) return Number.NaN;
+      const b = p.b <= 0 ? 1e-6 : p.b;
+      const denom = 1 + b * p.di * dt;
+      if (!Number.isFinite(denom) || denom <= 0) return Number.NaN;
+      const r = p.qi / denom ** (1 / b);
+      return Number.isFinite(r) ? r : Number.NaN;
+    }
+    case "linear":
+      if (!Number.isFinite(p.slope)) return Number.NaN;
+      return p.qi + p.slope * dt;
+    case "stretchedExponential": {
+      // q(t) = qi · exp(-(Di · t)^n) where n = b. n=1 → exponential.
+      if (!Number.isFinite(p.di) || !Number.isFinite(p.b)) return Number.NaN;
+      const n = p.b <= 0 ? 1e-6 : p.b;
+      const base = p.di * dt;
+      // Negative bases with non-integer exponents are NaN; clamp to 0 so a
+      // malformed Di can't poison the buffer.
+      const exponent = base < 0 ? 0 : base ** n;
+      const r = p.qi * Math.exp(-exponent);
+      return Number.isFinite(r) ? r : Number.NaN;
+    }
+    // Named operational presets — same math as a base equation, defaults differ
+    case "shutIn":
+      return 0;
+    case "constrained":
+    case "choked":
+      return p.qi;
+    case "flowback":
+      if (!Number.isFinite(p.slope)) return Number.NaN;
+      return p.qi + p.slope * dt;
+  }
+};
+
+/**
+ * Friendly metadata for each equation: short label, formula, and which
+ * params are user-editable. Drives the segment editor and right-click menu.
+ *
+ * Bisect resumption behavior is NOT declared here — it's inferred from the
+ * inserted segment's end value at runtime (see insertSegmentAt). That way
+ * a user-added equation that ends at 0 gets the right "recovery" behavior
+ * without needing to set a flag.
+ */
+export interface EquationMeta {
+  label: string;
+  formula: string;
+  /** Subset of SegmentParams keys the user can edit for this equation. */
+  fields: ReadonlyArray<keyof SegmentParams>;
+  /** Default param values when this equation is picked from the right-click menu. */
+  defaults: Partial<SegmentParams>;
+  /** Optional grouping for the dropdown. */
+  group?: "Operations" | "Decline";
+}
+
+export const EQUATION_META: Record<EquationType, EquationMeta> = {
+  // Operational presets first — they feel like named scenarios
+  shutIn: {
+    label: "Shut-in",
+    formula: "q(t) = 0",
+    fields: [],
+    defaults: { qi: 0 },
+    group: "Operations",
+  },
+  flowback: {
+    label: "Flowback",
+    formula: "q(t) = qi + slope · t",
+    fields: ["slope"],
+    defaults: { slope: 25 },
+    group: "Operations",
+  },
+  constrained: {
+    label: "Constrained",
+    formula: "q(t) = qi",
+    fields: [],
+    defaults: {},
+    group: "Operations",
+  },
+  choked: {
+    label: "Choked",
+    formula: "q(t) = qi",
+    fields: [],
+    defaults: {},
+    group: "Operations",
+  },
+  // Base math
+  flat: {
+    label: "Flat",
+    formula: "q(t) = qi",
+    fields: [],
+    defaults: {},
+    group: "Decline",
+  },
+  linear: {
+    label: "Linear",
+    formula: "q(t) = qi + slope · t",
+    fields: ["slope"],
+    defaults: { slope: 0 },
+    group: "Decline",
+  },
+  exponential: {
+    label: "Exponential",
+    formula: "q(t) = qi · e^(−Di · t)",
+    fields: ["di"],
+    defaults: { di: 0.05 },
+    group: "Decline",
+  },
+  harmonic: {
+    label: "Harmonic",
+    formula: "q(t) = qi / (1 + Di · t)",
+    fields: ["di"],
+    defaults: { di: 0.05 },
+    group: "Decline",
+  },
+  hyperbolic: {
+    label: "Hyperbolic",
+    formula: "q(t) = qi / (1 + b · Di · t)^(1/b)",
+    fields: ["di", "b"],
+    defaults: { di: 0.08, b: 0.8 },
+    group: "Decline",
+  },
+  stretchedExponential: {
+    label: "Stretched Exp",
+    formula: "q(t) = qi · e^(−(Di · t)^n)",
+    fields: ["di", "b"],
+    defaults: { di: 0.05, b: 0.5 },
+    group: "Decline",
+  },
+};
+
+// ── Piecewise forecast ───────────────────────────────────────────────────────
+
+/**
+ * Compute the full piecewise forecast in-place.
+ * Segments must be sorted by tStart. segments[0].tStart is typically the
+ * first time value but may be later (values before it default to segments[0] qi).
+ *
+ * Continuity: each segment after the first has its effective qi overridden
+ * to match the prior segment's final value — writes a mutable copy so
+ * subsequent evaluation is cheap. Returns the list of effective qi values.
+ */
+/**
+ * Default minimum spacing between segment boundaries. Mirrors the value used
+ * by the boundary-drag clamp in decline-curve.tsx so all edit paths agree.
+ */
+export const MIN_SEGMENT_WIDTH = 0.5;
+
+/**
+ * Enforce strictly increasing `tStart` with at least `minWidth` between
+ * boundaries. Used by every commit path (Start/End/Length inputs, insert,
+ * drag mouseup) so manual edits can't create overlapping or zero-width
+ * segments that make evaluation order-dependent.
+ */
+export const normalizeSegments = (segments: Segment[], minWidth = MIN_SEGMENT_WIDTH): Segment[] => {
+  if (segments.length === 0) return segments;
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  // Detect whether sort changed order — if so, we must return the new array
+  // even when no boundary clamp was needed, so the invariant "output is
+  // sorted by tStart" actually holds.
+  let mutated = sorted.some((seg, i) => seg !== segments[i]);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const minStart = prev.tStart + minWidth;
+    if (!Number.isFinite(sorted[i].tStart) || sorted[i].tStart < minStart) {
+      sorted[i] = { ...sorted[i], tStart: minStart };
+      mutated = true;
+    }
+  }
+  // Snap any open-ended terminal tEnd that sits before the segment's start.
+  const last = sorted[sorted.length - 1];
+  if (Number.isFinite(last.tEnd) && (last.tEnd as number) < last.tStart + minWidth) {
+    sorted[sorted.length - 1] = { ...last, tEnd: last.tStart + minWidth };
+    mutated = true;
+  }
+  return mutated ? sorted : segments;
+};
+
+export const computeForecast = (buffers: DeclineMathBuffers, segments: Segment[]): Float64Array => {
+  const { time, forecast, length } = buffers;
+  if (segments.length === 0) {
+    forecast.fill(Number.NaN);
+    return new Float64Array(0);
+  }
+
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  const effectiveQi = new Float64Array(sorted.length);
+  effectiveQi[0] = sorted[0].params.qi;
+
+  // Compute each segment's starting qi. Anchored segments use their own
+  // params.qi (visual jump allowed); non-anchored inherit from the prior end.
+  for (let s = 1; s < sorted.length; s++) {
+    if (sorted[s].qiAnchored) {
+      effectiveQi[s] = sorted[s].params.qi;
+    } else {
+      const prev = sorted[s - 1];
+      const prevParams = { ...prev.params, qi: effectiveQi[s - 1] };
+      const dt = sorted[s].tStart - prev.tStart;
+      effectiveQi[s] = evalSegment(prev.equation, prevParams, dt);
+    }
+  }
+
+  // Fill forecast — find the active segment for each time step
+  const lastIdx = sorted.length - 1;
+  let segIdx = 0;
+  for (let i = 0; i < length; i++) {
+    const t = time[i];
+
+    while (segIdx + 1 < sorted.length && t >= sorted[segIdx + 1].tStart) {
+      segIdx++;
+    }
+
+    const seg = sorted[segIdx];
+
+    // Honor a closed-ended last segment: past tEnd, the forecast is undefined.
+    // (Mid-segments have an implicit tEnd at the next segment's tStart, so the
+    // tEnd field only matters when there's no successor segment.)
+    if (segIdx === lastIdx && Number.isFinite(seg.tEnd) && t > (seg.tEnd as number)) {
+      forecast[i] = Number.NaN;
+      continue;
+    }
+
+    const dt = t - seg.tStart;
+    if (dt < 0) {
+      // Before first segment — use segments[0] starting value
+      forecast[i] = effectiveQi[0];
+    } else {
+      const p = { ...seg.params, qi: effectiveQi[segIdx] };
+      forecast[i] = evalSegment(seg.equation, p, dt);
+    }
+  }
+
+  return effectiveQi;
+};
+
+export const computeVariance = (buffers: DeclineMathBuffers): void => {
+  const { actual, forecast, variance, length } = buffers;
+  for (let i = 0; i < length; i++) {
+    const a = actual[i];
+    const f = forecast[i];
+    // Treat any non-finite input (NaN, ±Infinity) on either side as missing.
+    variance[i] = Number.isFinite(a) && Number.isFinite(f) ? a - f : Number.NaN;
+  }
+};
+
+export const updateForecastAndVariance = (buffers: DeclineMathBuffers, segments: Segment[]): Float64Array => {
+  const qiList = computeForecast(buffers, segments);
+  computeVariance(buffers);
+  return qiList;
+};
+
+// ── Segment helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Get the forecast value at a specific time from the current segments.
+ * Used when inserting a new segment to compute its inherited qi.
+ */
+export const evalAtTime = (segments: Segment[], t: number): number => {
+  if (segments.length === 0) return 0;
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  let activeIdx = 0;
+  const effectiveQi: number[] = [sorted[0].params.qi];
+  for (let s = 1; s < sorted.length; s++) {
+    if (sorted[s].qiAnchored) {
+      effectiveQi.push(sorted[s].params.qi);
+    } else {
+      const prev = sorted[s - 1];
+      const prevParams = { ...prev.params, qi: effectiveQi[s - 1] };
+      const dt = sorted[s].tStart - prev.tStart;
+      effectiveQi.push(evalSegment(prev.equation, prevParams, dt));
+    }
+    if (sorted[s].tStart <= t) activeIdx = s;
+  }
+  const seg = sorted[activeIdx];
+  const dt = Math.max(0, t - seg.tStart);
+  return evalSegment(seg.equation, { ...seg.params, qi: effectiveQi[activeIdx] }, dt);
+};
+
+/**
+ * Find the segment active at time t (the segment with the latest tStart ≤ t).
+ */
+export const findActiveSegment = (segments: Segment[], t: number): Segment | null => {
+  if (segments.length === 0) return null;
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  let active = sorted[0];
+  for (const s of sorted) {
+    if (s.tStart <= t) active = s;
+    else break;
+  }
+  return active;
+};
+
+/**
+ * Insert a "window" at time t. The window bisects whatever segment is currently
+ * active — it introduces two new segments:
+ *   1) the user's chosen segment (default flat) starting at t
+ *   2) a resumption segment at t+windowWidth that clones the previously-active
+ *      equation so the original decline shape continues C0-continuously
+ *
+ * Pass windowWidth to control the window duration; defaults to 20% of the
+ * distance from t to the end of the known time range (or 10 units).
+ *
+ * Returns the new segment array and the id of the newly inserted window
+ * segment (so callers can select it in the UI).
+ */
+export const insertSegmentAt = (
+  segments: Segment[],
+  t: number,
+  equation: EquationType = "flat",
+  windowWidth?: number,
+): { segments: Segment[]; insertedId: string } => {
+  // Hard-fail on non-finite inputs so a malformed caller can never seed
+  // NaN/Infinity into the segment graph (which would make sort/evaluation
+  // order unstable and corrupt subsequent edits).
+  if (!Number.isFinite(t)) return { segments, insertedId: "" };
+  if (windowWidth != null && (!Number.isFinite(windowWidth) || windowWidth <= 0)) {
+    return { segments, insertedId: "" };
+  }
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+
+  // Refuse to land an insert exactly on (or within MIN_SEGMENT_WIDTH of) an
+  // existing boundary — that would create duplicate or zero-width segments
+  // whose evaluation order is implementation-defined. Nudge the insert
+  // forward by MIN_SEGMENT_WIDTH per collision (caller passes integer t for
+  // day/month/year scales, so the nudged t lands on the next valid slot).
+  let safeT = t;
+  for (const s of sorted) {
+    if (Math.abs(s.tStart - safeT) < MIN_SEGMENT_WIDTH) {
+      safeT = s.tStart + MIN_SEGMENT_WIDTH;
+    }
+  }
+
+  const active = findActiveSegment(segments, safeT);
+  const qiAtT = evalAtTime(segments, safeT);
+
+  const newId = nextSegmentId();
+  const nextBoundary = sorted.find((s) => s.tStart > safeT)?.tStart;
+  // If we're inserting into the *last* segment and it has a finite tEnd
+  // (closed-ended forecast), treat that tEnd as the right wall — otherwise
+  // the resumption segment would be placed past the configured shutoff and
+  // the forecast would silently extend forever.
+  const terminalCap = active && nextBoundary == null && Number.isFinite(active.tEnd) ? (active.tEnd as number) : null;
+  const rightWall = nextBoundary ?? terminalCap ?? Number.POSITIVE_INFINITY;
+  // Refuse to insert when there is no room before a closed terminal cap —
+  // otherwise normalizeSegments would have to widen the inserted segment's
+  // tEnd past the cap to satisfy MIN_SEGMENT_WIDTH, silently re-opening the
+  // forecast the caller had explicitly closed.
+  if (terminalCap != null && safeT + MIN_SEGMENT_WIDTH > terminalCap) {
+    return { segments, insertedId: "" };
+  }
+  const remaining = Number.isFinite(rightWall) ? rightWall - safeT : Number.POSITIVE_INFINITY;
+  // Keep the default window width an integer so tEnd stays aligned with the
+  // caller's t (which is expected to be an integer for day/month/year data).
+  const defaultWidth = windowWidth ?? Math.max(1, Math.round(Math.min(10, remaining * 0.2)));
+  const tEnd = safeT + defaultWidth;
+
+  // Start from the active segment's params so di/b/slope carry over, then set
+  // qi from the forecast at t. Preset-specific overrides come last.
+  const baseParams = {
+    ...(active?.params ?? DEFAULT_SEGMENT_PARAMS),
+    qi: qiAtT,
+  };
+  // Shut-in forces qi to 0 (well is offline).
+  if (equation === "shutIn") baseParams.qi = 0;
+  // Flowback defaults to a positive slope if the parent wasn't already a flowback.
+  if (equation === "flowback" && active?.equation !== "flowback") baseParams.slope = 25;
+
+  const newSeg: Segment = {
+    id: newId,
+    tStart: safeT,
+    equation,
+    params: baseParams,
+    qiAnchored: equation === "shutIn",
+  };
+
+  // Decide how the resumption segment picks up, driven by the inserted
+  // segment's END value (not its name). If the inserted segment ends at
+  // zero — Shut-in, a custom "compressorDown" equation, a Linear ramp that
+  // crashed through 0, anything — we anchor the resumption to the
+  // ORIGINAL curve's projected value at tEnd so the well visibly
+  // "recovers" instead of staying offline. Otherwise the resumption hands
+  // off C0-continuously from the inserted segment's own end, so Flowback
+  // ramps, Flats, plateaus, mid-life exponential transitions, etc. don't
+  // drop back to the original curve the moment the insert ends.
+  const insertEndValue = evalSegment(equation, baseParams, defaultWidth);
+  const insertEndsAtZero = !Number.isFinite(insertEndValue) || insertEndValue <= 1e-6;
+  const qiAtTEnd = insertEndsAtZero ? evalAtTime(segments, tEnd) : 0;
+  const resumeSeg: Segment | null = active
+    ? {
+        id: nextSegmentId(),
+        tStart: tEnd,
+        equation: active.equation,
+        params: { ...active.params, qi: qiAtTEnd },
+        qiAnchored: insertEndsAtZero,
+        // Preserve a closed-ended terminal so insertion never silently
+        // re-opens a forecast that the caller had explicitly capped.
+        ...(terminalCap != null ? { tEnd: terminalCap } : {}),
+      }
+    : null;
+
+  // Suppress resumption when it would land at or past the right wall
+  // (terminal tEnd or next boundary) — there's no room for a tail.
+  // When we're moving the terminal cap onto a newer tail segment, also clear
+  // it from the previously-terminal `active` so the forecast doesn't carry
+  // confusing stale state.
+  let segmentsCopy = segments;
+  if (terminalCap != null && active) {
+    segmentsCopy = segments.map((s) => (s.id === active.id ? { ...s, tEnd: undefined } : s));
+  }
+  const next = [...segmentsCopy, newSeg];
+  if (resumeSeg && tEnd < rightWall) {
+    next.push(resumeSeg);
+  } else if (terminalCap != null) {
+    // Insert overran the terminal cap; carry the cap onto the new segment so
+    // the forecast still ends where the caller asked.
+    newSeg.tEnd = terminalCap;
+  }
+
+  return { segments: normalizeSegments(next), insertedId: newId };
+};
+
+export const removeSegment = (segments: Segment[], id: string): Segment[] => {
+  // Never allow removing segments[0] (the anchor)
+  const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
+  if (sorted[0]?.id === id) return segments;
+  return segments.filter((s) => s.id !== id);
+};
+
+// ── Bend solver ──────────────────────────────────────────────────────────────
+
+/**
+ * Result of trying to bend a segment so its end value lands at a specific
+ * target. Returns the rebuilt segment plus the param that was bent (handy for
+ * highlighting in the editor / debugging). `null` means the equation can't
+ * legally hit the target — caller should leave the segment unchanged and let
+ * the boundary visibly break so the user can fix it manually.
+ */
+export interface BendResult {
+  segment: Segment;
+  changedParam: keyof SegmentParams;
+}
+
+/**
+ * Solve for one of a segment's params so it starts at `qiStart` and ends at
+ * `targetEnd` after `dt` time units. Used by the drag handler to keep
+ * boundaries glued: when segment N's qi changes, we re-bend N-1 so its end
+ * still matches N's new start, and re-bend N+1 so its end still lands at the
+ * original next-boundary (preserving everything beyond N+1).
+ *
+ * Per equation:
+ *   exponential          → solves for di
+ *   harmonic             → solves for di
+ *   hyperbolic           → solves for di (b is held constant)
+ *   stretchedExponential → solves for di (b is held constant)
+ *   linear / flowback    → solves for slope
+ *   flat / constrained / choked → only valid when target ≈ qiStart (these
+ *                                 equations are constant; can't bend).
+ *   shutIn               → only valid when target ≈ 0 (always 0).
+ *
+ * Numerical guards: rejects non-finite results, negative decline rates (the
+ * UI sliders clamp di to ≥ 0; producing a negative di here would represent
+ * a growing curve which doesn't match the equation's intent), and targets
+ * outside the equation's reachable range.
+ */
+export const bendSegmentToTarget = (
+  seg: Segment,
+  qiStart: number,
+  targetEnd: number,
+  dt: number,
+): BendResult | null => {
+  if (!Number.isFinite(qiStart) || !Number.isFinite(targetEnd) || !Number.isFinite(dt)) return null;
+  if (dt <= 0) return null;
+
+  switch (seg.equation) {
+    case "exponential": {
+      // qi · e^(−di · dt) = target → di = −ln(target / qi) / dt
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const di = -Math.log(targetEnd / qiStart) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "harmonic": {
+      // qi / (1 + di · dt) = target → di = (qi/target − 1) / dt
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const di = (qiStart / targetEnd - 1) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "hyperbolic": {
+      // qi / (1 + b · di · dt)^(1/b) = target
+      // (qi/target)^b = 1 + b · di · dt
+      // di = ((qi/target)^b − 1) / (b · dt)
+      if (qiStart <= 0 || targetEnd <= 0) return null;
+      const b = seg.params.b > 0 ? seg.params.b : 1e-6;
+      const ratio = qiStart / targetEnd;
+      const di = (ratio ** b - 1) / (b * dt);
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "stretchedExponential": {
+      // qi · e^(−(di · dt)^n) = target with n = b
+      // (di · dt)^n = ln(qi/target)
+      // di = ln(qi/target)^(1/n) / dt
+      if (qiStart <= 0 || targetEnd <= 0 || targetEnd > qiStart) return null;
+      const n = seg.params.b > 0 ? seg.params.b : 1e-6;
+      const lnRatio = Math.log(qiStart / targetEnd);
+      if (lnRatio < 0) return null;
+      const di = lnRatio ** (1 / n) / dt;
+      if (!Number.isFinite(di) || di < 0) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, di } },
+        changedParam: "di",
+      };
+    }
+    case "linear":
+    case "flowback": {
+      // qi + slope · dt = target → slope = (target − qi) / dt
+      const slope = (targetEnd - qiStart) / dt;
+      if (!Number.isFinite(slope)) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart, slope } },
+        changedParam: "slope",
+      };
+    }
+    case "flat":
+    case "constrained":
+    case "choked": {
+      // Constant equation — only valid when target equals start. Tolerance
+      // covers rounding noise from upstream computations.
+      if (Math.abs(targetEnd - qiStart) > 1e-3) return null;
+      return {
+        segment: { ...seg, params: { ...seg.params, qi: qiStart } },
+        changedParam: "qi",
+      };
+    }
+    case "shutIn": {
+      // Always zero. Bending only succeeds if target itself is zero.
+      if (Math.abs(targetEnd) > 1e-3) return null;
+      return { segment: { ...seg }, changedParam: "qi" };
+    }
+  }
+};
+
+// ── Drag helpers ─────────────────────────────────────────────────────────────
+
+export const adjustQiFromDrag = (
+  currentQi: number,
+  pixelDelta: number,
+  yRange: [number, number],
+  chartHeight: number,
+): number => {
+  // Guard against degenerate inputs (zero-height chart, non-finite
+  // pixelDelta, inverted/zero yRange) so this public helper never
+  // returns NaN/Infinity for callers in unusual layout states.
+  if (!Number.isFinite(chartHeight) || chartHeight <= 0) return currentQi;
+  if (!Number.isFinite(pixelDelta)) return currentQi;
+  const [yMin, yMax] = yRange;
+  const yDelta = yMax - yMin;
+  if (!Number.isFinite(yDelta) || yDelta <= 0) return currentQi;
+  const scale = yDelta / chartHeight;
+  return Math.max(1, currentQi - pixelDelta * scale);
+};
+
+// ── Sample Data Generation ───────────────────────────────────────────────────
+
+export const generateSampleProduction = (
+  months: number,
+  peakRate: number,
+  declineRate: number,
+  bFactor: number,
+): { time: number[]; values: number[] } => {
+  const time: number[] = [];
+  const values: number[] = [];
+  const invB = 1 / bFactor;
+
+  for (let t = 0; t < months; t++) {
+    const base = peakRate / (1 + bFactor * declineRate * t) ** invB;
+    const noise = 1 + (Math.random() - 0.5) * 0.3;
+    time.push(t);
+    values.push(Math.max(0, base * noise));
+  }
+
+  return { time, values };
+};
+
+export const generateDailyProduction = (
+  startYear: number,
+  endYear: number,
+  peakRate: number,
+  declineRate: number,
+  bFactor: number,
+): { time: number[]; values: number[] } => {
+  const startDate = new Date(startYear, 0, 1);
+  const endDate = new Date(endYear, 11, 31);
+  const totalDays = Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);
+
+  const time: number[] = [];
+  const values: number[] = [];
+  const invB = 1 / bFactor;
+  const rampDays = 90;
+
+  let seed = 42;
+  const rand = () => {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return seed / 2147483647;
+  };
+
+  for (let d = 0; d < totalDays; d++) {
+    const rampFactor = d < rampDays ? d / rampDays : 1;
+    const base = peakRate / (1 + bFactor * declineRate * d) ** invB;
+    const seasonal = 1 + 0.08 * Math.sin((d / 365.25) * 2 * Math.PI);
+    const noise = 1 + (rand() - 0.5) * 0.24;
+    const shutIn = rand() < 0.02 ? 0 : 1;
+
+    time.push(d);
+    values.push(Math.max(0, base * rampFactor * seasonal * noise * shutIn));
+  }
+
+  return { time, values };
+};

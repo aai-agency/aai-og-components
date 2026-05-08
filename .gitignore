@@ -31,3 +31,6 @@ Thumbs.db
 .tanstack/
 *.gen.ts
 .gstack/
+
+# WASM Rust source — included for future use, build artifacts excluded
+packages/og-components/wasm/
