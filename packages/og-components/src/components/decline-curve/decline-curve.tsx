@@ -3232,6 +3232,17 @@ export const DeclineCurve = memo(
       if (forecastHorizon != null) setHorizon(forecastHorizon);
     }, [forecastHorizon]);
 
+    // Clear selections whenever the chart returns to read-only mode (no
+    // forecast edit, no annotate). Mirrors the panel-close behavior so
+    // exiting a mode through the Actions menu — or the dedicated "Exit
+    // X mode" row — leaves the chart with a clean unselected state.
+    useEffect(() => {
+      if (!editForecastMode && !annotateMode) {
+        setSelectedId(null);
+        setSelectedAnnotationId(null);
+      }
+    }, [editForecastMode, annotateMode]);
+
     // Build the extended time array (actual + forecast-only future)
     const extendedTime = useMemo(() => {
       const arr: number[] = [];
