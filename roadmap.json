@@ -34,6 +34,13 @@
       "tag": "component",
       "version": "0.1.0",
       "icon": "MousePointer2"
+    },
+    {
+      "name": "DeclineCurve",
+      "description": "Drag-to-edit piecewise decline-curve forecast editor. Ten Arps + operational equations, range annotations with delta stats, side-panel list/editor.",
+      "tag": "component",
+      "version": "0.2.0",
+      "icon": "TrendingUp"
     }
   ],
   "roadmap": [
@@ -42,12 +49,6 @@
       "description": "Three storage backends: InMemory, LocalStorage, and SQLite (WASM). Full import/export and migration utilities.",
       "tag": "service",
       "icon": "Database"
-    },
-    {
-      "name": "DeclineCurve",
-      "description": "Decline curve analysis with Arps, Duong, and stretched exponential models. Interactive forecast dragging.",
-      "tag": "component",
-      "icon": "TrendingUp"
     },
     {
       "name": "FilterPanel",
