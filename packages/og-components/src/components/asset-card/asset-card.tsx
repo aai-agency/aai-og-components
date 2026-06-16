@@ -377,9 +377,20 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
 
   return (
     <div style={{ marginBottom: 0 }}>
-      <button
-        type="button"
+      {/* Collapse toggle is a div-button, not a <button>: it holds the
+          Expand action button, and a <button> can't nest a <button>. */}
+      {/* biome-ignore lint/a11y/useSemanticElements: needs to contain the expand button */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
         onClick={() => setCollapsed(!collapsed)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setCollapsed(!collapsed);
+          }
+        }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -457,7 +468,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
-      </button>
+      </div>
       {!collapsed && (
         <div style={{ padding: "8px 0" }}>
           <LineChart series={timeSeries} height={160} />
