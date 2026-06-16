@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-06-16
+
+### Fixed
+
+- **`AssetDetailCard` — invalid nested `<button>` in Production History.** The collapse toggle was a `<button>` that contained the "Expand chart" `<button>`, which is invalid HTML and triggered a React DOM-nesting error wherever the card showed a chart. The toggle is now a keyboard-accessible `<div role="button">` (Enter/Space to collapse, `aria-expanded`), so the expand action button can live inside it cleanly. No visual change.
+
 ## [0.4.0] - 2026-06-16
 
 ### Added — composable slots for `AssetDetailCard`
