@@ -44,6 +44,8 @@ export type {
   MapControlsProps,
   MapControlId,
   MapLayerId,
+  AssetCardSlot,
+  AssetCardSlots,
   AssetDetailCardProps,
   AssetDetailSection,
   LineChartProps,

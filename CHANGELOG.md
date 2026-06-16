@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-16
+
+### Added — composable slots for `AssetDetailCard`
+
+- **`slots` prop** — inject your own content at specific spots in the card's default body without replacing the whole thing. Four injection points: `afterHeader` (top of the body), `afterChart` (right under the production-history chart), `afterSections` (under the auto-generated field sections, above metadata), and `footer` (very bottom). Each slot accepts a `ReactNode` or `(asset) => ReactNode`, so content can react to the current asset. Slots layer on top of the default body and are ignored when `renderBody` is supplied (that still takes over the body entirely). New exported types: `AssetCardSlot`, `AssetCardSlots`. This lets downstream apps adopt the canonical card and drop in their own pieces (e.g. an AI summary under the chart, an ask bar in the footer) instead of forking.
+
 ## [0.3.0] - 2026-06-16
 
 ### Added — copy-on-hover for `AssetDetailCard`
