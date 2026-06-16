@@ -1,6 +1,8 @@
 import React, { memo, useCallback, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
+  ACCENT,
+  ACCENT_15,
   BLUR_LG,
   BORDER,
   BORDER_SUBTLE,
@@ -148,6 +150,108 @@ const buildSectionsFromAsset = (asset: Asset): AssetDetailSection[] => {
   return sections;
 };
 
+// ── CopyableRow ──────────────────────────────────────────────────────────────
+
+/** A label/value row that copies its value to the clipboard on click. The copy
+ * affordance fades in on hover and flips to a check for ~1.2s after a copy, so
+ * any field on the card can be lifted to the clipboard without a context menu. */
+const CopyableRow = memo(({ label, value }: { label: string; value: string }) => {
+  const [hovered, setHovered] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const copy = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard
+      .writeText(value)
+      .then(() => {
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {
+        // Clipboard blocked (insecure context) — value stays selectable on screen.
+      });
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={`Copy ${label.toLowerCase()}`}
+      aria-label={`Copy ${label}: ${value}`}
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 8,
+        width: "calc(100% + 12px)",
+        margin: "0 -6px",
+        padding: "5px 6px",
+        background: copied ? ACCENT_15 : "transparent",
+        border: "none",
+        borderRadius: 6,
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: FONT_FAMILY,
+        transition: "background 0.12s",
+      }}
+    >
+      <span style={{ fontSize: 12, color: TEXT_MUTED, flexShrink: 0 }}>{label}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 12,
+            color: TEXT_PRIMARY,
+            fontWeight: 500,
+            textAlign: "right",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {value}
+        </span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={copied ? ACCENT : TEXT_MUTED}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          style={{
+            flexShrink: 0,
+            opacity: hovered || copied ? 1 : 0,
+            transition: "opacity 0.12s",
+          }}
+        >
+          {copied ? (
+            <polyline points="20 6 9 17 4 12" />
+          ) : (
+            <>
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </>
+          )}
+        </svg>
+      </span>
+    </button>
+  );
+});
+CopyableRow.displayName = "CopyableRow";
+
 // ── SectionView ──────────────────────────────────────────────────────────────
 
 const SectionView = memo(({ section, asset }: { section: AssetDetailSection; asset: Asset }) => {
@@ -198,22 +302,13 @@ const SectionView = memo(({ section, asset }: { section: AssetDetailSection; ass
       </button>
       {!collapsed && (
         <div style={{ padding: "8px 0" }}>
-          {fields.map((field) => {
-            const value = resolveField(asset, field.key);
-            return (
-              <div
-                key={field.key}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}
-              >
-                <span style={{ fontSize: 12, color: TEXT_MUTED }}>{field.label}</span>
-                <span
-                  style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}
-                >
-                  {formatFieldValue(value, field.format, field.unit)}
-                </span>
-              </div>
-            );
-          })}
+          {fields.map((field) => (
+            <CopyableRow
+              key={field.key}
+              label={field.label}
+              value={formatFieldValue(resolveField(asset, field.key), field.format, field.unit)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -244,15 +339,7 @@ const MetadataView = memo(({ asset }: { asset: Asset }) => {
       </div>
       <div style={{ padding: "8px 0" }}>
         {Object.entries(meta).map(([key, value]) => (
-          <div
-            key={key}
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}
-          >
-            <span style={{ fontSize: 12, color: TEXT_MUTED }}>{key}</span>
-            <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
-              {String(value ?? "—")}
-            </span>
-          </div>
+          <CopyableRow key={key} label={key} value={String(value ?? "—")} />
         ))}
       </div>
     </div>
