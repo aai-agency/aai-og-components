@@ -41,7 +41,12 @@ export {
   updateForecastAndVariance,
 } from "./decline-curve";
 export { AssetDetailCard } from "./asset-card";
-export type { AssetDetailCardProps, AssetDetailSection } from "./asset-card";
+export type {
+  AssetCardSlot,
+  AssetCardSlots,
+  AssetDetailCardProps,
+  AssetDetailSection,
+} from "./asset-card";
 export { OverlayManager } from "./map";
 export type { OverlayManagerProps } from "./map";
 export {

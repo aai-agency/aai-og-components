@@ -29,6 +29,23 @@ export interface AssetDetailSection {
   fields: FieldConfig[];
 }
 
+/** A composable slot: either static content or a function of the asset. */
+export type AssetCardSlot = React.ReactNode | ((asset: Asset) => React.ReactNode);
+
+/** Injection points into the card's default body, so a consumer can drop its
+ * own content at a specific spot without replacing the whole body. Ignored
+ * when `renderBody` is provided (that takes over the body entirely). */
+export interface AssetCardSlots {
+  /** Top of the scrollable body, directly under the header. */
+  afterHeader?: AssetCardSlot;
+  /** Directly under the production-history chart. */
+  afterChart?: AssetCardSlot;
+  /** Under the auto-generated field sections, above the metadata block. */
+  afterSections?: AssetCardSlot;
+  /** The very bottom of the body. */
+  footer?: AssetCardSlot;
+}
+
 export interface AssetDetailCardProps {
   /** The asset to display. Pass null to hide. */
   asset: Asset | null;
@@ -46,6 +63,9 @@ export interface AssetDetailCardProps {
   renderSection?: (section: AssetDetailSection, asset: Asset) => React.ReactNode;
   /** Custom renderer for the entire card body */
   renderBody?: (asset: Asset) => React.ReactNode;
+  /** Composable content injected at specific spots in the default body
+   * (chart / sections / footer). Ignored when `renderBody` is set. */
+  slots?: AssetCardSlots;
   /** Additional className for the container */
   className?: string;
   /** Additional inline styles */
@@ -530,6 +550,7 @@ export const AssetDetailCard = memo(
     renderHeader,
     renderSection,
     renderBody,
+    slots,
     className,
     style,
     mobileBreakpoint = 768,
@@ -605,6 +626,8 @@ export const AssetDetailCard = memo(
     const typeConfig = typeConfigs?.get(asset.type);
     const statusColor = STATUS_COLORS[asset.status] ?? "#6b7280";
     const typeColor = typeConfig?.color ?? TYPE_COLORS[asset.type] ?? "#6b7280";
+
+    const renderSlot = (slot?: AssetCardSlot): React.ReactNode => (typeof slot === "function" ? slot(asset) : slot);
 
     // ── Shared card content ──
     const cardContent = (
@@ -747,7 +770,9 @@ export const AssetDetailCard = memo(
             renderBody(asset)
           ) : (
             <>
+              {renderSlot(slots?.afterHeader)}
               <ProductionChartSection asset={asset} />
+              {renderSlot(slots?.afterChart)}
               {sections.map((section) =>
                 renderSection ? (
                   <React.Fragment key={section.id}>{renderSection(section, asset)}</React.Fragment>
@@ -755,7 +780,9 @@ export const AssetDetailCard = memo(
                   <SectionView key={section.id} section={section} asset={asset} />
                 ),
               )}
+              {renderSlot(slots?.afterSections)}
               <MetadataView asset={asset} />
+              {renderSlot(slots?.footer)}
             </>
           )}
         </div>
