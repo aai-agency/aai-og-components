@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-16
+
+### Added — copy-on-hover for `AssetDetailCard`
+
+- **Copy any field to the clipboard.** Every label/value row in the card's auto-generated sections and metadata is now a one-click copy target. A copy icon fades in on hover and flips to a check (in the accent color) for ~1.2s after a copy, so an analyst can lift an operator name, API, coordinate, or production figure straight to the clipboard without a context menu. The new internal `CopyableRow` keeps each row's visual styling identical to before — only the interaction is added — and degrades quietly when the Clipboard API is unavailable (insecure context), leaving the value selectable on screen.
+
 ## [0.2.0] - 2026-05-07
 
 ### Added — DeclineCurve component
