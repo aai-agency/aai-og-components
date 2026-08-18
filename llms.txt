@@ -23,9 +23,9 @@ import "mapbox-gl/dist/mapbox-gl.css";
 ## Components
 
 - Map — Interactive asset map with deck.gl, clustering, overlays, drawing tools, lasso selection
-- LineChart — High-performance time series chart with dual Y-axis
-- ProductionChart — Oil/gas/water production chart with annotations and brush zoom
-- DeclineCurve — Piecewise decline-curve editor + forecast (10 equations, drag-to-fit) with range annotations. `showForecast={false}` makes it a read-only production plot; `contextSeries` overlays extra fluids (gas/water) on dual axes — production + decline in one chart
+- LineChart — The one time-series chart. Plots one or more series (dual Y-axis via rightAxisFluids). Pass `forecast={{ series, ... }}` to fit + edit a decline forecast on a series, and/or `annotations` for operational-event ranges. No extras = plain multi-series plot; with them = the full decline/annotation editor
+- ProductionChart — Alias of LineChart
+- DeclineCurve — Deprecated. Use LineChart with a `forecast` config; kept as an alias of the same engine
 - AssetDetailCard — Expandable detail panel for any asset, auto-generates sections
 - SelectionPanel — Multi-select panel with filter chips and summary stats
 - OverlayManager — Upload and style KMZ/KML/GeoJSON/Shapefile overlays

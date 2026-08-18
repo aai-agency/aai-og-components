@@ -1,5 +1,10 @@
 # DeclineCurve
 
+> **Deprecated.** Use **`LineChart`** with a `forecast` config instead — it's the single
+> time-series chart (plain plot, or with this decline-forecast + annotation engine
+> turned on). `DeclineCurve` remains exported as a thin alias of the same engine, so
+> existing code keeps working. This doc describes that engine's behavior.
+
 Interactive piecewise decline-curve editor for oil & gas production forecasting.
 
 > **AI-first component.** If a coding agent is reading this, the canonical agent guide is at `skills/og-components/rules/decline-curve.md` — it has the prop API, common mistakes, equation table, and ready-to-paste examples. This file is for humans browsing the source.

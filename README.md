@@ -61,8 +61,7 @@ const App = () => (
 ## What You Get
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
-- **Production Charts** — Time series with dual Y-axis, powered by uPlot for 10,000+ data points
-- **Decline Curve Editor** — Interactive piecewise forecast editor: drag-to-fit, right-click insert, 10 equation types (hyperbolic, exponential, harmonic, flowback, shut-in, …), range annotations with Δ-stats, Save/Discard draft flow. `showForecast={false}` turns it into a read-only production plot, and `contextSeries` overlays gas/water on a secondary axis — production chart + decline chart in one
+- **LineChart** — The one time-series chart: plot any series (oil/gas/water) with dual Y-axis, powered by uPlot for 10,000+ points. Pass `forecast={{ series, … }}` to layer a piecewise decline forecast editor on top (drag-to-fit, right-click insert, 10 equation types, Save/Discard draft flow) and `annotations` for operational-event ranges with Δ-stats. No extras → a plain plot; with them → the full production + decline + annotation chart. (`DeclineCurve` is a deprecated alias.)
 - **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files

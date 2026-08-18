@@ -7,13 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-08-17
 
-### Added — DeclineCurve unifies with the production chart
+### Changed — `LineChart` is now the single time-series chart; `DeclineCurve` deprecated
 
-- **`showForecast` prop** (default `true`) — set `false` to hide the fitted forecast line and disable all segment editing (the "Edit forecast" action is omitted from the toolbar). The chart renders as a read-only production plot — actuals + annotations only — for showing a well's history without projecting a decline. Reuses the single `editModeRef` gate, so drag / boundary-resize / right-click / boundary rendering are neutralized together.
-- **`contextSeries` prop** — plot extra read-only series (e.g. gas/water) beside the primary decline series on the same time axis. Each `DataPoint` date is aligned to the chart's `time`/`startDate` grid (snapped to the nearest point within tolerance) and appended as uPlot columns; the drag/segment redraw paths re-append them so they survive edits. This ships the multi-fluid (Oil + Gas + Water on dual y-axes) rendering previewed in 0.2.0.
-- **`rightAxisFluids` prop** (default `["gas"]`) — draw the listed fluids on a secondary right axis with an independent scale; others share the primary left axis.
+`LineChart` and `DeclineCurve` are unified into one component. `LineChart` is a
+plain multi-series plot by default and gains the decline-forecast + segment-editing
++ annotation engine as opt-in layers. `DeclineCurve` is now a **deprecated alias**
+of the same engine, so existing imports keep working.
 
-Together, `showForecast={false}` + `contextSeries` unify `ProductionChart` and `DeclineCurve` into one time-series plot: multiple fluids, dual axes, on-chart event annotations, and the full decline/forecast toolkit available when you want it. Additive and backward-compatible — existing `DeclineCurve` and `LineChart` usage is unchanged. Docs updated in the component README and `skills/og-components/rules/decline-curve.md`.
+- **`LineChart` `forecast?: ForecastConfig`** — fit an optional decline forecast on
+  one of the plotted series (`{ series, initialSegments, onSegmentsChange, editable,
+  horizon, unitsPerYear, startDate, timeUnit }`). With it set, `LineChart` becomes
+  the forecast editor (fit + drag-to-reshape) while still plotting every series.
+- **`LineChart` `annotations?: Annotation[]` + `onAnnotationsChange`** — operational-event
+  range annotations (flowback, workover, shut-in …) on the chart.
+- No `forecast`/`annotations` → `LineChart` is exactly the previous plain chart.
+- **`rightAxisFluids`** (default `["gas"]`) applies in both modes — a fluid on a
+  secondary right axis with its own scale.
+- **`DeclineCurve` deprecated** — use `LineChart` with a `forecast` config instead.
+  It remains exported and functional (it's the engine `LineChart` renders internally).
+
+Under the hood this ships the multi-fluid (Oil + Gas + Water on dual y-axes)
+rendering previewed in 0.2.0, plus a `showForecast`/`forecastEditable`/`contextSeries`
+surface on the engine. Additive and backward-compatible. Docs updated in the
+component README, root README, `llms.txt`, and `skills/og-components/rules/decline-curve.md`.
 
 ## [0.4.1] - 2026-06-16
 

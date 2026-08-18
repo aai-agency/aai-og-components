@@ -1,5 +1,13 @@
 # DeclineCurve Component Rules
 
+> **Deprecated — prefer `LineChart`.** `LineChart` is the single time-series chart:
+> `<LineChart series={[...]} forecast={{ series: "oil", editable: true, ... }} annotations={[...]} />`.
+> It plots your series and layers on this decline-forecast + annotation engine when
+> `forecast`/`annotations` are set. `DeclineCurve` remains as a thin alias of the same
+> engine (props below still work), but new code should use `LineChart`. The forecast /
+> segment / annotation semantics documented here apply to `LineChart`'s `forecast`
+> config too.
+
 `DeclineCurve` is the interactive piecewise decline-curve editor — multi-segment forecasts, drag-to-fit, right-click insert, range annotations with stats. Use it when the user wants to forecast production, fit a decline, or annotate operational events on top of actuals.
 
 ## Required Props
