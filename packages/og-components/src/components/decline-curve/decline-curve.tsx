@@ -20,6 +20,7 @@ import "uplot/dist/uPlot.min.css";
 
 import { cn } from "../../lib/utils";
 import { ACCENT, FONT_FAMILY, TEXT_FAINT } from "../../theme";
+import type { TimeSeries } from "../../types";
 import { formatNumber } from "../../utils";
 import {
   Select,
@@ -108,12 +109,32 @@ export interface DeclineCurveProps {
    * `Segment.color` or cycled from the built-in palette).
    */
   forecastColor?: string;
+  /**
+   * Show the fitted forecast line + enable segment editing. Defaults to true.
+   * When false the chart renders as a read-only production plot — actuals +
+   * annotations only, no forecast and no drag/segment editing. Use this to show
+   * a well's production history without projecting a decline.
+   */
+  showForecast?: boolean;
+  /**
+   * Extra read-only series plotted alongside the primary decline series on the
+   * same time axis (e.g. gas/water next to the oil actuals). Their `DataPoint`
+   * dates are aligned to the chart's `time`/`startDate` axis. Series whose
+   * `fluidType` is in `rightAxisFluids` are drawn on a secondary right axis.
+   * Purely for context — they are never forecast or editable.
+   */
+  contextSeries?: TimeSeries[];
+  /** fluidTypes drawn on the secondary (right) axis. Defaults to ["gas"]. */
+  rightAxisFluids?: string[];
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const ACTUAL_COLOR = "#10b981";
 const FORECAST_COLOR = ACCENT;
+const DEFAULT_RIGHT_AXIS_FLUIDS = ["gas"];
+const CONTEXT_COLORS: Record<string, string> = { oil: "#10b981", gas: "#f97066", water: "#38bdf8" };
+const CONTEXT_LABELS: Record<string, string> = { oil: "Oil", gas: "Gas", water: "Water" };
 const VARIANCE_POS_COLOR = "#10b981";
 const VARIANCE_NEG_COLOR = "#ef4444";
 const FORECAST_HIT_RADIUS_PX = 16;
@@ -2796,6 +2817,9 @@ export const DeclineCurve = memo(
     showVariance = true,
     actualColor = ACTUAL_COLOR,
     forecastColor = FORECAST_COLOR,
+    showForecast = true,
+    contextSeries,
+    rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
   }: DeclineCurveProps) => {
     const startDate = useMemo(() => {
       if (!startDateProp) return null;
@@ -2943,7 +2967,7 @@ export const DeclineCurve = memo(
       // Edit mode is gated on BOTH the explicit edit toggle AND not-in-
       // annotate mode. Annotate-mode wins for the sake of clean, mutually
       // exclusive interaction modes.
-      editModeRef.current = editForecastMode && !annotateMode;
+      editModeRef.current = editForecastMode && !annotateMode && showForecast;
       // Plugins gate on the ref — force a repaint when mode flips so the
       // dashed boundary lines appear/disappear instantly.
       prodChartRef.current?.redraw();
@@ -3262,6 +3286,65 @@ export const DeclineCurve = memo(
       return arr;
     }, [timeData, horizon, lastActualT, actualStep]);
 
+    // Align optional context series (gas/water …) onto the same extendedTime
+    // grid so they plot as read-only lines beside the primary decline series.
+    // Each DataPoint's date is converted to a t-value (via startDate/timeUnit)
+    // and snapped to the nearest grid point; series in rightAxisFluids get their
+    // own right-hand scale ("yctx").
+    const contextAligned = useMemo(() => {
+      const empty = {
+        cols: [] as (number | null)[][],
+        meta: [] as { label: string; color: string; scale: string }[],
+        hasRight: false,
+      };
+      if (!contextSeries || contextSeries.length === 0 || extendedTime.length === 0) return empty;
+      const grid = extendedTime;
+      const gridStep = grid.length >= 2 ? Math.abs(grid[1] - grid[0]) : 1;
+      const tol = (gridStep || 1) * 0.75;
+      const cols: (number | null)[][] = [];
+      const meta: { label: string; color: string; scale: string }[] = [];
+      let hasRight = false;
+      for (const s of contextSeries) {
+        if (!s || !Array.isArray(s.data) || s.data.length === 0) continue;
+        const col: (number | null)[] = new Array(grid.length).fill(null);
+        let placed = 0;
+        for (let di = 0; di < s.data.length; di++) {
+          const dp = s.data[di];
+          if (dp == null || dp.value == null || Number.isNaN(dp.value)) continue;
+          const t = startDate ? dateToT(startDate, new Date(dp.date), timeUnit) : di;
+          if (!Number.isFinite(t)) continue;
+          let bestI = -1;
+          let bestD = Number.POSITIVE_INFINITY;
+          for (let i = 0; i < grid.length; i++) {
+            const d = Math.abs(grid[i] - t);
+            if (d < bestD) {
+              bestD = d;
+              bestI = i;
+            }
+          }
+          if (bestI >= 0 && bestD <= tol) {
+            col[bestI] = dp.value;
+            placed++;
+          }
+        }
+        if (placed === 0) continue;
+        cols.push(col);
+        const isRight = rightAxisFluids.includes(s.fluidType);
+        if (isRight) hasRight = true;
+        meta.push({
+          label: CONTEXT_LABELS[s.fluidType] ?? s.fluidType,
+          color: CONTEXT_COLORS[s.fluidType] ?? "#94a3b8",
+          scale: isRight ? "yctx" : "y",
+        });
+      }
+      return { cols, meta, hasRight };
+    }, [contextSeries, extendedTime, startDate, timeUnit, rightAxisFluids]);
+
+    // Kept in a ref so the drag/segment redraw paths can re-append the context
+    // columns without erasing them (those paths rebuild the column list).
+    const contextColsRef = useRef<(number | null)[][]>([]);
+    contextColsRef.current = contextAligned.cols;
+
     // Initialize buffers synchronously before the chart mount effect.
     useLayoutEffect(() => {
       const len = extendedTime.length;
@@ -3296,7 +3379,12 @@ export const DeclineCurve = memo(
       // recompute bounds as needed; x stays at whatever the zoom slider
       // set it to.
       if (prodChart) {
-        const newData = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
+        const newData = [
+          prodChart.data[0],
+          prodChart.data[1],
+          buffers.forecast,
+          ...contextColsRef.current,
+        ] as unknown as uPlot.AlignedData;
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
@@ -3319,7 +3407,12 @@ export const DeclineCurve = memo(
       if (prodChart) {
         // uPlot accepts TypedArrays as series; pass buffers.forecast directly to
         // avoid an Array.from allocation on every drag frame.
-        const newData = [prodChart.data[0], prodChart.data[1], buffers.forecast] as unknown as uPlot.AlignedData;
+        const newData = [
+          prodChart.data[0],
+          prodChart.data[1],
+          buffers.forecast,
+          ...contextColsRef.current,
+        ] as unknown as uPlot.AlignedData;
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
@@ -4218,7 +4311,7 @@ export const DeclineCurve = memo(
       const actualArr = Array.from(buffers.actual);
       const forecastArr = Array.from(buffers.forecast);
 
-      const data: uPlot.AlignedData = [timeArr, actualArr, forecastArr];
+      const data: uPlot.AlignedData = [timeArr, actualArr, forecastArr, ...contextAligned.cols] as uPlot.AlignedData;
 
       const opts: uPlot.Options = {
         width: chartWidth,
@@ -4248,12 +4341,18 @@ export const DeclineCurve = memo(
             () => false,
             () => annotateModeRef.current,
           ),
-          forecastSegmentsPlugin(
-            () => segmentsRef.current,
-            () => selectedIdRef.current,
-            () => buffersRef.current?.forecast ?? null,
-            () => editModeRef.current,
-          ),
+          // Forecast line is hidden entirely when showForecast is false — the
+          // chart becomes a read-only production plot (actuals + annotations).
+          ...(showForecast
+            ? [
+                forecastSegmentsPlugin(
+                  () => segmentsRef.current,
+                  () => selectedIdRef.current,
+                  () => buffersRef.current?.forecast ?? null,
+                  () => editModeRef.current,
+                ),
+              ]
+            : []),
           tooltipPlugin(
             unit,
             () => segmentsRef.current,
@@ -4312,6 +4411,19 @@ export const DeclineCurve = memo(
             labelSize: 20,
             values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
           },
+          // Secondary right axis for context series in rightAxisFluids (e.g. gas).
+          ...(contextAligned.hasRight
+            ? [
+                {
+                  ...AXIS_STYLE,
+                  scale: "yctx",
+                  side: 1 as const,
+                  size: 55,
+                  grid: { show: false },
+                  values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
+                },
+              ]
+            : []),
         ],
         scales: {
           // Explicit x range so scales.x.min/max populate as real numbers
@@ -4353,6 +4465,26 @@ export const DeclineCurve = memo(
               return [0, (max || 1) * 1.1];
             },
           },
+          // Independent right-axis range for context series (gas etc.).
+          ...(contextAligned.hasRight
+            ? {
+                yctx: {
+                  range: (self: uPlot, _min: number, _max: number): [number, number] => {
+                    let max = 0;
+                    for (let s = 1; s < self.series.length; s++) {
+                      if (self.series[s].scale !== "yctx") continue;
+                      const arr = self.data[s];
+                      if (!arr) continue;
+                      for (let i = 0; i < arr.length; i++) {
+                        const v = arr[i];
+                        if (v != null && Number.isFinite(v) && v > max) max = v;
+                      }
+                    }
+                    return [0, (max || 1) * 1.1];
+                  },
+                },
+              }
+            : {}),
         },
         series: [
           {},
@@ -4360,6 +4492,15 @@ export const DeclineCurve = memo(
           // Forecast stroke is transparent — forecastSegmentsPlugin draws the
           // per-segment colored + dashed line itself in the `draw` hook.
           { label: "Forecast", stroke: "transparent", width: 0, points: { show: false }, spanGaps: true },
+          // Context series (gas/water …): read-only lines beside the primary.
+          ...contextAligned.meta.map((m) => ({
+            label: m.label,
+            stroke: m.color,
+            scale: m.scale,
+            width: 1.5,
+            points: { show: false },
+            spanGaps: true,
+          })),
         ],
       };
 
@@ -4404,6 +4545,8 @@ export const DeclineCurve = memo(
       unit,
       actualColor,
       forecastColor,
+      showForecast,
+      contextAligned,
       syncKey,
       handleMouseDown,
       handleMouseMove,
@@ -4910,22 +5053,27 @@ export const DeclineCurve = memo(
                 >
                   {/* Modes */}
                   {[
-                    {
-                      key: "forecast",
-                      label: "Edit forecast",
-                      active: editForecastMode,
-                      onClick: () => {
-                        if (annotateMode) {
-                          setAnnotateMode(false);
-                          setSelectedAnnotationId(null);
-                          setHoveredAnnotationId(null);
-                          setDrawingAnnotation(null);
-                          drawingRef.current = null;
-                        }
-                        setEditForecastMode((v) => !v);
-                        setActionsOpen(false);
-                      },
-                    },
+                    // "Edit forecast" only exists when the forecast is shown.
+                    ...(showForecast
+                      ? [
+                          {
+                            key: "forecast",
+                            label: "Edit forecast",
+                            active: editForecastMode,
+                            onClick: () => {
+                              if (annotateMode) {
+                                setAnnotateMode(false);
+                                setSelectedAnnotationId(null);
+                                setHoveredAnnotationId(null);
+                                setDrawingAnnotation(null);
+                                drawingRef.current = null;
+                              }
+                              setEditForecastMode((v) => !v);
+                              setActionsOpen(false);
+                            },
+                          },
+                        ]
+                      : []),
                     {
                       key: "annotate",
                       label: "Annotate",
