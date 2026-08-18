@@ -217,6 +217,10 @@ In edit mode:
 
 Annotate mode is a separate exclusive mode — entering it disables forecast editing so the user can draw annotation regions cleanly.
 
+### Display-only production plot (`showForecast={false}`)
+
+Pass `showForecast={false}` to hide the fitted forecast line and disable all segment editing (the "Edit forecast" action is omitted from the Actions menu). The chart renders actuals + annotations only — use it to show a well's production history without projecting a decline. Annotate mode still works.
+
 ## Side Panel
 
 Two list/editor views, one per toolbar button:
@@ -240,6 +244,24 @@ Length changes (which move the next segment's `tStart`), lock toggle, and Delete
 
 `onSegmentsChange` and `onSave` fire together on every commit — pick whichever name reads better in your code.
 
-## Multi-Curve (roadmap)
+## Multi-series context (`contextSeries`)
 
-A multi-fluid API (Oil + Gas + Water on dual y-axes) is being designed for a follow-up release. For now, render one fluid per `<DeclineCurve>` instance. If you need to show multiple fluids today, stack two or three components and synchronize their `time` arrays.
+Plot additional fluids beside the primary decline series with the `contextSeries` prop — an array of read-only `TimeSeries` (the same shape `LineChart` takes):
+
+```tsx
+<DeclineCurve
+  production={oilValues}
+  time={oilTime}
+  startDate="2024-01-01"
+  timeUnit="month"
+  showForecast={false}
+  contextSeries={[gasTimeSeries, waterTimeSeries]}
+  rightAxisFluids={["gas"]}   // default; gas draws on the right axis
+/>
+```
+
+- The **primary** series (`production`/`time`) keeps the full forecast + segment editing.
+- **`contextSeries`** are display-only lines aligned to the same time axis — each `DataPoint.date` is snapped to the nearest `time` grid point via `startDate`/`timeUnit`.
+- Fluids in **`rightAxisFluids`** (default `["gas"]`) draw on a secondary right axis with their own scale; others share the primary left axis.
+
+Together with `showForecast={false}`, this is the production chart + decline chart unified into one time-series plot.

@@ -84,6 +84,8 @@ The variance sub-chart and the variance fill on the production chart can recolor
 
 Both modes are exclusive — only one runs at a time. Without either, the chart is read-only.
 
+Pass **`showForecast={false}`** to hide the fitted forecast line and disable segment editing entirely (the "Edit forecast" action is omitted). The chart becomes a pure production plot — actuals + annotations only — for embedding a well's history without projecting a decline.
+
 - **Forecast mode** — drag the forecast line to reshape `qi`/`di`/`b`/`slope` of the selected segment, right-click to insert a new segment, drag boundaries to resize.
 - **Annotate mode** — drag on the chart to draw a new annotation range.
 
@@ -104,7 +106,7 @@ The interaction layer is mousedown/mousemove/mouseup at the canvas level — uPl
 
 The math engine is a single-file pure TypeScript module (`decline-math.ts`) with no dependency on the chart. Forecast computation runs in tight loops over `Float64Array` buffers; the chart's `setData` reads those buffers directly so there's no extra copy.
 
-Multi-curve mode (Oil + Gas + Water) is a preview behind the `curves` prop. Today only the active curve renders; full N-series rendering on dual y-axes is on the roadmap.
+Multi-series (Oil + Gas + Water) renders via the **`contextSeries`** prop — extra read-only `TimeSeries[]` plotted beside the primary decline series on the same time axis, with a secondary right axis for any fluid in `rightAxisFluids` (default `["gas"]`). Their `DataPoint` dates are aligned to the chart's `time`/`startDate` grid. The primary series keeps the full forecast + segment editing; context series are display-only. Combined with `showForecast={false}`, this is the "production chart + decline chart" unified into one time-series plot.
 
 ## Where to look next
 
