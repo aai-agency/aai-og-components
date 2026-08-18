@@ -4,10 +4,16 @@ import type { TimeSeries } from "../../types";
 import { formatNumber } from "../../utils";
 
 import { FONT_FAMILY, TEXT_FAINT, TEXT_MUTED } from "../../theme";
+// The public LineChart routes to this engine when forecast/annotations are set.
+// (ForecastEngine is the internal engine; DeclineCurve is its deprecated alias.)
+import { ForecastEngine } from "../decline-curve/decline-curve";
+import type { Annotation, Segment } from "../decline-curve/decline-math";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface LineChartProps {
+// The plain multi-series renderer. The public `LineChart` (bottom of file) wraps
+// this and routes to the forecast/annotation engine when those props are set.
+interface PlainLineChartProps {
   /** One or more time series to plot */
   series: TimeSeries[];
   /** Chart height in pixels (default: 220) */
@@ -226,9 +232,9 @@ const tooltipPlugin = (meta: SeriesMeta[], formatX: (value: number) => string): 
   };
 };
 
-// ── Main Component ───────────────────────────────────────────────────────────
+// ── Plain renderer ───────────────────────────────────────────────────────────
 
-export const LineChart = memo(
+const PlainLineChart = memo(
   ({
     series,
     height = 220,
@@ -238,7 +244,7 @@ export const LineChart = memo(
     labels: labelsProp,
     rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
     formatXValue: formatXValueProp,
-  }: LineChartProps) => {
+  }: PlainLineChartProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<uPlot | null>(null);
 
@@ -469,9 +475,127 @@ export const LineChart = memo(
   },
 );
 
+PlainLineChart.displayName = "PlainLineChart";
+
+// ── Public LineChart ─────────────────────────────────────────────────────────
+
+/** Fit + optionally edit a decline forecast on one of the plotted series. */
+export interface ForecastConfig {
+  /** `fluidType` of the series to forecast (e.g. "oil"). Defaults to the first series. */
+  series?: string;
+  /** Preloaded forecast segments. If omitted, a single default segment is fit. */
+  initialSegments?: Segment[];
+  onSegmentsChange?: (segments: Segment[]) => void;
+  /** Allow drag-to-fit / segment editing via the toolbar. Default true. */
+  editable?: boolean;
+  /** Project the forecast this many time units past the actuals. */
+  horizon?: number;
+  /** Time units per year (12 monthly / 365 daily). Inferred from series frequency if omitted. */
+  unitsPerYear?: number;
+  /** Calendar date at t=0. Defaults to the first data point's date. */
+  startDate?: Date | string;
+  /** One t-unit on the calendar. Inferred from series frequency if omitted. */
+  timeUnit?: "day" | "month" | "year";
+}
+
+export interface LineChartProps {
+  /** One or more time series to plot. */
+  series: TimeSeries[];
+  height?: number;
+  width?: number;
+  /** Custom color map by fluidType. */
+  colors?: Partial<Record<string, string>>;
+  /** Custom label map by fluidType. */
+  labels?: Partial<Record<string, string>>;
+  /** fluidTypes drawn on the secondary (right) axis. Defaults to ["gas"]. */
+  rightAxisFluids?: string[];
+  formatXValue?: (value: number) => string;
+  xAxisLabel?: string;
+  /**
+   * Optional decline forecast on one series — turns the chart into the forecast
+   * editor (fit + drag-to-reshape) while still plotting every series in `series`.
+   */
+  forecast?: ForecastConfig;
+  /** Optional operational-event range annotations (flowback, workover, shut-in …). */
+  annotations?: Annotation[];
+  onAnnotationsChange?: (annotations: Annotation[]) => void;
+}
+
+const inferTimeUnit = (s?: TimeSeries): "day" | "month" | "year" => (s?.frequency === "daily" ? "day" : "month");
+
+/**
+ * The single time-series chart. Plots one or more series; pass `forecast` and/or
+ * `annotations` to turn on the decline-forecast + annotation engine on top of the
+ * plot. With neither, it's a plain multi-series line chart.
+ */
+export const LineChart = (props: LineChartProps) => {
+  const {
+    series,
+    height,
+    width,
+    colors,
+    labels,
+    rightAxisFluids,
+    formatXValue,
+    xAxisLabel,
+    forecast,
+    annotations,
+    onAnnotationsChange,
+  } = props;
+
+  const advanced = forecast != null || (annotations != null && annotations.length > 0);
+
+  if (!advanced) {
+    return (
+      <PlainLineChart
+        series={series}
+        height={height}
+        width={width}
+        colors={colors}
+        labels={labels}
+        rightAxisFluids={rightAxisFluids}
+        formatXValue={formatXValue}
+        xAxisLabel={xAxisLabel}
+      />
+    );
+  }
+
+  // Advanced path: the forecast/annotation engine. The forecasted series is the
+  // primary; the rest ride along as read-only context on the same axis.
+  const primary = (forecast?.series && series.find((s) => s.fluidType === forecast.series)) || series[0];
+  const context = series.filter((s) => s !== primary);
+  const production = (primary?.data ?? []).map((d) => d.value);
+  const time = production.map((_, i) => i);
+  const timeUnit = forecast?.timeUnit ?? inferTimeUnit(primary);
+  const startDate = forecast?.startDate ?? primary?.data?.[0]?.date;
+
+  return (
+    <ForecastEngine
+      production={production}
+      time={time}
+      unit={primary?.unit ?? ""}
+      startDate={startDate}
+      timeUnit={timeUnit}
+      unitsPerYear={forecast?.unitsPerYear ?? (timeUnit === "day" ? 365 : timeUnit === "year" ? 1 : 12)}
+      forecastHorizon={forecast?.horizon}
+      initialSegments={forecast?.initialSegments}
+      onSegmentsChange={forecast?.onSegmentsChange}
+      showForecast={forecast != null}
+      forecastEditable={forecast?.editable ?? true}
+      showVariance={false}
+      contextSeries={context}
+      rightAxisFluids={rightAxisFluids}
+      initialAnnotations={annotations}
+      onAnnotationsChange={onAnnotationsChange}
+      height={height ?? 300}
+      width={width}
+    />
+  );
+};
+
 LineChart.displayName = "LineChart";
 
-/** @deprecated Use LineChart instead */
+/** @deprecated Use `LineChart` instead. */
 export const ProductionChart = LineChart;
-/** @deprecated Use LineChartProps instead */
+/** @deprecated Use `LineChartProps` instead. */
 export type ProductionChartProps = LineChartProps;

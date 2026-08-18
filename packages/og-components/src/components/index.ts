@@ -4,7 +4,7 @@ export { MapControls } from "./map";
 export type { MapControlsProps, MapControlId, MapLayerId } from "./map";
 export { LineChart } from "./line-chart";
 export { ProductionChart } from "./line-chart";
-export type { LineChartProps, ProductionChartProps } from "./line-chart";
+export type { ForecastConfig, LineChartProps, ProductionChartProps } from "./line-chart";
 export { DeclineCurve } from "./decline-curve";
 export type { DeclineCurveProps } from "./decline-curve";
 export type {

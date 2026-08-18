@@ -48,6 +48,7 @@ export type {
   AssetCardSlots,
   AssetDetailCardProps,
   AssetDetailSection,
+  ForecastConfig,
   LineChartProps,
   ProductionChartProps,
   DeclineCurveProps,

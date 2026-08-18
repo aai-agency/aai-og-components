@@ -117,6 +117,13 @@ export interface DeclineCurveProps {
    */
   showForecast?: boolean;
   /**
+   * Allow entering forecast-edit mode (drag-to-fit, right-click insert). Defaults
+   * to true. When false the forecast renders read-only — the "Edit forecast"
+   * toolbar action is hidden and drag/segment editing is disabled. Ignored when
+   * showForecast is false.
+   */
+  forecastEditable?: boolean;
+  /**
    * Extra read-only series plotted alongside the primary decline series on the
    * same time axis (e.g. gas/water next to the oil actuals). Their `DataPoint`
    * dates are aligned to the chart's `time`/`startDate` axis. Series whose
@@ -2792,7 +2799,10 @@ const RangeSlider = ({
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
-export const DeclineCurve = memo(
+// The forecast/annotation engine. Public consumers use `LineChart` (which renders
+// this for its forecast/annotation path); `DeclineCurve` below is a deprecated
+// alias kept for back-compat.
+export const ForecastEngine = memo(
   ({
     production: productionProp,
     time: timeProp,
@@ -2818,6 +2828,7 @@ export const DeclineCurve = memo(
     actualColor = ACTUAL_COLOR,
     forecastColor = FORECAST_COLOR,
     showForecast = true,
+    forecastEditable = true,
     contextSeries,
     rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
   }: DeclineCurveProps) => {
@@ -2967,7 +2978,7 @@ export const DeclineCurve = memo(
       // Edit mode is gated on BOTH the explicit edit toggle AND not-in-
       // annotate mode. Annotate-mode wins for the sake of clean, mutually
       // exclusive interaction modes.
-      editModeRef.current = editForecastMode && !annotateMode && showForecast;
+      editModeRef.current = editForecastMode && !annotateMode && showForecast && forecastEditable;
       // Plugins gate on the ref — force a repaint when mode flips so the
       // dashed boundary lines appear/disappear instantly.
       prodChartRef.current?.redraw();
@@ -3271,7 +3282,9 @@ export const DeclineCurve = memo(
     const extendedTime = useMemo(() => {
       const arr: number[] = [];
       for (let i = 0; i < timeData.length; i++) arr.push(timeData[i]);
-      if (horizon > lastActualT) {
+      // Only extend past the actuals to make room for the forecast tail. With
+      // showForecast off there's nothing to project, so keep the x-axis tight.
+      if (showForecast && horizon > lastActualT) {
         const step = Math.max(actualStep, 0.0001);
         let t = lastActualT + step;
         // Cap at 10,000 extra points to keep things snappy
@@ -3284,7 +3297,7 @@ export const DeclineCurve = memo(
         }
       }
       return arr;
-    }, [timeData, horizon, lastActualT, actualStep]);
+    }, [timeData, horizon, lastActualT, actualStep, showForecast]);
 
     // Align optional context series (gas/water …) onto the same extendedTime
     // grid so they plot as read-only lines beside the primary decline series.
@@ -4546,6 +4559,7 @@ export const DeclineCurve = memo(
       actualColor,
       forecastColor,
       showForecast,
+      forecastEditable,
       contextAligned,
       syncKey,
       handleMouseDown,
@@ -5053,8 +5067,8 @@ export const DeclineCurve = memo(
                 >
                   {/* Modes */}
                   {[
-                    // "Edit forecast" only exists when the forecast is shown.
-                    ...(showForecast
+                    // "Edit forecast" only exists when the forecast is shown and editable.
+                    ...(showForecast && forecastEditable
                       ? [
                           {
                             key: "forecast",
@@ -5668,4 +5682,11 @@ export const DeclineCurve = memo(
   },
 );
 
-DeclineCurve.displayName = "DeclineCurve";
+ForecastEngine.displayName = "DeclineCurve";
+
+/**
+ * @deprecated Use `LineChart` with a `forecast` config instead — it is the single
+ * time-series chart (plain plot, or with the decline-forecast + annotation engine
+ * turned on). This alias renders the same engine, so existing code keeps working.
+ */
+export const DeclineCurve = ForecastEngine;
