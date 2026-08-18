@@ -4880,12 +4880,12 @@ export const DeclineCurve = memo(
               <button
                 type="button"
                 onClick={() => setActionsOpen((v) => !v)}
-                className={cn(
-                  "inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors",
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                style={
                   editForecastMode || annotateMode
-                    ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
+                    ? { borderColor: "rgba(18,128,92,0.40)", background: "rgba(18,128,92,0.10)", color: "#0A4A39" }
+                    : undefined
+                }
                 title="Forecast or Annotate actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
@@ -4897,70 +4897,132 @@ export const DeclineCurve = memo(
                 <div
                   role="menu"
                   className={cn(
-                    "absolute right-0 z-[100003] mt-1 w-[200px] rounded-md border border-border bg-popover p-1 shadow-lg",
+                    "absolute right-0 z-[100003] mt-1 overflow-hidden rounded-lg p-1",
                     "animate-in fade-in-0 zoom-in-95",
                   )}
+                  style={{
+                    width: 214,
+                    background: "#ffffff",
+                    border: "1px solid #E2E6EC",
+                    boxShadow:
+                      "0 12px 32px -12px rgba(15,23,42,0.30), 0 2px 8px -3px rgba(15,23,42,0.14)",
+                    fontFamily: FONT_FAMILY,
+                  }}
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      // Switching to forecast clears annotate-mode
-                      // (mutually exclusive). If already in forecast,
-                      // toggle off (back to read-only).
-                      if (annotateMode) {
-                        setAnnotateMode(false);
-                        setSelectedAnnotationId(null);
-                        setHoveredAnnotationId(null);
-                        setDrawingAnnotation(null);
-                        drawingRef.current = null;
-                      }
-                      setEditForecastMode((v) => !v);
-                      setActionsOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium transition-colors",
-                      editForecastMode ? "bg-indigo-500/10 text-indigo-700" : "text-foreground hover:bg-muted",
-                    )}
-                  >
-                    <span>Forecast</span>
-                    <span className="text-[10px] text-muted-foreground/80">
-                      {editForecastMode ? "✓ on" : "drag · right-click"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      if (editForecastMode) setEditForecastMode(false);
-                      if (annotateMode) {
-                        setAnnotateMode(false);
-                        setSelectedAnnotationId(null);
-                        setHoveredAnnotationId(null);
-                        setDrawingAnnotation(null);
-                        drawingRef.current = null;
-                      } else {
-                        setAnnotateMode(true);
-                      }
-                      setActionsOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium transition-colors",
-                      annotateMode ? "bg-indigo-500/10 text-indigo-700" : "text-foreground hover:bg-muted",
-                    )}
-                  >
-                    <span>Annotate</span>
-                    <span className="text-[10px] text-muted-foreground/80">
-                      {annotateMode ? "✓ on" : "draw regions"}
-                    </span>
-                  </button>
-                  {/* Exit current mode — visible only when a mode is active.
-                      Separator + dedicated row so the user has a clear
-                      "leave the mode I'm in" affordance instead of having
-                      to remember that the same row toggles off. */}
+                  {/* Modes */}
+                  {[
+                    {
+                      key: "forecast",
+                      label: "Edit forecast",
+                      active: editForecastMode,
+                      onClick: () => {
+                        if (annotateMode) {
+                          setAnnotateMode(false);
+                          setSelectedAnnotationId(null);
+                          setHoveredAnnotationId(null);
+                          setDrawingAnnotation(null);
+                          drawingRef.current = null;
+                        }
+                        setEditForecastMode((v) => !v);
+                        setActionsOpen(false);
+                      },
+                    },
+                    {
+                      key: "annotate",
+                      label: "Annotate",
+                      active: annotateMode,
+                      onClick: () => {
+                        if (editForecastMode) setEditForecastMode(false);
+                        if (annotateMode) {
+                          setAnnotateMode(false);
+                          setSelectedAnnotationId(null);
+                          setHoveredAnnotationId(null);
+                          setDrawingAnnotation(null);
+                          drawingRef.current = null;
+                        } else {
+                          setAnnotateMode(true);
+                        }
+                        setActionsOpen(false);
+                      },
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="menuitem"
+                      onClick={item.onClick}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
+                        item.active ? "" : "text-foreground hover:bg-muted",
+                      )}
+                      style={item.active ? { background: "rgba(18,128,92,0.10)", color: "#0A4A39" } : undefined}
+                    >
+                      <span>{item.label}</span>
+                      {item.active && (
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#12805C" }} aria-hidden />
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Panels — housed here so the toolbar stays one button. */}
+                  <div className="my-1 h-px" style={{ background: "#E2E6EC" }} />
+                  {[
+                    {
+                      key: "segments",
+                      label: "Segments",
+                      count: sortedSegments.length,
+                      active: segmentPanelOpen && panelMode === "segments",
+                      onClick: () => {
+                        if (segmentPanelOpen && panelMode === "segments") {
+                          setSegmentPanelOpen(false);
+                          setSelectedId(null);
+                          setSelectedAnnotationId(null);
+                        } else {
+                          setSegmentPanelOpen(true);
+                          setPanelMode("segments");
+                          setSegmentPanelView("list");
+                        }
+                        setActionsOpen(false);
+                      },
+                    },
+                    {
+                      key: "annotations",
+                      label: "Annotations",
+                      count: annotations.length,
+                      active: segmentPanelOpen && panelMode === "annotations",
+                      onClick: () => {
+                        if (segmentPanelOpen && panelMode === "annotations") {
+                          setSegmentPanelOpen(false);
+                          setSelectedId(null);
+                          setSelectedAnnotationId(null);
+                        } else {
+                          setSegmentPanelOpen(true);
+                          setPanelMode("annotations");
+                        }
+                        setActionsOpen(false);
+                      },
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="menuitem"
+                      onClick={item.onClick}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
+                        item.active ? "" : "text-foreground hover:bg-muted",
+                      )}
+                      style={item.active ? { background: "rgba(18,128,92,0.10)", color: "#0A4A39" } : undefined}
+                    >
+                      <span>{item.label}</span>
+                      <span className="text-[11px] tabular-nums text-muted-foreground">{item.count}</span>
+                    </button>
+                  ))}
+
+                  {/* Exit current mode — only while a mode is active. */}
                   {(editForecastMode || annotateMode) && (
                     <>
-                      <div className="my-1 h-px bg-border" />
+                      <div className="my-1 h-px" style={{ background: "#E2E6EC" }} />
                       <button
                         type="button"
                         role="menuitem"
@@ -4975,10 +5037,10 @@ export const DeclineCurve = memo(
                           }
                           setActionsOpen(false);
                         }}
-                        className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-500/5 transition-colors"
+                        className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] font-medium text-rose-600 hover:bg-rose-500/5 transition-colors"
                       >
-                        <span>Exit {editForecastMode ? "Forecast" : "Annotate"} mode</span>
-                        <X className="h-3 w-3" />
+                        <span>Exit {editForecastMode ? "forecast" : "annotate"} mode</span>
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </>
                   )}
@@ -4986,60 +5048,8 @@ export const DeclineCurve = memo(
               )}
             </div>
 
-            {/* Segments — side panel list view of every segment. */}
-            <button
-              type="button"
-              onClick={() => {
-                if (segmentPanelOpen && panelMode === "segments") {
-                  setSegmentPanelOpen(false);
-                  setSelectedId(null);
-                  setSelectedAnnotationId(null);
-                } else {
-                  setSegmentPanelOpen(true);
-                  setPanelMode("segments");
-                  setSegmentPanelView("list");
-                }
-              }}
-              className={cn(
-                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors order-3",
-                segmentPanelOpen && panelMode === "segments"
-                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-              title={segmentPanelOpen && panelMode === "segments" ? "Hide segments panel" : "Show segments panel"}
-              aria-pressed={segmentPanelOpen && panelMode === "segments"}
-            >
-              Segments
-            </button>
-
-            {/* Annotations — side panel timeline view of every annotation.
-                Same toggle pattern as Segments; panel mode flips so they
-                share the same docked area. */}
-            <button
-              type="button"
-              onClick={() => {
-                if (segmentPanelOpen && panelMode === "annotations") {
-                  setSegmentPanelOpen(false);
-                  setSelectedId(null);
-                  setSelectedAnnotationId(null);
-                } else {
-                  setSegmentPanelOpen(true);
-                  setPanelMode("annotations");
-                }
-              }}
-              className={cn(
-                "inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors order-4",
-                segmentPanelOpen && panelMode === "annotations"
-                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-              title={
-                segmentPanelOpen && panelMode === "annotations" ? "Hide annotations panel" : "Show annotations timeline"
-              }
-              aria-pressed={segmentPanelOpen && panelMode === "annotations"}
-            >
-              Annotations
-            </button>
+            {/* Segments + Annotations panels are now housed inside the
+                Actions dropdown (above) so the toolbar stays compact. */}
           </div>
         </div>
 
