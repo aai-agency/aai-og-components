@@ -4904,8 +4904,7 @@ export const DeclineCurve = memo(
                     width: 214,
                     background: "#ffffff",
                     border: "1px solid #E2E6EC",
-                    boxShadow:
-                      "0 12px 32px -12px rgba(15,23,42,0.30), 0 2px 8px -3px rgba(15,23,42,0.14)",
+                    boxShadow: "0 12px 32px -12px rgba(15,23,42,0.30), 0 2px 8px -3px rgba(15,23,42,0.14)",
                     fontFamily: FONT_FAMILY,
                   }}
                 >
