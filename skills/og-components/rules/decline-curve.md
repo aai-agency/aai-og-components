@@ -1,5 +1,13 @@
 # DeclineCurve Component Rules
 
+> **Deprecated — prefer `LineChart`.** `LineChart` is the single time-series chart:
+> `<LineChart series={[...]} forecast={{ seriesId: "oil-actual", editable: true, ... }} annotations={[...]} />`.
+> It plots your series and layers on this decline-forecast + annotation engine when
+> `forecast`/`annotations` are set. `DeclineCurve` remains as a thin alias of the same
+> engine (props below still work), but new code should use `LineChart`. The forecast /
+> segment / annotation semantics documented here apply to `LineChart`'s `forecast`
+> config too.
+
 `DeclineCurve` is the interactive piecewise decline-curve editor — multi-segment forecasts, drag-to-fit, right-click insert, range annotations with stats. Use it when the user wants to forecast production, fit a decline, or annotate operational events on top of actuals.
 
 ## Required Props
@@ -217,6 +225,10 @@ In edit mode:
 
 Annotate mode is a separate exclusive mode — entering it disables forecast editing so the user can draw annotation regions cleanly.
 
+### Display-only production plot (`showForecast={false}`)
+
+Pass `showForecast={false}` to hide the fitted forecast line and disable all segment editing (forecast actions and the Segments panel are omitted). The chart renders actuals + annotations only — use it to show a production history without projecting a decline. Annotate mode still works.
+
 ## Side Panel
 
 Two list/editor views, one per toolbar button:
@@ -240,6 +252,24 @@ Length changes (which move the next segment's `tStart`), lock toggle, and Delete
 
 `onSegmentsChange` and `onSave` fire together on every commit — pick whichever name reads better in your code.
 
-## Multi-Curve (roadmap)
+## Multi-series context (`contextSeries`)
 
-A multi-fluid API (Oil + Gas + Water on dual y-axes) is being designed for a follow-up release. For now, render one fluid per `<DeclineCurve>` instance. If you need to show multiple fluids today, stack two or three components and synchronize their `time` arrays.
+Plot additional fluids beside the primary decline series with the `contextSeries` prop — an array of read-only `TimeSeries` (the same shape `LineChart` takes):
+
+```tsx
+<DeclineCurve
+  production={oilValues}
+  time={oilTime}
+  startDate="2024-01-01"
+  timeUnit="month"
+  showForecast={false}
+  contextSeries={[gasTimeSeries, waterTimeSeries]}
+  rightAxisFluids={["gas"]}   // default; gas draws on the right axis
+/>
+```
+
+- The **primary** series (`production`/`time`) keeps the full forecast + segment editing.
+- **`contextSeries`** are display-only lines aligned to the same time axis — each `DataPoint.date` is snapped to the nearest `time` grid point via `startDate`/`timeUnit`.
+- Fluids in **`rightAxisFluids`** (default `["gas"]`) draw on a secondary right axis with their own scale; others share the primary left axis.
+
+Together with `showForecast={false}`, this is the production chart + decline chart unified into one time-series plot.

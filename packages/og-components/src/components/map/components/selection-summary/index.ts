@@ -1,8 +1,8 @@
-export { SelectionSummaryCard } from "./selection-summary-card";
-export type { SelectionSummaryCardProps, SelectedOverlayFeature } from "./selection-summary-card";
-export { SelectionPanel } from "./selection-panel";
-export type { SelectionPanelProps } from "./selection-panel";
+export type { FilterChip, FilterChipsProps } from "./filter-chips";
 export { FilterChips } from "./filter-chips";
-export type { FilterChipsProps, FilterChip } from "./filter-chips";
-export { MiniCard, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
-export type { MiniCardProps, MiniCardItem } from "./mini-card";
+export type { MiniCardItem, MiniCardProps } from "./mini-card";
+export { assetToMiniCard, MiniCard, overlayFeatureToMiniCard } from "./mini-card";
+export type { SelectionPanelProps } from "./selection-panel";
+export { SelectionPanel } from "./selection-panel";
+export type { SelectedOverlayFeature, SelectionSummaryCardProps } from "./selection-summary-card";
+export { SelectionSummaryCard } from "./selection-summary-card";

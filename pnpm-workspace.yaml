@@ -1,3 +1,15 @@
 packages:
   - "packages/*"
   - "apps/*"
+
+onlyBuiltDependencies:
+  - esbuild
+
+ignoredBuiltDependencies:
+  - "@vaadin/vaadin-usage-statistics"
+
+# This repository intentionally tracks registry-latest packages during modernization.
+minimumReleaseAge: 0
+allowBuilds:
+  '@vaadin/vaadin-usage-statistics': false
+  esbuild: true

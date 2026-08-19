@@ -383,7 +383,9 @@ export class SqliteStore implements AssetStore {
 
   private rowToObj(columns: string[], row: unknown[]): Record<string, unknown> {
     const obj: Record<string, unknown> = {};
-    columns.forEach((col, i) => (obj[col] = row[i]));
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
     return obj;
   }
 

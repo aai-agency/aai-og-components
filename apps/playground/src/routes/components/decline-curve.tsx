@@ -1,11 +1,11 @@
 import {
   type Annotation,
   DeclineCurve,
-  type Segment,
   generateSampleProduction,
   nextAnnotationId,
   nextSegmentId,
-} from "@aai-agency/og-components";
+  type Segment,
+} from "@aai-agency/og-components/decline-curve";
 import {
   sampleDeclineCurveAnnotations,
   sampleDeclineCurveProduction,
@@ -136,7 +136,7 @@ const DeclineCurvePage = () => {
             startDate="2024-01-01"
             timeUnit="day"
             actualColor="#22c55e"
-            forecastColor="#8b5cf6"
+            forecastColor="#18181b"
             onSegmentsChange={handleSegmentsChange}
           />
         </div>
@@ -156,7 +156,7 @@ const DeclineCurvePage = () => {
             startDate="2020-01-01"
             timeUnit="day"
             actualColor="#22c55e"
-            forecastColor="#6366f1"
+            forecastColor="#18181b"
             onSegmentsChange={handleSegmentsChange}
           />
         </div>
@@ -209,7 +209,7 @@ const DeclineCurvePage = () => {
             timeUnit="month"
             forecastHorizon={48 + 40 * 12}
             actualColor="#f59e0b"
-            forecastColor="#8b5cf6"
+            forecastColor="#18181b"
           />
         </div>
       </DemoCard>
@@ -256,7 +256,7 @@ const DeclineCurvePage = () => {
           {
             name: "forecastColor",
             type: "string",
-            default: '"#6366f1"',
+            default: '"#18181b"',
             description: "Stroke color for forecast curve.",
           },
         ]}

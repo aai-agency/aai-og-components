@@ -19,10 +19,15 @@ export const DataPointSchema = z.object({
 
 export const TimeSeriesSchema = z.object({
   id: z.string(),
-  fluidType: z.enum(["oil", "gas", "water"]),
-  curveType: z.enum(["actual", "forecast"]),
-  unit: z.enum(["BBL", "MSCF", "BOE", "MCFE"]),
-  frequency: z.enum(["daily", "monthly"]),
+  seriesType: z.enum(["actual", "forecast"]).optional(),
+  associatedType: z.string().min(1).optional(),
+  fluidType: z.string().min(1).optional(),
+  curveType: z.enum(["actual", "forecast"]).optional(),
+  unit: z.string(),
+  frequency: z.enum(["secondly", "minutely", "hourly", "daily", "weekly", "monthly", "quarterly", "yearly"]),
+  label: z.string().optional(),
+  color: z.string().optional(),
+  axis: z.enum(["left", "right"]).optional(),
   data: z.array(DataPointSchema),
 });
 
@@ -36,8 +41,8 @@ export const AssetSchema = z.object({
   coordinates: CoordinatesSchema,
   lines: z.array(z.array(CoordinatesSchema).min(2)).optional(),
   polygons: z.array(z.array(CoordinatesSchema).min(3)).optional(),
-  properties: z.record(z.unknown()).default({}),
-  meta: z.record(z.unknown()).optional(),
+  properties: z.record(z.string(), z.unknown()).default({}),
+  meta: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -63,7 +68,7 @@ export const AssetTypeConfigSchema = z.object({
   lineDash: z.array(z.number()).optional(),
   tooltipFields: z.array(FieldConfigSchema).optional(),
   detailFields: z.array(FieldConfigSchema).optional(),
-  statusColors: z.record(z.string()).optional(),
+  statusColors: z.record(z.string(), z.string()).optional(),
 });
 
 // ── Overlay Schema ───────────────────────────────────────────────────────────

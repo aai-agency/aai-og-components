@@ -14,6 +14,8 @@ Consumer imports the theme CSS:
 
 This provides the shadcn color tokens (background, foreground, muted, border, primary, etc.).
 
+The canonical primary is the neutral shadcn black (`#18181b`) with an off-white foreground (`#fafafa`). Use `primary`, `primary-foreground`, and `ring` for interactive emphasis; do not introduce hue-specific classes such as `indigo-*` for primary UI states. Purple remains valid only as explicit domain or data-series color metadata.
+
 ## Semantic Colors
 
 Use semantic token names, not raw colors.

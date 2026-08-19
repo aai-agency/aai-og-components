@@ -1,5 +1,10 @@
 # DeclineCurve
 
+> **Deprecated.** Use **`LineChart`** with a `forecast` config instead — it's the single
+> time-series chart (plain plot, or with this decline-forecast + annotation engine
+> turned on). `DeclineCurve` remains exported as a thin alias of the same engine, so
+> existing code keeps working. This doc describes that engine's behavior.
+
 Interactive piecewise decline-curve editor for oil & gas production forecasting.
 
 > **AI-first component.** If a coding agent is reading this, the canonical agent guide is at `skills/og-components/rules/decline-curve.md` — it has the prop API, common mistakes, equation table, and ready-to-paste examples. This file is for humans browsing the source.
@@ -11,7 +16,7 @@ A React component that renders a production chart with two parts on top of the a
 1. A **multi-segment forecast line** the user can reshape by dragging (each segment chains C0-continuously from the prior segment's end).
 2. A **range-annotation system** for events like flowback ramps, workovers, and shut-ins, with aggregate Δ stats inside each range.
 
-There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and a variance sub-chart attached below.
+There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and support for synchronized related charts attached below. The historical variance sub-chart is now the `createVarianceRelatedChart` bar preset used by `LineChart.relatedCharts`.
 
 ## Quick start
 
@@ -78,11 +83,13 @@ The full param-by-equation table and notation mapping live in `skills/og-compone
 
 Range overlays for operational events. Each annotation has `tStart`/`tEnd`, a `type` from a curated list (`flowback`, `shutInOffset`, `shutInWorkover`, `espFail`, `pumpFail`, `freezeOff`, `other`, …), and optional `label` + `description`. Inside each annotation's range the chart computes Δ stats (avg actual, avg forecast, Δ%, total variance) so the user can see how the event affected production at a glance.
 
-The variance sub-chart and the variance fill on the production chart can recolor by annotation, by sign, or off entirely.
+The variance related chart and the variance fill on the production chart can recolor by annotation, by sign, or off entirely.
 
 ### Edit mode vs Annotate mode
 
 Both modes are exclusive — only one runs at a time. Without either, the chart is read-only.
+
+Pass **`showForecast={false}`** to hide the fitted forecast line and disable segment editing entirely (the "Edit forecast" action is omitted). The chart becomes a pure production plot — actuals + annotations only — for embedding a well's history without projecting a decline.
 
 - **Forecast mode** — drag the forecast line to reshape `qi`/`di`/`b`/`slope` of the selected segment, right-click to insert a new segment, drag boundaries to resize.
 - **Annotate mode** — drag on the chart to draw a new annotation range.
@@ -104,7 +111,7 @@ The interaction layer is mousedown/mousemove/mouseup at the canvas level — uPl
 
 The math engine is a single-file pure TypeScript module (`decline-math.ts`) with no dependency on the chart. Forecast computation runs in tight loops over `Float64Array` buffers; the chart's `setData` reads those buffers directly so there's no extra copy.
 
-Multi-curve mode (Oil + Gas + Water) is a preview behind the `curves` prop. Today only the active curve renders; full N-series rendering on dual y-axes is on the roadmap.
+Multi-series (Oil + Gas + Water) renders via the **`contextSeries`** prop — extra read-only `TimeSeries[]` plotted beside the primary decline series on the same time axis, with a secondary right axis for any fluid in `rightAxisFluids` (default `["gas"]`). Their `DataPoint` dates are aligned to the chart's `time`/`startDate` grid. The primary series keeps the full forecast + segment editing; context series are display-only. Combined with `showForecast={false}`, this is the "production chart + decline chart" unified into one time-series plot.
 
 ## Where to look next
 

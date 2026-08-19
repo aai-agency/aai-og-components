@@ -21,7 +21,5 @@ declare module "sql.js" {
     values: unknown[][];
   }
 
-  export default function initSqlJs(config?: {
-    locateFile?: (file: string) => string;
-  }): Promise<SqlJsStatic>;
+  export default function initSqlJs(config?: { locateFile?: (file: string) => string }): Promise<SqlJsStatic>;
 }

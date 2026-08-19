@@ -48,10 +48,13 @@ export type AssetStatus =
 
 // ── Well-specific types (kept for O&G domain convenience) ────────────────────
 
-export type FluidType = "oil" | "gas" | "water";
-export type CurveType = "actual" | "forecast";
-export type Frequency = "daily" | "monthly";
-export type Unit = "BBL" | "MSCF" | "BOE" | "MCFE";
+export type FluidType = "oil" | "gas" | "water" | (string & {});
+/** Whether a time series contains observed values or a forecast. */
+export type SeriesType = "actual" | "forecast";
+/** @deprecated Use `SeriesType` and `TimeSeries.seriesType`. */
+export type CurveType = SeriesType;
+export type Frequency = "secondly" | "minutely" | "hourly" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+export type Unit = "BBL" | "MSCF" | "BOE" | "MCFE" | (string & {});
 export type WellType = "oil" | "gas" | "injection" | "disposal" | "observation";
 export type Trajectory = "horizontal" | "vertical" | "directional";
 
@@ -62,10 +65,22 @@ export interface DataPoint {
 
 export interface TimeSeries {
   id: string;
-  fluidType: FluidType;
-  curveType: CurveType;
+  /** Defaults to `actual`. Forecasts are ordinary series with this set to `forecast`. */
+  seriesType?: SeriesType;
+  /** Optional semantic association such as oil, water, gas, pressure, or insight-score. */
+  associatedType?: string;
+  /** @deprecated Use `associatedType`. Retained for oil-and-gas compatibility. */
+  fluidType?: FluidType;
+  /** @deprecated Use `seriesType`. Retained for compatibility. */
+  curveType?: CurveType;
   unit: Unit;
   frequency: Frequency;
+  /** Optional display label; defaults to the configured label for associatedType or the series ID. */
+  label?: string;
+  /** Optional series color; takes precedence over the chart color map. */
+  color?: string;
+  /** Optional axis assignment; legacy rightAxisFluids configuration remains supported. */
+  axis?: "left" | "right";
   data: DataPoint[];
 }
 

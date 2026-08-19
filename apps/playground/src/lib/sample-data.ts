@@ -1,5 +1,5 @@
-import type { Asset, ColorScheme } from "@aai-agency/og-components";
-import { filterPlottable } from "@aai-agency/og-components";
+import type { Asset, ColorScheme } from "@aai-agency/og-components/types";
+import { filterPlottable } from "@aai-agency/og-components/utils";
 
 const STATUSES: Asset["status"][] = ["producing", "shut-in", "abandoned", "permitted", "drilled", "injection"];
 const WELL_TYPES = ["oil", "gas", "injection", "disposal"];
@@ -34,7 +34,19 @@ export const loadSampleData = async (): Promise<Asset[]> => {
   return filterPlottable([...bakken, ...dj]);
 };
 
+const createSeededRandom = (seed: number) => {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+};
+
 export const generateSyntheticAssets = (count: number): Asset[] => {
+  const random = createSeededRandom(count || 1);
   const basins = [
     { name: "Permian", center: { lat: 31.9, lng: -102.1 }, spread: 2.0, weight: 0.35 },
     { name: "Bakken", center: { lat: 47.8, lng: -103.5 }, spread: 1.5, weight: 0.15 },
@@ -52,7 +64,7 @@ export const generateSyntheticAssets = (count: number): Asset[] => {
   for (let i = 0; i < count; i++) {
     if (basinAlloc <= 0) {
       basinIdx = 0;
-      let r = Math.random();
+      let r = random();
       for (let b = 0; b < basins.length; b++) {
         r -= basins[b].weight;
         if (r <= 0) {
@@ -65,18 +77,18 @@ export const generateSyntheticAssets = (count: number): Asset[] => {
     basinAlloc--;
 
     const basin = basins[basinIdx];
-    const u1 = Math.random();
-    const u2 = Math.random();
+    const u1 = Math.max(random(), Number.EPSILON);
+    const u2 = random();
     const g1 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     const g2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
 
     const lat = basin.center.lat + g1 * basin.spread * 0.4;
     const lng = basin.center.lng + g2 * basin.spread * 0.6;
 
-    const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
-    const wellType = WELL_TYPES[Math.floor(Math.random() * WELL_TYPES.length)];
-    const operator = OPERATORS[Math.floor(Math.random() * OPERATORS.length)];
-    const cumBOE = Math.floor(Math.random() * 1000000);
+    const status = STATUSES[Math.floor(random() * STATUSES.length)];
+    const wellType = WELL_TYPES[Math.floor(random() * WELL_TYPES.length)];
+    const operator = OPERATORS[Math.floor(random() * OPERATORS.length)];
+    const cumBOE = Math.floor(random() * 1_000_000);
 
     assets.push({
       id: `syn-${i}`,

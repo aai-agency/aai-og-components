@@ -19,7 +19,7 @@ import {
   TYPE_COLORS,
 } from "../../theme";
 import { type FilterChip, FilterChips } from "./filter-chips";
-import { MiniCard, type MiniCardItem, assetToMiniCard, overlayFeatureToMiniCard } from "./mini-card";
+import { assetToMiniCard, MiniCard, type MiniCardItem, overlayFeatureToMiniCard } from "./mini-card";
 import type { SelectedOverlayFeature } from "./selection-summary-card";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -194,7 +194,6 @@ export const SelectionPanel = memo(function SelectionPanel({
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const totalCount = assets.length + overlayFeatures.length;
-  if (totalCount === 0) return null;
 
   // Build all mini card items, sorted alphabetically
   const allItems = useMemo(() => {
@@ -247,6 +246,8 @@ export const SelectionPanel = memo(function SelectionPanel({
     },
     [onSelectAsset, onSelectOverlayFeature, onDetailOpen, overlayFeatures],
   );
+
+  if (totalCount === 0) return null;
 
   return (
     <div

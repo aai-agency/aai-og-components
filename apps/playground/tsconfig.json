@@ -12,7 +12,14 @@
     "paths": {
       "~/*": ["./src/*"],
       "@aai-agency/og-components": ["../../packages/og-components/src/index.ts"],
-      "@aai-agency/og-components/sample-data": ["../../packages/og-components/src/sample-data/index.ts"]
+      "@aai-agency/og-components/asset-card": ["../../packages/og-components/src/components/asset-card/index.ts"],
+      "@aai-agency/og-components/decline-curve": ["../../packages/og-components/src/components/decline-curve/index.ts"],
+      "@aai-agency/og-components/line-chart": ["../../packages/og-components/src/components/line-chart/index.ts"],
+      "@aai-agency/og-components/map": ["../../packages/og-components/src/components/map/index.ts"],
+      "@aai-agency/og-components/sample-data": ["../../packages/og-components/src/sample-data/index.ts"],
+      "@aai-agency/og-components/types": ["../../packages/og-components/src/types/index.ts"],
+      "@aai-agency/og-components/ui": ["../../packages/og-components/src/components/ui/index.ts"],
+      "@aai-agency/og-components/utils": ["../../packages/og-components/src/utils/index.ts"]
     }
   },
   "include": ["src"],

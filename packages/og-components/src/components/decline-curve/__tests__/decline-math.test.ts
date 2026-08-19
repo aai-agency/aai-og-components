@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Segment, SegmentParams } from "../decline-math";
 import {
   bendSegmentToTarget,
   computeForecast,
@@ -8,7 +9,6 @@ import {
   insertSegmentAt,
   nextSegmentId,
 } from "../decline-math";
-import type { Segment, SegmentParams } from "../decline-math";
 
 function expectDefined<T>(value: T | null | undefined, message?: string): asserts value is T {
   if (value == null) throw new Error(message ?? "expected defined value, got null/undefined");

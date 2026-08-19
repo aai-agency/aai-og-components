@@ -1,5 +1,5 @@
-import { SelectionPanel } from "@aai-agency/og-components";
-import type { Asset } from "@aai-agency/og-components";
+import { SelectionPanel } from "@aai-agency/og-components/map";
+import type { Asset } from "@aai-agency/og-components/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
 

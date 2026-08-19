@@ -27,7 +27,7 @@ const DirectRectangleMode: DrawCustomMode = {
   },
 
   onClick: function (state, e) {
-    if (!state || !e || !e.lngLat) return;
+    if (!state || !e?.lngLat) return;
 
     const shiftPressed = e.originalEvent?.shiftKey;
 
@@ -95,7 +95,7 @@ const DirectRectangleMode: DrawCustomMode = {
   },
 
   onMouseMove: (state, e) => {
-    if (!state || !e || !e.lngLat) return;
+    if (!state || !e?.lngLat) return;
     if (state.startPoint && !state.endPoint && !state.rectangleCompleted) {
       const startPoint = state.startPoint;
       if (!startPoint || !Array.isArray(startPoint) || startPoint.length < 2) return;
@@ -133,7 +133,7 @@ const DirectRectangleMode: DrawCustomMode = {
     doubleClickZoom.enable(this);
     this.updateUIClasses({ mouse: "none" });
     this.activateUIButton();
-    if (!state.rectangle || !state.rectangle.id || this.getFeature(String(state.rectangle.id)) === undefined) return;
+    if (!state.rectangle?.id || this.getFeature(String(state.rectangle.id)) === undefined) return;
     if (!state.rectangleCompleted) {
       if (state.rectangle.isValid && typeof state.rectangle.isValid === "function" && state.rectangle.isValid()) {
         if (typeof state.rectangle.toGeoJSON === "function") {

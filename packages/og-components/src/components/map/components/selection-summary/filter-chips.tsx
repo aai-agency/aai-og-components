@@ -1,4 +1,4 @@
-import React, { memo, useRef, useState, useCallback, useEffect } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ACCENT, BORDER, FONT_FAMILY, HOVER_BG, TEXT_FAINT, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
 
 // ── Types ────────────────────────────────────────────────────────────────────

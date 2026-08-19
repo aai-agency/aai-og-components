@@ -1,5 +1,5 @@
-export { DeclineCurve } from "./decline-curve";
 export type { DeclineCurveProps } from "./decline-curve";
+export { DeclineCurve } from "./decline-curve";
 export type {
   Annotation,
   AnnotationStats,
@@ -14,13 +14,13 @@ export type {
 export {
   ANNOTATION_TYPE_GROUPS,
   ANNOTATION_TYPE_META,
-  DEFAULT_SEGMENT_PARAMS,
   adjustQiFromDrag,
   colorForAnnotation,
   computeAnnotationStats,
   computeForecast,
   computeVariance,
   createBuffers,
+  DEFAULT_SEGMENT_PARAMS,
   evalAtTime,
   evalSegment,
   generateDailyProduction,

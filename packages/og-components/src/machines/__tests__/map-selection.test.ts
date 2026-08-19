@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createActor } from "xstate";
-import { mapMachine } from "..";
-import type { LassoOverlayFeature } from "..";
 import type { Asset } from "../../types";
+import type { LassoOverlayFeature } from "..";
+import { mapMachine } from "..";
 
 const makeAsset = (id: string): Asset => {
   return {
