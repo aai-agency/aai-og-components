@@ -10,55 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UtilitiesSchemasRouteImport } from './routes/utilities/schemas'
-import { Route as UtilitiesHelpersRouteImport } from './routes/utilities/helpers'
-import { Route as ComponentsSelectionPanelRouteImport } from './routes/components/selection-panel'
-import { Route as ComponentsOverlayManagerRouteImport } from './routes/components/overlay-manager'
-import { Route as ComponentsMapRouteImport } from './routes/components/map'
-import { Route as ComponentsLineChartRouteImport } from './routes/components/line-chart'
-import { Route as ComponentsDeclineCurveRouteImport } from './routes/components/decline-curve'
 import { Route as ComponentsAssetDetailCardRouteImport } from './routes/components/asset-detail-card'
+import { Route as ComponentsDeclineCurveRouteImport } from './routes/components/decline-curve'
+import { Route as ComponentsLineChartRouteImport } from './routes/components/line-chart'
+import { Route as ComponentsMapRouteImport } from './routes/components/map'
+import { Route as ComponentsOverlayManagerRouteImport } from './routes/components/overlay-manager'
+import { Route as ComponentsSelectionPanelRouteImport } from './routes/components/selection-panel'
+import { Route as UtilitiesHelpersRouteImport } from './routes/utilities/helpers'
+import { Route as UtilitiesSchemasRouteImport } from './routes/utilities/schemas'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UtilitiesSchemasRoute = UtilitiesSchemasRouteImport.update({
-  id: '/utilities/schemas',
-  path: '/utilities/schemas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UtilitiesHelpersRoute = UtilitiesHelpersRouteImport.update({
-  id: '/utilities/helpers',
-  path: '/utilities/helpers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComponentsSelectionPanelRoute =
-  ComponentsSelectionPanelRouteImport.update({
-    id: '/components/selection-panel',
-    path: '/components/selection-panel',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ComponentsOverlayManagerRoute =
-  ComponentsOverlayManagerRouteImport.update({
-    id: '/components/overlay-manager',
-    path: '/components/overlay-manager',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ComponentsMapRoute = ComponentsMapRouteImport.update({
-  id: '/components/map',
-  path: '/components/map',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComponentsLineChartRoute = ComponentsLineChartRouteImport.update({
-  id: '/components/line-chart',
-  path: '/components/line-chart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComponentsDeclineCurveRoute = ComponentsDeclineCurveRouteImport.update({
-  id: '/components/decline-curve',
-  path: '/components/decline-curve',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComponentsAssetDetailCardRoute =
@@ -67,6 +30,43 @@ const ComponentsAssetDetailCardRoute =
     path: '/components/asset-detail-card',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ComponentsDeclineCurveRoute = ComponentsDeclineCurveRouteImport.update({
+  id: '/components/decline-curve',
+  path: '/components/decline-curve',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComponentsLineChartRoute = ComponentsLineChartRouteImport.update({
+  id: '/components/line-chart',
+  path: '/components/line-chart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComponentsMapRoute = ComponentsMapRouteImport.update({
+  id: '/components/map',
+  path: '/components/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComponentsOverlayManagerRoute =
+  ComponentsOverlayManagerRouteImport.update({
+    id: '/components/overlay-manager',
+    path: '/components/overlay-manager',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ComponentsSelectionPanelRoute =
+  ComponentsSelectionPanelRouteImport.update({
+    id: '/components/selection-panel',
+    path: '/components/selection-panel',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const UtilitiesHelpersRoute = UtilitiesHelpersRouteImport.update({
+  id: '/utilities/helpers',
+  path: '/utilities/helpers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UtilitiesSchemasRoute = UtilitiesSchemasRouteImport.update({
+  id: '/utilities/schemas',
+  path: '/utilities/schemas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,46 +159,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/utilities/schemas': {
-      id: '/utilities/schemas'
-      path: '/utilities/schemas'
-      fullPath: '/utilities/schemas'
-      preLoaderRoute: typeof UtilitiesSchemasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/utilities/helpers': {
-      id: '/utilities/helpers'
-      path: '/utilities/helpers'
-      fullPath: '/utilities/helpers'
-      preLoaderRoute: typeof UtilitiesHelpersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/components/selection-panel': {
-      id: '/components/selection-panel'
-      path: '/components/selection-panel'
-      fullPath: '/components/selection-panel'
-      preLoaderRoute: typeof ComponentsSelectionPanelRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/components/overlay-manager': {
-      id: '/components/overlay-manager'
-      path: '/components/overlay-manager'
-      fullPath: '/components/overlay-manager'
-      preLoaderRoute: typeof ComponentsOverlayManagerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/components/map': {
-      id: '/components/map'
-      path: '/components/map'
-      fullPath: '/components/map'
-      preLoaderRoute: typeof ComponentsMapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/components/line-chart': {
-      id: '/components/line-chart'
-      path: '/components/line-chart'
-      fullPath: '/components/line-chart'
-      preLoaderRoute: typeof ComponentsLineChartRouteImport
+    '/components/asset-detail-card': {
+      id: '/components/asset-detail-card'
+      path: '/components/asset-detail-card'
+      fullPath: '/components/asset-detail-card'
+      preLoaderRoute: typeof ComponentsAssetDetailCardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/components/decline-curve': {
@@ -208,11 +173,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComponentsDeclineCurveRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/components/asset-detail-card': {
-      id: '/components/asset-detail-card'
-      path: '/components/asset-detail-card'
-      fullPath: '/components/asset-detail-card'
-      preLoaderRoute: typeof ComponentsAssetDetailCardRouteImport
+    '/components/line-chart': {
+      id: '/components/line-chart'
+      path: '/components/line-chart'
+      fullPath: '/components/line-chart'
+      preLoaderRoute: typeof ComponentsLineChartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/components/map': {
+      id: '/components/map'
+      path: '/components/map'
+      fullPath: '/components/map'
+      preLoaderRoute: typeof ComponentsMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/components/overlay-manager': {
+      id: '/components/overlay-manager'
+      path: '/components/overlay-manager'
+      fullPath: '/components/overlay-manager'
+      preLoaderRoute: typeof ComponentsOverlayManagerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/components/selection-panel': {
+      id: '/components/selection-panel'
+      path: '/components/selection-panel'
+      fullPath: '/components/selection-panel'
+      preLoaderRoute: typeof ComponentsSelectionPanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/utilities/helpers': {
+      id: '/utilities/helpers'
+      path: '/utilities/helpers'
+      fullPath: '/utilities/helpers'
+      preLoaderRoute: typeof UtilitiesHelpersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/utilities/schemas': {
+      id: '/utilities/schemas'
+      path: '/utilities/schemas'
+      fullPath: '/utilities/schemas'
+      preLoaderRoute: typeof UtilitiesSchemasRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

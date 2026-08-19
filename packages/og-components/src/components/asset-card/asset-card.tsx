@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState, useEffect, useRef } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ACCENT,
@@ -487,9 +487,24 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
               justifyContent: "center",
               padding: 32,
             }}
-            onClick={() => setExpanded(false)}
           >
+            <button
+              type="button"
+              aria-label="Close expanded production history"
+              onClick={() => setExpanded(false)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                border: 0,
+                padding: 0,
+                background: "transparent",
+                cursor: "default",
+              }}
+            />
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${asset.name} production history`}
               style={{
                 background: "#ffffff",
                 borderRadius: 12,
@@ -500,8 +515,8 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
                 overflow: "auto",
                 boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
                 fontFamily: FONT_FAMILY,
+                position: "relative",
               }}
-              onClick={(e) => e.stopPropagation()}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
@@ -827,7 +842,9 @@ export const AssetDetailCard = memo(
             }}
           >
             {/* Drag handle */}
-            <div
+            <button
+              type="button"
+              aria-label="Resize asset detail panel"
               onTouchStart={handleDragStart}
               onMouseDown={handleDragStart}
               style={{
@@ -836,10 +853,13 @@ export const AssetDetailCard = memo(
                 padding: "8px 0 4px",
                 cursor: "grab",
                 flexShrink: 0,
+                width: "100%",
+                border: 0,
+                background: "transparent",
               }}
             >
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(148, 163, 184, 0.25)" }} />
-            </div>
+            </button>
             {cardContent}
           </div>
         </TooltipProvider>

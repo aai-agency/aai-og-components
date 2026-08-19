@@ -48,7 +48,7 @@ const GettingStarted = () => {
               <strong>Map</strong> — Interactive asset map with clustering, overlays, and drawing tools
             </li>
             <li>
-              <strong>LineChart</strong> — High-performance time series chart (uPlot)
+              <strong>LineChart</strong> — Multi-series charts, interactive forecasts, variance, and annotations
             </li>
             <li>
               <strong>AssetDetailCard</strong> — Expandable detail card for any asset

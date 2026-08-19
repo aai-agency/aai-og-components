@@ -16,7 +16,7 @@ A React component that renders a production chart with two parts on top of the a
 1. A **multi-segment forecast line** the user can reshape by dragging (each segment chains C0-continuously from the prior segment's end).
 2. A **range-annotation system** for events like flowback ramps, workovers, and shut-ins, with aggregate Δ stats inside each range.
 
-There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and a variance sub-chart attached below.
+There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and support for synchronized related charts attached below. The historical variance sub-chart is now the `createVarianceRelatedChart` bar preset used by `LineChart.relatedCharts`.
 
 ## Quick start
 
@@ -83,7 +83,7 @@ The full param-by-equation table and notation mapping live in `skills/og-compone
 
 Range overlays for operational events. Each annotation has `tStart`/`tEnd`, a `type` from a curated list (`flowback`, `shutInOffset`, `shutInWorkover`, `espFail`, `pumpFail`, `freezeOff`, `other`, …), and optional `label` + `description`. Inside each annotation's range the chart computes Δ stats (avg actual, avg forecast, Δ%, total variance) so the user can see how the event affected production at a glance.
 
-The variance sub-chart and the variance fill on the production chart can recolor by annotation, by sign, or off entirely.
+The variance related chart and the variance fill on the production chart can recolor by annotation, by sign, or off entirely.
 
 ### Edit mode vs Annotate mode
 

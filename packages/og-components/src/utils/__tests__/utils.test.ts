@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Asset, AssetTypeConfig } from "../../types";
 import {
   computeBounds,
   filterPlottable,
@@ -8,7 +9,6 @@ import {
   groupBy,
   isValidCoordinates,
 } from "..";
-import type { Asset, AssetTypeConfig } from "../../types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

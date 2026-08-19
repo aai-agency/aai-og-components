@@ -10,6 +10,7 @@ data/
 *.csv
 *.xlsx
 *.xls
+!docs/feature-status.csv
 
 # Environment
 .env

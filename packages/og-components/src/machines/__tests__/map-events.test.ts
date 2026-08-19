@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createActor } from "xstate";
-import { mapMachine } from "..";
 import type { Asset } from "../../types";
+import { mapMachine } from "..";
 
 const makeAsset = (id: string, overrides?: Partial<Asset>): Asset => {
   return {

@@ -1,5 +1,5 @@
-import { SqliteStore } from "./sqlite-store";
 import type { SqlJsDatabase } from "./sqlite-store";
+import { SqliteStore } from "./sqlite-store";
 
 const DEFAULT_IDB_NAME = "og-map-db";
 const DEFAULT_IDB_STORE = "sqlitedb";

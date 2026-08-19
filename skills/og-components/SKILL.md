@@ -24,7 +24,7 @@ Read these before generating code:
 
 - [Map usage rules](./rules/map.md) — Required props, common mistakes, controls
 - [Data rules](./rules/data.md) — Asset schema, validation, stores
-- [Chart rules](./rules/charts.md) — TimeSeries format, LineChart vs ProductionChart
+- [Chart rules](./rules/charts.md) — TimeSeries format and the unified LineChart API
 - [DeclineCurve rules](./rules/decline-curve.md) — Segments, equations, annotations, edit modes
 - [Styling rules](./rules/styling.md) — Tailwind, theme tokens, z-index
 
@@ -33,8 +33,8 @@ Read these before generating code:
 | Need                            | Component                        | Key props                                |
 | ------------------------------- | -------------------------------- | ---------------------------------------- |
 | Interactive asset map           | `Map`                            | `assets`, `mapboxAccessToken`, `colorBy` |
-| Production time series          | `LineChart` or `ProductionChart` | `series: TimeSeries[]`                   |
-| Decline curve / forecast editor | `DeclineCurve`                   | `production`, `time`, `initialSegments`  |
+| Any time series                 | `LineChart`                      | `series: TimeSeries[]`                   |
+| Forecast / variance editor      | `LineChart`                      | `series`, `forecast`, `annotations`      |
 | Asset info on click             | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
 | Multi-asset selection           | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
 | File overlay management         | `OverlayManager`                 | `overlays`, `onUpload`                   |
@@ -224,24 +224,38 @@ const MapDemo = () => (
 ```
 
 ```tsx
-// DeclineCurve demo with the sample well
+// Unified LineChart forecast demo with the sample well
 import {
   sampleDeclineCurveProduction,
   sampleDeclineCurveSegments,
   sampleDeclineCurveAnnotations,
 } from "@aai-agency/og-components/sample-data";
-import { DeclineCurve } from "@aai-agency/og-components";
+import { createVarianceRelatedChart, LineChart } from "@aai-agency/og-components/line-chart";
+
+const productionSeries = {
+  id: "oil.actual",
+  associatedType: "oil",
+  seriesType: "actual",
+  unit: "BBL/day",
+  frequency: "daily",
+  data: sampleDeclineCurveProduction.values.map((value, day) => ({
+    date: new Date(Date.UTC(2024, 0, day + 1)).toISOString().slice(0, 10),
+    value,
+  })),
+};
 
 const DeclineDemo = () => (
-  <DeclineCurve
-    production={sampleDeclineCurveProduction.values}
-    time={sampleDeclineCurveProduction.time}
-    initialSegments={sampleDeclineCurveSegments}
-    initialAnnotations={sampleDeclineCurveAnnotations}
-    timeUnit="day"
-    unit="BBL/day"
-    unitsPerYear={365}
-    startDate="2024-01-01"
+  <LineChart
+    series={[productionSeries]}
+    forecast={{
+      seriesId: "oil.actual",
+      initialSegments: sampleDeclineCurveSegments,
+      timeUnit: "day",
+      unitsPerYear: 365,
+      startDate: "2024-01-01",
+    }}
+    annotations={sampleDeclineCurveAnnotations}
+    relatedCharts={[createVarianceRelatedChart({ mode: "combined" })]}
   />
 );
 ```
@@ -273,7 +287,7 @@ const file = new File([blob], sampleKMZ.fileName, { type: blob.type });
 | Blank map                                     | Check `.env` has `VITE_MAPBOX_TOKEN` with a valid Mapbox token                      |
 | "Tooltip must be used within TooltipProvider" | Wrap your app in `<TooltipProvider>`                                                |
 | Assets not showing                            | Ensure each asset has `id`, `name`, `type`, `status`, `coordinates`, `properties`   |
-| Chart crash "length undefined"                | TimeSeries needs `{ id, fluidType, curveType, unit, frequency, data: DataPoint[] }` |
+| Chart crash "length undefined"                | TimeSeries needs `{ id, unit, frequency, data: DataPoint[] }`; seriesType and associatedType are optional |
 | Detail card behind sidebar                    | AssetDetailCard uses `position: absolute` — wrap in `position: relative` container  |
 
 ## Support

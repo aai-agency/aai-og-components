@@ -436,6 +436,8 @@ const LayerToggle = memo(
         <ControlButton icon="layers" title="Map Layers" active={open} onClick={() => setOpen(!open)} />
         {open && (
           <div
+            role="menu"
+            aria-label="Map layers"
             style={{
               position: "absolute",
               right: BTN_SIZE + 8,
@@ -570,6 +572,8 @@ const LayerToggle = memo(
                     <div key={ov.id} style={{ marginBottom: 2 }}>
                       {/* Overlay row */}
                       <div
+                        role="menuitem"
+                        tabIndex={0}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -863,7 +867,12 @@ const MiniAction = ({
   label,
   onClick,
   danger,
-}: { children: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => {
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) => {
   const baseColor = danger ? DANGER : TEXT_MUTED;
   return (
     <button
@@ -908,7 +917,11 @@ const MiniColorField = ({
   label,
   value,
   onChange,
-}: { label: string; value: string; onChange: (v: string) => void }) => {
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) => {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 9, color: TEXT_FAINT, marginBottom: 2 }}>{label}</div>
@@ -1156,7 +1169,9 @@ export const MapControls = ({
     const handleModeChange = (e: { mode: string }) => {
       const container = map.getContainer();
       const modeClasses = Array.from(container.classList).filter((cls) => cls.startsWith("mode-"));
-      modeClasses.forEach((cls) => container.classList.remove(cls));
+      modeClasses.forEach((cls) => {
+        container.classList.remove(cls);
+      });
       if (e.mode !== "simple_select" && e.mode !== "static") {
         setIsDrawing(true);
         container.classList.add(`mode-${e.mode}`);
@@ -1228,7 +1243,9 @@ export const MapControls = ({
     setIsDrawing(false);
     const container = map.getContainer();
     const modeClasses = Array.from(container.classList).filter((cls) => cls.startsWith("mode-"));
-    modeClasses.forEach((cls) => container.classList.remove(cls));
+    modeClasses.forEach((cls) => {
+      container.classList.remove(cls);
+    });
     container.classList.remove("drawing-active");
   }, [map, isPanning]);
 
@@ -1258,7 +1275,9 @@ export const MapControls = ({
       onDrawDeleteRef.current?.();
       const container = map.getContainer();
       const modeClasses = Array.from(container.classList).filter((cls) => cls.startsWith("mode-"));
-      modeClasses.forEach((cls) => container.classList.remove(cls));
+      modeClasses.forEach((cls) => {
+        container.classList.remove(cls);
+      });
       container.classList.remove("drawing-active");
       setActiveTool(null);
       activeToolRef.current = null;

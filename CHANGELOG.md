@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Split the plain `LineChart` into an exported XState visibility machine, pure data-preparation services, a stateless view, and an isolated uPlot DOM adapter.
+- Generalized `TimeSeries` with custom semantic keys, units, labels, colors, per-series axes, and yearly frequency for non-O&G products such as Petry.
+- Added `ChartGroup`, an ID-addressable composition surface where every line or bar panel declares its own source and derived series. Forecasts are ordinary `TimeSeries` entries, `associatedType` is optional metadata, and derived outputs can feed later panels.
+- Chart groups now preserve each series' native timestamps, expose mirrored X and independent per-axis Y sliders on every panel, adapt time ticks to the active window, and drill shared time windows from bar buckets. Cross-resolution derivatives require explicit aggregation policies.
+- Added per-chart control settings with declarative defaults and XState-owned runtime overrides. Each settings menu can hide vertical or horizontal zoom bars, hide zoom buttons, enable an independent presentation treatment with larger typography and spacing, reset to configured defaults, or apply its layout to every chart. Presentation mode temporarily suppresses interaction chrome without overwriting visibility preferences. Zoom tracks and handles now use a quieter light-gray treatment.
+- Added shared `formatXValue`, context-aware `formatYValue`, and `typography` options across plain, grouped, related, and forecast charts. Consumers can format axis and tooltip values with functions and independently configure axis-tick, axis-label, tooltip body/header, legend, title, and font-family sizes and weights.
+- Standardized the package and playground on the neutral shadcn black primary. Focus rings, checkboxes, active controls, save actions, selection treatments, chart interaction previews, and map defaults now resolve through the shared primary token instead of hard-coded indigo or green UI accents.
+- Added focused package exports for charts, maps, cards, UI, and types; the playground now lazy-loads routes and keeps the heavy mapping stack out of chart-only bundles.
+- Added `relatedCharts`, a typed chart-group composition API for bar or line derivatives that share parent x zoom, cursor, and annotations while retaining independent y scales. Variance now uses the same public primitive through `createVarianceRelatedChart`.
+- Updated all dependencies to registry latest except TypeScript, pinned to 5.9.3 because tsup's declaration bundler does not yet support TypeScript 7.
+- Migrated Biome 1 to Biome 2 and pnpm 9 to pnpm 11.
+
+### Fixed
+
+- Chart tooltip labels and values now use the same compact regular-weight typography across plain, grouped, related, and decline-forecast charts; default left and right axis ticks are larger for readability.
+- Defining `annotations={[]}` now enables annotation tools for an initially empty profile.
+- Annotation-only charts no longer expose forecast segment controls.
+- `xAxisLabel` is now rendered by the plain chart.
+- Synchronized chart stacks keep every related tooltip active while constraining each tooltip to its owning plot, including when a sibling plot is off-screen.
+- Fixed a conditional-hooks violation in `SelectionPanel` and several accessibility issues exposed by Biome 2.
+
+### Tests
+
+- Added LineChart and ChartGroup preparation-service, native-timeline windowing, explicit resampling, ID-based derivation, XState X/Y and display-setting synchronization, shared chart-presentation, persistence-adapter, migration, and public-schema coverage; the suite now contains 136 passing tests.
+
 ## [0.5.0] - 2026-08-17
 
 ### Changed — `LineChart` is now the single time-series chart; `DeclineCurve` deprecated
@@ -15,7 +44,7 @@ plain multi-series plot by default and gains the decline-forecast + segment-edit
 of the same engine, so existing imports keep working.
 
 - **`LineChart` `forecast?: ForecastConfig`** — fit an optional decline forecast on
-  one of the plotted series (`{ series, initialSegments, onSegmentsChange, editable,
+  one of the plotted series (`{ seriesId, initialSegments, onSegmentsChange, editable,
   horizon, unitsPerYear, startDate, timeUnit }`). With it set, `LineChart` becomes
   the forecast editor (fit + drag-to-reshape) while still plotting every series.
 - **`LineChart` `annotations?: Annotation[]` + `onAnnotationsChange`** — operational-event

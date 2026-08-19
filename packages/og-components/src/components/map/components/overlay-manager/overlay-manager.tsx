@@ -233,7 +233,10 @@ export const OverlayManager = ({
           return (
             <div key={overlay.id} style={{ margin: "0 6px" }}>
               {/* Overlay row */}
+              {/* biome-ignore lint/a11y/useSemanticElements: contains nested visibility and action buttons, so it cannot be a button element */}
               <div
+                role="button"
+                tabIndex={0}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -251,6 +254,12 @@ export const OverlayManager = ({
                   if (!isExpanded) e.currentTarget.style.background = "transparent";
                 }}
                 onClick={() => toggleExpand(overlay.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleExpand(overlay.id);
+                  }
+                }}
               >
                 {/* Visibility toggle */}
                 <button
@@ -504,12 +513,6 @@ const FeatureList = ({
                 borderRadius: 4,
                 fontSize: 11,
                 transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = HOVER_BG;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
               }}
             >
               {/* Feature visibility toggle */}

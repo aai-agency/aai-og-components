@@ -1,6 +1,6 @@
 # @aai-agency/og-components
 
-[![npm](https://img.shields.io/npm/v/@aai-agency/og-components)](https://www.npmjs.com/package/@aai-agency/og-components) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![npm](https://img.shields.io/npm/v/@aai-agency/og-components)](https://www.npmjs.com/package/@aai-agency/og-components) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 
 Production-grade O&G React components that your coding AI agent can use. Interactive maps, production charts, asset detail cards, and much more. Free, open source, and ready for Claude Code, ChatGPT, Codex, or any AI coding agent.
 
@@ -61,14 +61,14 @@ const App = () => (
 ## What You Get
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
-- **LineChart** — The one time-series chart: plot any series (oil/gas/water) with dual Y-axis, powered by uPlot for 10,000+ points. Pass `forecast={{ series, … }}` to layer a piecewise decline forecast editor on top (drag-to-fit, right-click insert, 10 equation types, Save/Discard draft flow) and `annotations` for operational-event ranges with Δ-stats. No extras → a plain plot; with them → the full production + decline + annotation chart. (`DeclineCurve` is a deprecated alias.)
+- **LineChart + ChartGroup** — Plot one domain-neutral chart or compose synchronized line/bar panels over an ID-addressable native-resolution registry. Forecasts are ordinary `TimeSeries` entries. Every panel has mirrored X controls, independent Y controls, functional X/Y value formatters, configurable typography sizes and weights, and its own presentation/settings menu; monthly bar clicks can reveal daily, hourly, or secondly detail. Cross-resolution derivations use explicit resampling policies. Interactive forecasting remains an opt-in `LineChart` adapter. (`ProductionChart` and `DeclineCurve` remain deprecated compatibility entries.)
 - **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
 - **Data Persistence** — LocalStorage or in-browser SQLite for large datasets
 - **Validation Schemas** — Zod schemas for assets, production records, overlays, and configuration
-- **Sample Data** — Real-looking demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day Bakken-style well for the DeclineCurve
+- **Sample Data** — Deterministic demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day forecast/annotation dataset for LineChart
 
 ## Requirements
 
@@ -84,7 +84,10 @@ pnpm install
 pnpm dev        # Run the interactive playground
 pnpm build      # Build the library
 pnpm typecheck  # Type check
+pnpm test       # Run behavioral and domain tests
 ```
+
+For smaller bundles, import focused entry points such as `@aai-agency/og-components/line-chart`, `/map`, `/types`, and `/ui`.
 
 ## Documentation
 

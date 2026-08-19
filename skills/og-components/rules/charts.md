@@ -1,128 +1,226 @@
-# Chart Rules
+# LineChart Rules
 
-## TimeSeries Format
+Use `LineChart` for one independently configured plot and `ChartGroup` to compose synchronized line or bar charts. `ProductionChart` and `DeclineCurve` remain deprecated compatibility aliases.
 
-Both LineChart and ProductionChart require the `TimeSeries` type. This is the most common mistake agents make.
+## Prefer the focused export
 
-### Incorrect
-
-```ts
-// Wrong format — this is NOT how TimeSeries works
-const series = [
-  { label: "Oil", timestamps: ["2023-01", "2023-02"], values: [12000, 11200] },
-];
-
-// Missing required fields
-const series = [
-  { data: [{ date: "2023-01-01", value: 12000 }] },
-];
+```tsx
+import { LineChart } from "@aai-agency/og-components/line-chart";
+import type { TimeSeries } from "@aai-agency/og-components/types";
 ```
 
-### Correct
+Focused exports keep map and storage dependencies out of chart-only bundles. The root export remains supported.
+
+## TimeSeries schema
 
 ```ts
-import type { TimeSeries } from "@aai-agency/og-components";
-
 const series: TimeSeries[] = [
   {
-    id: "oil-actual",
-    fluidType: "oil",        // "oil" | "gas" | "water"
-    curveType: "actual",     // "actual" | "forecast"
-    unit: "BBL",             // "BBL" | "MSCF" | "BOE" | "MCFE"
-    frequency: "monthly",   // "daily" | "monthly"
+    id: "captured-insights",
+    associatedType: "insight-score", // optional semantic metadata
+    seriesType: "actual",            // optional; defaults to "actual"
+    label: "Captured insights",     // optional display label
+    color: "#7c3aed",              // optional per-series color
+    axis: "left",                  // optional: "left" | "right"
+    unit: "insights",              // domain-neutral string
+    frequency: "daily",            // secondly through yearly
     data: [
-      { date: "2023-01-01", value: 12000 },
-      { date: "2023-02-01", value: 11200 },
-      { date: "2023-03-01", value: 10500 },
+      { date: "2026-06-01", value: 8 },
+      { date: "2026-06-02", value: 12 },
     ],
   },
 ];
 ```
 
-## LineChart vs ProductionChart
+Rules:
 
-| Component | Use when |
-|-----------|----------|
-| `LineChart` | Standalone chart, simple time series display |
-| `ProductionChart` | Full-featured with brush zoom, annotations, forecast drag |
+- `id` must be stable and unique. Composition and visibility are keyed by it.
+- A forecast is an ordinary `TimeSeries` with `seriesType: "forecast"`; it does not use a separate data model.
+- `associatedType` is optional metadata such as oil, water, gas, pressure, or insight-score. Chart logic does not depend on it.
+- Legacy `curveType` and `fluidType` inputs remain accepted as aliases for `seriesType` and `associatedType`.
+- Supply at least two finite points with parseable ISO date strings.
+- Prefer per-series `label`, `color`, and `axis`. `labels`, `colors`, and `rightAxisFluids` remain useful for legacy key-based configuration.
 
-Both accept the same `series: TimeSeries[]` prop.
-
-## LineChart
+## Plain chart
 
 ```tsx
-import { LineChart } from "@aai-agency/og-components";
+<LineChart series={series} height={320} xAxisLabel="Session date" />
+```
 
+The legend is interactive and accessible. XState owns visibility; pure services align sparse series by date and assign axes. The React view receives prepared data and event callbacks. Only the isolated uPlot adapter uses layout effects for DOM lifecycle and resize observation.
+
+## Composable chart groups
+
+```tsx
+import { ChartGroup, type ChartConfig } from "@aai-agency/og-components/line-chart";
+
+const charts: ChartConfig[] = [
+  {
+    id: "production",
+    label: "Production",
+    kind: "line",
+    series: ["oil.actual", "oil.forecast", "gas.actual", "gas.forecast"],
+  },
+  {
+    id: "variance",
+    label: "Variance",
+    kind: "bar",
+    symmetricY: true,
+    controls: {
+      presentationMode: false,
+      showXZoom: true,
+      showYZoom: true,
+      showZoomButtons: true,
+    },
+    series: [{
+      id: "oil.variance",
+      label: "Oil variance",
+      sourceSeriesIds: ["oil.actual", "oil.forecast"],
+      derive: ({ getSeries }) => {
+        const actual = getSeries("oil.actual")?.values ?? [];
+        const forecast = getSeries("oil.forecast")?.values ?? [];
+        return actual.map((value, index) =>
+          value == null || forecast[index] == null
+            ? null
+            : value - forecast[index],
+        );
+      },
+    }],
+  },
+  {
+    id: "variance-trend",
+    label: "Variance trend",
+    kind: "line",
+    series: ["oil.variance"],
+  },
+];
+
+<ChartGroup series={series} charts={charts} annotations={annotations} />
+```
+
+`ChartGroup` creates one ID-addressable registry while preserving every series' native timestamps. It creates an aligned array only inside the visible panel window or a declared derivation. Chart declaration order expresses data flow because derived output is registered for later charts, without coupling visual components.
+
+Every panel has its own visible X and Y range sliders. X controls mirror one shared XState window, so moving any panel updates all time-based panels; left and right Y controls remain scoped to that panel and axis. Clicking a bar drills the shared window to that bar's calendar bucket. This lets a monthly parent reveal daily, hourly, or secondly native points in another panel. Pass `timeZone` when calendar boundaries should not use UTC.
+
+`ChartConfig.controls` supplies per-chart defaults for `presentationMode`, `showXZoom`, `showYZoom`, and `showZoomButtons`. At runtime, the panel settings menu can change those independently or copy the current panel settings to every chart. Presentation mode enlarges the chart, type, and spacing while temporarily suppressing interaction chrome without overwriting the three visibility preferences. The settings gear remains visible so presentation mode can always be turned off. These preferences and the open settings panel live in `chartGroupMachine`, not React component state.
+
+When dependencies have different native timestamps, resampling must be explicit:
+
+```tsx
+{
+  id: "daily-efficiency",
+  label: "Daily efficiency",
+  sourceSeriesIds: ["hourly-output", "daily-energy"],
+  resample: {
+    resolution: "day",
+    aggregations: {
+      "hourly-output": "sum",
+      "daily-energy": "last",
+    },
+  },
+  derive: ({ getSeries }) => {
+    const output = getSeries("hourly-output")?.values ?? [];
+    const energy = getSeries("daily-energy")?.values ?? [];
+    return output.map((value, index) =>
+      value == null || energy[index] == null ? null : value / energy[index],
+    );
+  },
+}
+```
+
+Never guess aggregation from a series label or association. The domain must choose `sum`, `average`, `first`, `last`, `min`, or `max`.
+
+## Interactive forecast adapter and legacy related charts
+
+```tsx
+import {
+  createVarianceRelatedChart,
+  LineChart,
+  type RelatedChartConfig,
+} from "@aai-agency/og-components/line-chart";
+
+const relatedCharts: RelatedChartConfig[] = [
+  createVarianceRelatedChart({ height: 180, mode: "combined" }),
+  {
+    id: "forecast-attainment",
+    label: "Forecast attainment",
+    kind: "line",
+    unit: "%",
+    color: "#7c3aed",
+    derive: ({ actual, forecast }) =>
+      Array.from(actual, (value, index) =>
+        Number.isFinite(value) && forecast[index] > 0
+          ? (value / forecast[index]) * 100
+          : null,
+      ),
+  },
+];
 
 <LineChart
-  series={series}
-  height={300}
-  colors={{ oil: "#22c55e", gas: "#ef4444", water: "#3b82f6" }}
+  series={productionSeries}
+  forecast={{
+    seriesId: "oil-actual",
+    initialSegments,
+    editable: true,
+    horizon: 1180,
+    timeUnit: "day",
+    unitsPerYear: 365,
+    onSegmentsChange: setSegments,
+  }}
+  annotations={annotations}
+  relatedCharts={relatedCharts}
 />
 ```
 
-Key props:
-- `series: TimeSeries[]` — required
-- `height: number` — default 220
-- `colors: Record<string, string>` — custom colors by fluidType
-- `rightAxisFluids: string[]` — default `["gas"]`
-- `showForecast: boolean` — default true
+`LineChart.forecast` remains the interactive piecewise forecast editor. It is a convenience adapter over a selected source series, not a separate public forecast data type. For declarative or persisted forecasts, pass an ordinary `TimeSeries` with `seriesType: "forecast"`.
 
-## ProductionChart
+`relatedCharts` remains supported for existing single-primary forecast integrations. Prefer `ChartGroup` for new multi-series composition because every chart declares its own source and derived series by ID.
+
+Variance is an ordinary bar-chart preset returned by `createVarianceRelatedChart`. The older `forecast.showVariance` and `varianceHeight` options remain supported and are translated to that preset internally.
+
+Use `seriesId`, not the deprecated `forecast.series` key. Forecast segments are C0-continuous and support the equation/editing behavior documented in [decline-curve.md](./decline-curve.md).
+
+## Annotations
 
 ```tsx
-import { ProductionChart } from "@aai-agency/og-components";
-
-
-<ProductionChart
+<LineChart
   series={series}
-  height={200}
-  showBrush
-  enableAnnotations
+  annotations={annotations}
+  onAnnotationsChange={setAnnotations}
 />
 ```
 
-Additional props over LineChart:
-- `showBrush: boolean` — overview scrubber for zoom
-- `enableAnnotations: boolean` — allow users to add annotations
-- `annotations: ChartAnnotation[]` — controlled annotations
-- `showVarianceFill: boolean` — fill between actual and forecast
+Defining `annotations`, including as an empty array, enables the annotation engine. This matters for a new profile that has no saved annotations yet.
 
-## CSS
+## Important props
 
-Chart CSS (uPlot) is bundled in `@aai-agency/og-components/styles.css`. No separate import needed — if the consumer has the styles.css import, charts work out of the box.
+| Prop | Purpose |
+| --- | --- |
+| `ChartGroup.series` | Shared source registry; forecasts are ordinary entries |
+| `ChartGroup.charts` | Ordered line/bar panels with ID references or derivations |
+| `series` | Required domain-neutral `TimeSeries[]` input |
+| `forecast` | Optional forecast editor and variance configuration |
+| `annotations` | Optional controlled initial annotation ranges |
+| `relatedCharts` | Synchronized bar or line charts derived from the parent context |
+| `showForecast` | Includes or hides forecast data and editing |
+| `xScale` | `"auto"`, `"time"`, or `"linear"` |
+| `xAxisLabel` | Visible x-axis label |
+| `formatXValue` | Functional formatter for X-axis ticks and tooltip headers |
+| `formatYValue` | Context-aware formatter for Y-axis ticks and tooltip values |
+| `typography` | Font family plus size and weight controls for axes, tooltip body/header, legend, and title |
+| `emptyMessage` | Empty-state copy |
 
-## Container Height
-
-Charts need a container with explicit height. They fill their container width but need height.
-
-### Incorrect
-
-```tsx
-// Chart will have 0 height
-<LineChart series={series} />
-```
-
-### Correct
-
-```tsx
-<div style={{ height: 400 }}>
-  <LineChart series={series} height={380} />
-</div>
-```
-
-## Production Charts in Detail Card
-
-When a well's `properties.timeSeries` array is populated, the AssetDetailCard automatically shows a production chart. No extra work needed.
+## Architecture extension points
 
 ```ts
-const well: Asset = {
-  // ...
-  properties: {
-    timeSeries: [
-      { id: "oil", fluidType: "oil", curveType: "actual", unit: "BBL", frequency: "monthly", data: [...] },
-      { id: "gas", fluidType: "gas", curveType: "actual", unit: "MSCF", frequency: "monthly", data: [...] },
-    ],
-  },
-};
+import { lineChartMachine } from "@aai-agency/og-components/machines";
+import { prepareChartGroup, prepareLineChart } from "@aai-agency/og-components/line-chart";
 ```
+
+Use `lineChartMachine` when composing custom chart chrome. Use `prepareLineChart` for one plot and `prepareChartGroup` when another renderer needs the same ID registry, dependency validation, and aligned derived series.
+
+## Compatibility aliases
+
+- `ProductionChart` is exactly `LineChart`; it has no extra props.
+- `DeclineCurve` preserves the older array-based API. Do not use it for new integrations.
+- Do not use removed historical props such as `showBrush`, `enableAnnotations`, or `showVarianceFill`.

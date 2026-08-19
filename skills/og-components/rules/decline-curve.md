@@ -1,7 +1,7 @@
 # DeclineCurve Component Rules
 
 > **Deprecated — prefer `LineChart`.** `LineChart` is the single time-series chart:
-> `<LineChart series={[...]} forecast={{ series: "oil", editable: true, ... }} annotations={[...]} />`.
+> `<LineChart series={[...]} forecast={{ seriesId: "oil-actual", editable: true, ... }} annotations={[...]} />`.
 > It plots your series and layers on this decline-forecast + annotation engine when
 > `forecast`/`annotations` are set. `DeclineCurve` remains as a thin alias of the same
 > engine (props below still work), but new code should use `LineChart`. The forecast /
@@ -227,7 +227,7 @@ Annotate mode is a separate exclusive mode — entering it disables forecast edi
 
 ### Display-only production plot (`showForecast={false}`)
 
-Pass `showForecast={false}` to hide the fitted forecast line and disable all segment editing (the "Edit forecast" action is omitted from the Actions menu). The chart renders actuals + annotations only — use it to show a well's production history without projecting a decline. Annotate mode still works.
+Pass `showForecast={false}` to hide the fitted forecast line and disable all segment editing (forecast actions and the Segments panel are omitted). The chart renders actuals + annotations only — use it to show a production history without projecting a decline. Annotate mode still works.
 
 ## Side Panel
 

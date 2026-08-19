@@ -1,9 +1,10 @@
-import { type Asset, type ColorScheme, Map as OGMap } from "@aai-agency/og-components";
+import { Map as OGMap } from "@aai-agency/og-components/map";
+import type { Asset, ColorScheme } from "@aai-agency/og-components/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { DemoCard, PageWrapper, PropTable } from "../../lib/page-wrapper";
-import { COLOR_SCHEMES, MAPBOX_TOKEN, generateSyntheticAssets, loadSampleData } from "../../lib/sample-data";
+import { COLOR_SCHEMES, generateSyntheticAssets, loadSampleData, MAPBOX_TOKEN } from "../../lib/sample-data";
 
 const POINT_COUNTS = [
   { value: 0, label: "Real Data" },

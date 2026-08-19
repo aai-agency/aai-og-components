@@ -1,5 +1,5 @@
-import { TooltipProvider } from "@aai-agency/og-components";
-import { Link, Outlet, createRootRoute } from "@tanstack/react-router";
+import { TooltipProvider } from "@aai-agency/og-components/ui";
+import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 
 const NAV_ITEMS = [
   { label: "Getting Started", to: "/" },
@@ -8,7 +8,6 @@ const NAV_ITEMS = [
     items: [
       { label: "Map", to: "/components/map" },
       { label: "LineChart", to: "/components/line-chart" },
-      { label: "DeclineCurve", to: "/components/decline-curve" },
       { label: "AssetDetailCard", to: "/components/asset-detail-card" },
       { label: "SelectionPanel", to: "/components/selection-panel" },
       { label: "OverlayManager", to: "/components/overlay-manager" },

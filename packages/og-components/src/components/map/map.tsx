@@ -19,6 +19,7 @@ import type { MapProps } from "./map.types";
 import {
   ACCENT,
   ACCENT_15,
+  ACCENT_60,
   BLUR_LG,
   BLUR_SM,
   BORDER,
@@ -900,9 +901,9 @@ export const OGMap = ({
         source: "og-clusters-source",
         paint: {
           "circle-radius": ["get", "size"],
-          "circle-color": "rgba(99, 102, 241, 0.6)",
+          "circle-color": ACCENT_60,
           "circle-stroke-width": 2,
-          "circle-stroke-color": "rgba(99, 102, 241, 0.9)",
+          "circle-stroke-color": `${ACCENT}e6`,
         },
       });
       map.addLayer({
@@ -1023,7 +1024,7 @@ export const OGMap = ({
           source: sourceId,
           filter: ["==", "$type", "Polygon"],
           paint: {
-            "fill-color": overlay.style?.fillColor ?? "rgba(99, 102, 241, 0.2)",
+            "fill-color": overlay.style?.fillColor ?? ACCENT_15,
             "fill-opacity": overlay.style?.fillOpacity ?? 0.3,
           },
         });
@@ -1063,7 +1064,7 @@ export const OGMap = ({
       // Update paint properties for style changes
       const fillLayerId = `overlay-fill-${overlay.id}`;
       if (map.getLayer(fillLayerId)) {
-        map.setPaintProperty(fillLayerId, "fill-color", overlay.style?.fillColor ?? "rgba(99, 102, 241, 0.2)");
+        map.setPaintProperty(fillLayerId, "fill-color", overlay.style?.fillColor ?? ACCENT_15);
         map.setPaintProperty(fillLayerId, "fill-opacity", overlay.style?.fillOpacity ?? 0.3);
       }
       const lineLayerId = `overlay-line-${overlay.id}`;
@@ -1485,7 +1486,8 @@ export const OGMap = ({
 
   if (!mapboxAccessToken) {
     return (
-      <div
+      <section
+        aria-label="Interactive asset map"
         className={className}
         style={{
           width,
@@ -1509,13 +1511,14 @@ export const OGMap = ({
             Pass your token via the mapboxAccessToken prop. Get a free token at mapbox.com/account/access-tokens
           </p>
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div
+      <section
+        aria-label="Interactive asset map"
         className={className}
         onDragOver={enableOverlayUpload ? handleDragOver : undefined}
         onDragLeave={enableOverlayUpload ? handleDragLeave : undefined}
@@ -1680,7 +1683,7 @@ export const OGMap = ({
               position: "absolute",
               inset: 0,
               background: ACCENT_15,
-              border: "2px dashed rgba(99, 102, 241, 0.6)",
+              border: `2px dashed ${ACCENT_60}`,
               borderRadius: 12,
               display: "flex",
               alignItems: "center",
@@ -1692,7 +1695,7 @@ export const OGMap = ({
             <div style={{ color: TEXT_SECONDARY, fontSize: 16, fontWeight: 600 }}>Drop KMZ, KML, or GeoJSON file</div>
           </div>
         )}
-      </div>
+      </section>
     </TooltipProvider>
   );
 };

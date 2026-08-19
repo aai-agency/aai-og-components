@@ -1,3 +1,4 @@
+import { useMachine } from "@xstate/react";
 import {
   ChevronDown,
   ChevronRight,
@@ -19,9 +20,26 @@ import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 
 import { cn } from "../../lib/utils";
-import { ACCENT, FONT_FAMILY, TEXT_FAINT } from "../../theme";
+import { chartGroupMachine } from "../../machines/chart-group.machine";
+import { ACCENT, ACCENT_10, FONT_FAMILY, TEXT_FAINT } from "../../theme";
 import type { TimeSeries } from "../../types";
 import { formatNumber } from "../../utils";
+import {
+  type ChartTypography,
+  type ChartYValueFormatter,
+  formatChartYValue,
+  type ResolvedChartTypography,
+  resolveChartTypography,
+} from "../line-chart/chart-presentation";
+import { getChartTooltipPosition } from "../line-chart/chart-tooltip.services";
+import { getTimeSeriesAssociatedType } from "../line-chart/line-chart.services";
+import {
+  createVarianceRelatedChart,
+  prepareRelatedChart,
+  type RelatedChartConfig,
+  type RelatedChartDerivationContext,
+} from "../line-chart/related-chart.services";
+import { RelatedChartView } from "../line-chart/related-chart.view";
 import {
   Select,
   SelectContent,
@@ -37,26 +55,26 @@ import {
   ANNOTATION_TYPE_META,
   type Annotation,
   type AnnotationType,
-  DEFAULT_SEGMENT_PARAMS,
-  type DeclineMathBuffers,
-  EQUATION_META,
-  type EquationType,
-  type HyperbolicParams,
-  MIN_SEGMENT_WIDTH,
-  type Segment,
-  type SegmentParams,
   bendSegmentToTarget,
   colorForAnnotation,
   computeAnnotationStats,
   createBuffers,
+  DEFAULT_SEGMENT_PARAMS,
+  type DeclineMathBuffers,
+  EQUATION_META,
+  type EquationType,
   evalAtTime,
   evalSegment,
   generateSampleProduction,
+  type HyperbolicParams,
   insertSegmentAt,
+  MIN_SEGMENT_WIDTH,
   nextAnnotationId,
   nextSegmentId,
   normalizeSegments,
   removeSegment,
+  type Segment,
+  type SegmentParams,
 } from "./decline-math";
 import { engineUpdateForecastAndVariance } from "./wasm-engine";
 
@@ -127,12 +145,22 @@ export interface DeclineCurveProps {
    * Extra read-only series plotted alongside the primary decline series on the
    * same time axis (e.g. gas/water next to the oil actuals). Their `DataPoint`
    * dates are aligned to the chart's `time`/`startDate` axis. Series whose
-   * `fluidType` is in `rightAxisFluids` are drawn on a secondary right axis.
+   * `associatedType` is in `rightAxisFluids` are drawn on a secondary right axis.
    * Purely for context — they are never forecast or editable.
    */
   contextSeries?: TimeSeries[];
-  /** fluidTypes drawn on the secondary (right) axis. Defaults to ["gas"]. */
+  /** All source series from the parent LineChart, exposed to related-chart derivations. */
+  sourceSeries?: TimeSeries[];
+  /** Synchronized line or bar charts derived from this chart's parent context. */
+  relatedCharts?: RelatedChartConfig[];
+  /** Associated types drawn on the secondary (right) axis. Defaults to ["gas"]. */
   rightAxisFluids?: string[];
+  /** Formats X-axis ticks and tooltip headers. */
+  formatXValue?: (value: number) => string;
+  /** Formats Y-axis ticks and tooltip values with chart, axis, series, and unit context. */
+  formatYValue?: ChartYValueFormatter;
+  /** Font family and pixel sizes for chart axes, tooltips, legends, and titles. */
+  typography?: ChartTypography;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -142,8 +170,6 @@ const FORECAST_COLOR = ACCENT;
 const DEFAULT_RIGHT_AXIS_FLUIDS = ["gas"];
 const CONTEXT_COLORS: Record<string, string> = { oil: "#10b981", gas: "#f97066", water: "#38bdf8" };
 const CONTEXT_LABELS: Record<string, string> = { oil: "Oil", gas: "Gas", water: "Water" };
-const VARIANCE_POS_COLOR = "#10b981";
-const VARIANCE_NEG_COLOR = "#ef4444";
 const FORECAST_HIT_RADIUS_PX = 16;
 const BOUNDARY_HIT_RADIUS_PX = 6;
 // MIN_SEGMENT_WIDTH lives in decline-math.ts so every commit path agrees on
@@ -255,11 +281,6 @@ const AXIS_STYLE = {
 const tooltipPlugin = (
   unit: string,
   getSegments: () => Segment[],
-  /** True only when the user's actual mouse is over this chart. When the
-   *  cursor was propagated via uPlot's sync (user hovering the sibling
-   *  chart), return false and keep the tooltip hidden so the other chart's
-   *  tooltip is the single source of truth. */
-  getActive: () => boolean = () => true,
   /** Shared buffers — the variance chart's own series data doesn't include
    *  actual/forecast, so we pull everything from here regardless of which
    *  chart is hosting the tooltip. */
@@ -269,11 +290,16 @@ const tooltipPlugin = (
     variance: Float64Array;
     time: Float64Array;
   } | null = () => null,
+  formatXValue?: (value: number) => string,
+  formatYValue?: ChartYValueFormatter,
+  typography: ResolvedChartTypography = resolveChartTypography(),
 ): uPlot.Plugin => {
   let tooltip: HTMLDivElement;
 
   const init = () => {
     tooltip = document.createElement("div");
+    tooltip.dataset.ogChartTooltip = "decline-curve";
+    tooltip.setAttribute("role", "tooltip");
     Object.assign(tooltip.style, {
       display: "none",
       position: "fixed",
@@ -284,7 +310,10 @@ const tooltipPlugin = (
       color: "#0f172a",
       border: "1px solid rgba(15, 23, 42, 0.08)",
       borderRadius: "10px",
-      fontFamily: FONT_FAMILY,
+      fontFamily: typography.fontFamily,
+      fontSize: `${typography.tooltipFontSize}px`,
+      fontWeight: `${typography.tooltipFontWeight}`,
+      lineHeight: "1.5",
       overflow: "hidden",
       boxShadow:
         "0 1px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.18), 0 24px 48px -24px rgba(15, 23, 42, 0.22)",
@@ -300,15 +329,11 @@ const tooltipPlugin = (
   const row = (color: string, label: string, value: string) =>
     `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px">` +
     swatch(color) +
-    `<span style="font-size:11px;font-weight:500;color:#64748b">${label}</span>` +
-    `<span style="margin-left:auto;font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:-0.01em;color:#0f172a;font-variant-numeric:tabular-nums">${value}</span>` +
+    `<span style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight};color:#64748b">${label}</span>` +
+    `<span style="margin-left:auto;font-family:${typography.fontFamily};font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight};color:#0f172a;font-variant-numeric:tabular-nums">${value}</span>` +
     `</div>`;
 
   const setCursor = (u: uPlot) => {
-    if (!getActive()) {
-      tooltip.style.display = "none";
-      return;
-    }
     const idx = u.cursor.idx;
     if (idx == null || idx < 0) {
       tooltip.style.display = "none";
@@ -343,13 +368,21 @@ const tooltipPlugin = (
 
     let html =
       `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid rgba(15, 23, 42, 0.06)">` +
-      `<span style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8">Time</span>` +
-      `<span style="font-family:ui-monospace,'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums">${formatNumber(month, 0)}</span>` +
+      `<span style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipHeaderFontWeight};letter-spacing:0.05em;text-transform:uppercase;color:#94a3b8">Time</span>` +
+      `<span style="font-family:${typography.fontFamily};font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight};color:#0f172a;font-variant-numeric:tabular-nums">${formatXValue ? formatXValue(month) : formatNumber(month, 0)}</span>` +
       `</div>` +
       `<div style="padding:2px 0">`;
 
     if (actual != null && !Number.isNaN(actual)) {
-      html += row(ACTUAL_COLOR, "Actual", `${formatNumber(actual, 0)} ${unit}`);
+      html += row(
+        ACTUAL_COLOR,
+        "Actual",
+        formatChartYValue(
+          actual,
+          { axis: "left", location: "tooltip", chartId: "production", seriesId: "actual", label: "Actual", unit },
+          formatYValue,
+        ),
+      );
     }
     if (forecast != null && !Number.isNaN(forecast)) {
       // Find which segment this t belongs to, use its color
@@ -359,7 +392,22 @@ const tooltipPlugin = (
         if (sorted[i].tStart <= (month as number)) segIdx = i;
       }
       const color = sorted.length > 0 ? colorForSegment(segIdx, sorted[segIdx]) : FORECAST_COLOR;
-      html += row(color, "Forecast", `${formatNumber(forecast, 0)} ${unit}`);
+      html += row(
+        color,
+        "Forecast",
+        formatChartYValue(
+          forecast,
+          {
+            axis: "left",
+            location: "tooltip",
+            chartId: "production",
+            seriesId: "forecast",
+            label: "Forecast",
+            unit,
+          },
+          formatYValue,
+        ),
+      );
     }
     if (actual != null && !Number.isNaN(actual) && forecast != null && !Number.isNaN(forecast)) {
       const delta = actual - forecast;
@@ -367,8 +415,23 @@ const tooltipPlugin = (
       const color = delta >= 0 ? "#059669" : "#e11d48";
       html +=
         `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid rgba(15, 23, 42, 0.06);margin-top:2px">` +
-        `<span style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8">Δ</span>` +
-        `<span style="margin-left:auto;font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:${color};font-variant-numeric:tabular-nums">${sign}${formatNumber(delta, 0)} ${unit}</span>` +
+        `<span style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipHeaderFontWeight};color:#94a3b8">Δ</span>` +
+        `<span style="margin-left:auto;font-family:${typography.fontFamily};font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight};color:${color};font-variant-numeric:tabular-nums">${
+          formatYValue
+            ? formatChartYValue(
+                delta,
+                {
+                  axis: "left",
+                  location: "tooltip",
+                  chartId: "production",
+                  seriesId: "variance",
+                  label: "Δ",
+                  unit,
+                },
+                formatYValue,
+              )
+            : `${sign}${formatNumber(delta, 0)} ${unit}`
+        }</span>` +
         `</div>`;
     }
 
@@ -383,8 +446,16 @@ const tooltipPlugin = (
     const ttWidth = tooltip.offsetWidth;
     const ttHeight = tooltip.offsetHeight;
 
-    const xPos = viewportX + ttWidth + 20 > window.innerWidth ? viewportX - ttWidth - 12 : viewportX + 16;
-    const yPos = Math.min(Math.max(4, viewportY - ttHeight / 2), window.innerHeight - ttHeight - 4);
+    const { left: xPos, top: yPos } = getChartTooltipPosition({
+      chartRect: overRect,
+      cursorX: viewportX,
+      cursorY: viewportY,
+      tooltipWidth: ttWidth,
+      tooltipHeight: ttHeight,
+      viewportWidth: window.innerWidth,
+      gap: 16,
+      padding: 4,
+    });
 
     tooltip.style.left = `${xPos}px`;
     tooltip.style.top = `${yPos}px`;
@@ -398,79 +469,6 @@ const tooltipPlugin = (
     },
   };
 };
-
-// ── Variance Bars Plugin ─────────────────────────────────────────────────────
-
-type VarianceBarsMode = "off" | "sign" | "byAnnotation" | "combined";
-const varianceBarsPlugin = (
-  getVariance: () => Float64Array,
-  /** View mode that drives coloring — mirrors the forecast chart's variance
-   *  fill mode so the sub-chart stays visually consistent. */
-  getMode: () => VarianceBarsMode = () => "sign",
-  getAnnotations: () => Annotation[] = () => [],
-): uPlot.Plugin => ({
-  hooks: {
-    draw: (u: uPlot) => {
-      const mode = getMode();
-      if (mode === "off") return;
-      const ctx = u.ctx;
-      const variance = getVariance();
-      const xData = u.data[0];
-      const plotLeft = u.bbox.left;
-      const plotWidth = u.bbox.width;
-      const plotTop = u.bbox.top;
-      const plotHeight = u.bbox.height;
-
-      if (xData.length < 2) return;
-
-      const xMin = u.scales.x.min ?? xData[0];
-      const xMax = u.scales.x.max ?? xData[xData.length - 1];
-      const yMin = u.scales.y.min ?? 0;
-      const yMax = u.scales.y.max ?? 1;
-
-      const xRange = xMax - xMin;
-      const yRange = yMax - yMin;
-      if (xRange === 0 || yRange === 0) return;
-
-      const barWidthPx = Math.max(2, (plotWidth / xData.length) * 0.6);
-      const annotations = mode === "byAnnotation" || mode === "combined" ? getAnnotations() : [];
-      const findAnn = (t: number): Annotation | null => {
-        for (const a of annotations) {
-          if (t >= Math.min(a.tStart, a.tEnd) && t <= Math.max(a.tStart, a.tEnd)) return a;
-        }
-        return null;
-      };
-
-      ctx.save();
-      // Clip to plot bounds — bars must not bleed into axes / gutters.
-      ctx.beginPath();
-      ctx.rect(plotLeft, plotTop, plotWidth, plotHeight);
-      ctx.clip();
-
-      for (let i = 0; i < xData.length; i++) {
-        const v = variance[i];
-        if (Number.isNaN(v)) continue;
-
-        const x = plotLeft + ((xData[i] - xMin) / xRange) * plotWidth;
-        const zeroY = plotTop + ((yMax - 0) / yRange) * plotHeight;
-        const valY = plotTop + ((yMax - v) / yRange) * plotHeight;
-
-        const barHeight = zeroY - valY;
-        const ann = annotations.length > 0 ? findAnn(xData[i]) : null;
-        let fill: string;
-        if (ann && (mode === "byAnnotation" || mode === "combined")) {
-          fill = colorForAnnotation(ann);
-        } else {
-          fill = v >= 0 ? VARIANCE_POS_COLOR : VARIANCE_NEG_COLOR;
-        }
-        ctx.fillStyle = fill;
-        ctx.fillRect(x - barWidthPx / 2, barHeight >= 0 ? valY : zeroY, barWidthPx, Math.abs(barHeight));
-      }
-
-      ctx.restore();
-    },
-  },
-});
 
 // ── Boundary + active-segment plugin ─────────────────────────────────────────
 
@@ -499,7 +497,7 @@ const boundaryPlugin = (
       const sorted = [...segments].sort((a, b) => a.tStart - b.tStart);
       const selectedId = getSelectedId();
       const selectedIdx = sorted.findIndex((s) => s.id === selectedId);
-      const selectedColor = selectedIdx >= 0 ? colorForSegment(selectedIdx, sorted[selectedIdx]) : "#6366f1";
+      const selectedColor = selectedIdx >= 0 ? colorForSegment(selectedIdx, sorted[selectedIdx]) : ACCENT;
       const editing = getEditMode();
 
       const toX = (t: number) => plotLeft + ((Math.max(xMin, Math.min(xMax, t)) - xMin) / xRange) * plotWidth;
@@ -628,7 +626,7 @@ const annotationsPlugin = (getSegments: () => Segment[]): uPlot.Plugin => ({
         ctx.font = `10px ${FONT_FAMILY}`;
         const metrics = ctx.measureText(text);
         const padX = 6;
-        const padY = 3;
+        const _padY = 3;
         const w = metrics.width + padX * 2 + 14;
         const h = 16;
         const x = Math.max(plotLeft + 2, Math.min(plotLeft + plotWidth - w - 2, cx - w / 2));
@@ -744,7 +742,7 @@ const annotationRegionsPlugin = (
         if (drawing) {
           const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
           const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
-          ctx.fillStyle = "rgba(99, 102, 241, 0.10)";
+          ctx.fillStyle = ACCENT_10;
           ctx.fillRect(dx1, plotTop, dx2 - dx1, plotHeight);
         }
 
@@ -798,7 +796,7 @@ const annotationRegionsPlugin = (
         if (drawing) {
           const dx1 = toX(Math.min(drawing.tStart, drawing.tEnd));
           const dx2 = toX(Math.max(drawing.tStart, drawing.tEnd));
-          ctx.strokeStyle = "rgba(99, 102, 241, 0.9)";
+          ctx.strokeStyle = `${ACCENT}e6`;
           ctx.lineWidth = 1.5;
           ctx.setLineDash([5, 4]);
           ctx.beginPath();
@@ -1412,7 +1410,6 @@ const SegmentColorSwatch = ({
       </button>
       {open && !locked && (
         <div
-          // biome-ignore lint/a11y/useSemanticElements: floating popover with custom positioning, not a native modal dialog
           role="dialog"
           className="absolute left-0 z-50 mt-1 w-[176px] rounded-md border border-border bg-popover p-2 shadow-lg"
         >
@@ -1695,7 +1692,7 @@ const SegmentEditorBody = ({
                   onChange({ ...segment, tEnd: defaultEnd });
                 }
               }}
-              className="h-3.5 w-3.5 rounded border-border accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-3.5 w-3.5 rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-60"
             />
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Open-ended</span>
             <span className="text-[10px] text-muted-foreground/70">(runs to the forecast horizon)</span>
@@ -1872,6 +1869,7 @@ const SegmentEditorPanelView = ({
           <span className="text-xs font-semibold truncate">{EQUATION_LABELS[draft.equation]}</span>
           {isDirty && (
             <span
+              role="status"
               className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"
               title="Unsaved changes"
               aria-label="Unsaved changes"
@@ -1918,7 +1916,7 @@ const SegmentEditorPanelView = ({
             <button
               type="button"
               onClick={save}
-              className="inline-flex h-6 items-center rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-[10px] font-medium text-indigo-700 hover:bg-indigo-500/15 transition-colors"
+              className="inline-flex h-6 items-center rounded-md border border-primary bg-primary px-2 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               title="Save changes"
             >
               Save
@@ -1953,15 +1951,7 @@ const SegmentEditorPanelView = ({
 
 // ── Annotation editor helpers ───────────────────────────────────────────────
 
-const StatRow = ({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "pos" | "neg";
-}) => (
+const StatRow = ({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) => (
   <tr>
     <td className="py-0.5 pr-3 text-[11px] text-muted-foreground">{label}</td>
     <td
@@ -1980,7 +1970,12 @@ const SwatchButton = ({
   name,
   active,
   onClick,
-}: { color: string; name: string; active: boolean; onClick: () => void }) => (
+}: {
+  color: string;
+  name: string;
+  active: boolean;
+  onClick: () => void;
+}) => (
   <button
     type="button"
     title={name}
@@ -1994,7 +1989,7 @@ const SwatchButton = ({
 );
 
 /** A compact color picker — single swatch button that pops a small palette grid below. */
-const ColorPickerInline = ({
+const _ColorPickerInline = ({
   value,
   defaultColor,
   onChange,
@@ -2394,6 +2389,7 @@ const AnnotationEditorPanelView = ({
           <span className="text-xs font-semibold truncate">{draft.label || meta.label}</span>
           {isDirty && (
             <span
+              role="status"
               className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"
               title="Unsaved changes"
               aria-label="Unsaved changes"
@@ -2424,7 +2420,7 @@ const AnnotationEditorPanelView = ({
             <button
               type="button"
               onClick={() => onCommit(draft)}
-              className="inline-flex h-6 items-center rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 text-[10px] font-medium text-indigo-700 hover:bg-indigo-500/15 transition-colors"
+              className="inline-flex h-6 items-center rounded-md border border-primary bg-primary px-2 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               title="Save changes"
             >
               Save
@@ -2509,7 +2505,6 @@ const AnnotationEditorPopover = ({
   return (
     <div
       ref={ref}
-      // biome-ignore lint/a11y/useSemanticElements: floating popover with custom positioning, not a native modal dialog
       role="dialog"
       aria-label="Edit annotation"
       className={cn(
@@ -2603,7 +2598,7 @@ const ParamInput = ({
 
 // ── Range Slider ─────────────────────────────────────────────────────────────
 // Minimap-style slider rendered below the chart. Track is the full data
-// extent; the indigo window is the current zoom. Drag the window middle to
+// extent; the primary-tinted window is the current zoom. Drag the window middle to
 // pan, drag either edge handle to resize. Click outside the window jumps
 // the window's center to the click point. All edits flow through onChange
 // which the parent uses to drive setScale on both the prod and variance charts.
@@ -2681,7 +2676,7 @@ const RangeSlider = ({
     };
   }, [fullMin, fullMax, range, onChange, isVertical]);
 
-  const startDrag = (kind: "lo" | "hi" | "window") => (e: React.MouseEvent<HTMLDivElement>) => {
+  const startDrag = (kind: "lo" | "hi" | "window") => (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
     dragRef.current = {
@@ -2744,28 +2739,35 @@ const RangeSlider = ({
           "relative rounded-full bg-muted/40 transition-colors hover:bg-muted/60",
           isVertical ? "w-1 flex-1" : "h-1 flex-1",
         )}
-        onClick={(e) => {
-          if (!trackRef.current || dragRef.current) return;
-          const rect = trackRef.current.getBoundingClientRect();
-          const span = isVertical ? rect.height : rect.width;
-          if (span === 0) return;
-          const coord = isVertical ? e.clientY : e.clientX;
-          const baseline = isVertical ? rect.bottom : rect.left;
-          const offset = isVertical ? baseline - coord : coord - baseline;
-          const tClick = fullMin + (offset / span) * range;
-          const width = value[1] - value[0];
-          let newMin = tClick - width / 2;
-          if (newMin < fullMin) newMin = fullMin;
-          if (newMin + width > fullMax) newMin = fullMax - width;
-          onChange([newMin, newMin + width]);
-        }}
-        onDoubleClick={onReset}
       >
+        <button
+          type="button"
+          aria-label={isVertical ? "Recenter vertical chart zoom" : "Recenter horizontal chart zoom"}
+          className="absolute inset-0 z-0 border-0 bg-transparent p-0"
+          onClick={(e) => {
+            if (!trackRef.current || dragRef.current) return;
+            const rect = trackRef.current.getBoundingClientRect();
+            const span = isVertical ? rect.height : rect.width;
+            if (span === 0) return;
+            const coord = isVertical ? e.clientY : e.clientX;
+            const baseline = isVertical ? rect.bottom : rect.left;
+            const offset = isVertical ? baseline - coord : coord - baseline;
+            const tClick = fullMin + (offset / span) * range;
+            const width = value[1] - value[0];
+            let newMin = tClick - width / 2;
+            if (newMin < fullMin) newMin = fullMin;
+            if (newMin + width > fullMax) newMin = fullMax - width;
+            onChange([newMin, newMin + width]);
+          }}
+          onDoubleClick={onReset}
+        />
         {/* Window — light neutral bar showing current zoom. Drag the middle
             to pan; cursor flips to grabbing while held. */}
-        <div
+        <button
+          type="button"
+          aria-label="Pan chart zoom window"
           className={cn(
-            "absolute rounded-full bg-slate-300 hover:bg-slate-400 active:cursor-grabbing transition-colors",
+            "absolute z-10 border-0 p-0 rounded-full bg-slate-300 hover:bg-slate-400 active:cursor-grabbing transition-colors",
             isVertical ? "inset-x-0 cursor-grab" : "inset-y-0 cursor-grab",
           )}
           style={windowStyle}
@@ -2774,7 +2776,9 @@ const RangeSlider = ({
         {/* Knobs — small light circles at each edge of the window. Sized to
             sit just slightly proud of the rail so they read as grabbable
             without dominating the slider visually. */}
-        <div
+        <button
+          type="button"
+          aria-label="Adjust chart zoom start"
           className={cn(
             "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
             isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
@@ -2783,7 +2787,9 @@ const RangeSlider = ({
           onMouseDown={startDrag("lo")}
           title="Drag to resize"
         />
-        <div
+        <button
+          type="button"
+          aria-label="Adjust chart zoom end"
           className={cn(
             "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
             isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
@@ -2830,8 +2836,14 @@ export const ForecastEngine = memo(
     showForecast = true,
     forecastEditable = true,
     contextSeries,
+    sourceSeries,
+    relatedCharts,
     rightAxisFluids = DEFAULT_RIGHT_AXIS_FLUIDS,
+    formatXValue,
+    formatYValue,
+    typography,
   }: DeclineCurveProps) => {
+    const resolvedTypography = useMemo(() => resolveChartTypography(typography), [typography]);
     const startDate = useMemo(() => {
       if (!startDateProp) return null;
       const d = startDateProp instanceof Date ? startDateProp : new Date(startDateProp);
@@ -2843,9 +2855,8 @@ export const ForecastEngine = memo(
     const syncKey = useId();
     const rootRef = useRef<HTMLDivElement>(null);
     const prodChartContainerRef = useRef<HTMLDivElement>(null);
-    const varChartContainerRef = useRef<HTMLDivElement>(null);
     const prodChartRef = useRef<uPlot | null>(null);
-    const varChartRef = useRef<uPlot | null>(null);
+    const relatedChartRefs = useRef(new Map<string, uPlot>());
     const buffersRef = useRef<DeclineMathBuffers | null>(null);
     const rafIdRef = useRef(0);
     const isDraggingRef = useRef(false);
@@ -2884,6 +2895,10 @@ export const ForecastEngine = memo(
     const boundaryDragRef = useRef<{ index: number; minT: number; maxT: number } | null>(null);
     /** Mousedown pos + T for click-vs-drag discrimination on mouseup. */
     const mouseDownInfoRef = useRef<{ clientX: number; clientY: number; t: number } | null>(null);
+    const handleRelatedChartReady = useCallback((id: string, chart: uPlot | null) => {
+      if (chart) relatedChartRefs.current.set(id, chart);
+      else relatedChartRefs.current.delete(id);
+    }, []);
 
     // Build initial segments: prefer explicit initialSegments, else single segment from initialParams
     const [segments, setSegments] = useState<Segment[]>(() => {
@@ -2982,7 +2997,7 @@ export const ForecastEngine = memo(
       // Plugins gate on the ref — force a repaint when mode flips so the
       // dashed boundary lines appear/disappear instantly.
       prodChartRef.current?.redraw();
-    }, [annotateMode, editForecastMode]);
+    }, [annotateMode, editForecastMode, showForecast, forecastEditable]);
 
     type VarianceMode = "off" | "sign" | "byAnnotation" | "combined";
     const [varianceMode, setVarianceMode] = useState<VarianceMode>(showVariance ? "sign" : "off");
@@ -2990,7 +3005,7 @@ export const ForecastEngine = memo(
     useEffect(() => {
       varianceModeRef.current = varianceMode;
       prodChartRef.current?.redraw();
-      varChartRef.current?.redraw();
+      for (const chart of relatedChartRefs.current.values()) chart.redraw();
     }, [varianceMode]);
 
     /** User toggle for the variance sub-chart. Defaults on when the prop
@@ -2999,7 +3014,6 @@ export const ForecastEngine = memo(
 
     // Track which chart the physical mouse is over, so only that chart's
     // tooltip shows (the synced cursor fires setCursor on both charts).
-    const hoveredChartRef = useRef<"prod" | "var" | null>(null);
 
     // ── Zoom state ───────────────────────────────────────────────────────────
     // Buttons: Zoom in (1.4×), Zoom out (1/1.4×), Reset. Plus drag-on-chart-
@@ -3009,21 +3023,23 @@ export const ForecastEngine = memo(
     // so a setScale call actually sticks (uPlot's auto-range otherwise
     // overrides). zoomRange state mirrors the ref so the slider can render.
     const [isZoomed, setIsZoomed] = useState(false);
-    const [zoomRange, setZoomRange] = useState<[number, number] | null>(null);
+    const [chartGroupSnapshot, sendChartGroup] = useMachine(chartGroupMachine);
+    const zoomRange = chartGroupSnapshot.context.xRange;
     const xZoomRangeRef = useRef<[number, number] | null>(null);
     // Y zoom — independent of X, and per-chart so the production and variance
     // axes can be tuned in isolation. State for the slider to read, ref for
     // the y-scale range callback to honor.
     const [zoomYRange, setZoomYRange] = useState<[number, number] | null>(null);
     const yZoomRangeRef = useRef<[number, number] | null>(null);
-    const [zoomVarYRange, setZoomVarYRange] = useState<[number, number] | null>(null);
-    const yVarZoomRangeRef = useRef<[number, number] | null>(null);
-    const applyXScale = useCallback((min: number, max: number) => {
-      xZoomRangeRef.current = [min, max];
-      setZoomRange([min, max]);
-      prodChartRef.current?.setScale("x", { min, max });
-      varChartRef.current?.setScale("x", { min, max });
-    }, []);
+    const applyXScale = useCallback(
+      (min: number, max: number) => {
+        xZoomRangeRef.current = [min, max];
+        sendChartGroup({ type: "SET_X_RANGE", range: [min, max] });
+        prodChartRef.current?.setScale("x", { min, max });
+        for (const chart of relatedChartRefs.current.values()) chart.setScale("x", { min, max });
+      },
+      [sendChartGroup],
+    );
     const applyYScale = useCallback((min: number, max: number) => {
       yZoomRangeRef.current = [min, max];
       setZoomYRange([min, max]);
@@ -3035,16 +3051,6 @@ export const ForecastEngine = memo(
       setZoomYRange(null);
       // Forcing a redraw makes the range callback fire and rederive max.
       prodChartRef.current?.redraw(false);
-    }, []);
-    const applyVarYScale = useCallback((min: number, max: number) => {
-      yVarZoomRangeRef.current = [min, max];
-      setZoomVarYRange([min, max]);
-      varChartRef.current?.setScale("y", { min, max });
-    }, []);
-    const resetVarYZoom = useCallback(() => {
-      yVarZoomRangeRef.current = null;
-      setZoomVarYRange(null);
-      varChartRef.current?.redraw(false);
     }, []);
     const getCurrentRange = useCallback((): [number, number] | null => {
       const chart = prodChartRef.current;
@@ -3062,11 +3068,13 @@ export const ForecastEngine = memo(
       const times = buffers.time;
       if (!times || times.length < 2) return;
       xZoomRangeRef.current = null;
-      setZoomRange(null);
+      sendChartGroup({ type: "RESET_X_RANGE" });
       prodChartRef.current?.setScale("x", { min: times[0], max: times[times.length - 1] });
-      varChartRef.current?.setScale("x", { min: times[0], max: times[times.length - 1] });
+      for (const chart of relatedChartRefs.current.values()) {
+        chart.setScale("x", { min: times[0], max: times[times.length - 1] });
+      }
       setIsZoomed(false);
-    }, []);
+    }, [sendChartGroup]);
     const zoomBy = useCallback(
       (factor: number) => {
         const range = getCurrentRange();
@@ -3094,6 +3102,7 @@ export const ForecastEngine = memo(
     useEffect(() => {
       showAnnotationsOnChartRef.current = showAnnotationsOnChart;
       prodChartRef.current?.redraw();
+      for (const chart of relatedChartRefs.current.values()) chart.redraw();
     }, [showAnnotationsOnChart]);
 
     // Fullscreen — CSS-based overlay (position: fixed). The native Fullscreen
@@ -3185,7 +3194,7 @@ export const ForecastEngine = memo(
       // ref — the canvas stays painted from the prior frame until another
       // hover or interaction triggers a redraw.
       prodChartRef.current?.redraw();
-      varChartRef.current?.redraw();
+      for (const chart of relatedChartRefs.current.values()) chart.redraw();
     }, [selectedAnnotationId]);
 
     const [annotationEditor, setAnnotationEditor] = useState<{
@@ -3211,7 +3220,7 @@ export const ForecastEngine = memo(
       selectedIdRef.current = selectedId;
       // Redraw so plugins pick up the new selection (color emphasis, boundary labels, tint)
       prodChartRef.current?.redraw();
-      varChartRef.current?.redraw();
+      for (const chart of relatedChartRefs.current.values()) chart.redraw();
     }, [selectedId]);
 
     const [dragParam, setDragParam] = useState<"qi" | "di" | "b" | "slope">("qi");
@@ -3342,11 +3351,12 @@ export const ForecastEngine = memo(
         }
         if (placed === 0) continue;
         cols.push(col);
-        const isRight = rightAxisFluids.includes(s.fluidType);
+        const associatedType = getTimeSeriesAssociatedType(s);
+        const isRight = s.axis === "right" || (associatedType ? rightAxisFluids.includes(associatedType) : false);
         if (isRight) hasRight = true;
         meta.push({
-          label: CONTEXT_LABELS[s.fluidType] ?? s.fluidType,
-          color: CONTEXT_COLORS[s.fluidType] ?? "#94a3b8",
+          label: s.label ?? (associatedType ? CONTEXT_LABELS[associatedType] : undefined) ?? s.id,
+          color: s.color ?? (associatedType ? CONTEXT_COLORS[associatedType] : undefined) ?? "#94a3b8",
           scale: isRight ? "yctx" : "y",
         });
       }
@@ -3371,6 +3381,92 @@ export const ForecastEngine = memo(
       engineUpdateForecastAndVariance(buffers, segmentsRef.current);
     }, [extendedTime, actualData]);
 
+    const hasExplicitVariance = relatedCharts?.some((chart) => chart.id === "variance") ?? false;
+    const resolvedRelatedCharts = useMemo(
+      () => [
+        ...(relatedCharts ?? []),
+        ...(!hasExplicitVariance && showVarianceChart
+          ? [
+              createVarianceRelatedChart({
+                height: varianceHeight,
+                mode: varianceMode === "byAnnotation" ? "annotation" : varianceMode,
+              }),
+            ]
+          : []),
+      ],
+      [relatedCharts, hasExplicitVariance, showVarianceChart, varianceHeight, varianceMode],
+    );
+    const relatedConfigsRef = useRef<readonly RelatedChartConfig[]>(resolvedRelatedCharts);
+    relatedConfigsRef.current = resolvedRelatedCharts;
+
+    const createRelatedContext = useCallback(
+      (
+        buffers: DeclineMathBuffers,
+        currentSegments: readonly Segment[] = segmentsRef.current,
+        currentAnnotations: readonly Annotation[] = annotationsRef.current,
+      ): RelatedChartDerivationContext => {
+        const unavailable = new Float64Array(buffers.length);
+        unavailable.fill(Number.NaN);
+        return {
+          time: buffers.time,
+          actual: buffers.actual,
+          forecast: showForecast ? buffers.forecast : unavailable,
+          variance: showForecast ? buffers.variance : unavailable,
+          sourceSeries: sourceSeries ?? contextSeries ?? [],
+          segments: showForecast ? currentSegments : [],
+          annotations: currentAnnotations,
+          unit,
+        };
+      },
+      [sourceSeries, contextSeries, showForecast, unit],
+    );
+
+    const relatedRenderContext = useMemo(() => {
+      const buffers = createBuffers(extendedTime.length);
+      for (let index = 0; index < extendedTime.length; index++) {
+        buffers.time[index] = extendedTime[index];
+        buffers.actual[index] = index < actualData.length ? actualData[index] : Number.NaN;
+      }
+      engineUpdateForecastAndVariance(buffers, segments);
+      return createRelatedContext(buffers, segments, annotations);
+    }, [extendedTime, actualData, segments, annotations, createRelatedContext]);
+
+    const preparedRelatedCharts = useMemo(
+      () =>
+        resolvedRelatedCharts.flatMap((config) => {
+          const prepared = prepareRelatedChart(config, relatedRenderContext);
+          return prepared ? [prepared] : [];
+        }),
+      [resolvedRelatedCharts, relatedRenderContext],
+    );
+    const visibleRelatedContext = useMemo(
+      () =>
+        showAnnotationsOnChart
+          ? relatedRenderContext
+          : { ...relatedRenderContext, annotations: [] as readonly Annotation[] },
+      [relatedRenderContext, showAnnotationsOnChart],
+    );
+    const formatRelatedX = useCallback(
+      (value: number) =>
+        formatXValue?.(value) ??
+        (startDate ? dateInputValue(tToDate(startDate, value, timeUnit)) : formatNumber(value, 1)),
+      [formatXValue, startDate, timeUnit],
+    );
+
+    const refreshRelatedChartsFromBuffers = useCallback(() => {
+      const buffers = buffersRef.current;
+      if (!buffers) return;
+      const context = createRelatedContext(buffers);
+      for (const config of relatedConfigsRef.current) {
+        const chart = relatedChartRefs.current.get(config.id);
+        if (!chart) continue;
+        const prepared = prepareRelatedChart(config, context);
+        if (!prepared) continue;
+        chart.setData([prepared.time, prepared.values] as uPlot.AlignedData, false);
+        chart.redraw();
+      }
+    }, [createRelatedContext]);
+
     // Recompute forecast whenever segments change (skip first run — chart is mounted with fresh forecast)
     const isFirstSegmentsRun = useRef(true);
     useEffect(() => {
@@ -3386,7 +3482,6 @@ export const ForecastEngine = memo(
       engineUpdateForecastAndVariance(buffers, segments);
 
       const prodChart = prodChartRef.current;
-      const varChart = varChartRef.current;
       // setData's second arg `resetScales` would clobber any zoom/pan the
       // user has dialed in. Pass false and let each chart's y-range callback
       // recompute bounds as needed; x stays at whatever the zoom slider
@@ -3401,21 +3496,16 @@ export const ForecastEngine = memo(
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
-      if (varChart) {
-        const newData = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
-        varChart.setData(newData, false);
-        varChart.redraw();
-      }
+      refreshRelatedChartsFromBuffers();
 
       onSegmentsChange?.(segments);
-    }, [segments, onSegmentsChange]);
+    }, [segments, onSegmentsChange, refreshRelatedChartsFromBuffers]);
 
     const updateChartsFromBuffers = useCallback(() => {
       const buffers = buffersRef.current;
       if (!buffers) return;
 
       const prodChart = prodChartRef.current;
-      const varChart = varChartRef.current;
 
       if (prodChart) {
         // uPlot accepts TypedArrays as series; pass buffers.forecast directly to
@@ -3429,12 +3519,8 @@ export const ForecastEngine = memo(
         prodChart.setData(newData, false);
         prodChart.redraw();
       }
-      if (varChart) {
-        const newData = [varChart.data[0], buffers.variance] as unknown as uPlot.AlignedData;
-        varChart.setData(newData, false);
-        varChart.redraw();
-      }
-    }, []);
+      refreshRelatedChartsFromBuffers();
+    }, [refreshRelatedChartsFromBuffers]);
 
     // ── Drag ─────────────────────────────────────────────────────────────────
 
@@ -4070,196 +4156,199 @@ export const ForecastEngine = memo(
       [dragParam, height, updateChartsFromBuffers],
     );
 
-    const handleMouseUp = useCallback((e: MouseEvent) => {
-      const chart = prodChartRef.current;
+    const handleMouseUp = useCallback(
+      (e: MouseEvent) => {
+        const chart = prodChartRef.current;
 
-      // Region-zoom drag end — apply the selected x-range as the new x-scale.
-      // Cleared regardless of outcome so a tiny click-drag (no real range)
-      // doesn't leave the overlay visible.
-      if (zoomDragRef.current) {
-        const start = zoomDragRef.current.startT;
-        zoomDragRef.current = null;
-        if (chart) {
-          const rect = chart.over.getBoundingClientRect();
-          const lxNow = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-          let endT = chart.posToVal(lxNow, "x");
-          if (!Number.isFinite(endT)) {
-            const data = chart.data[0] as number[];
-            if (data && data.length > 1 && rect.width > 0) {
-              endT = data[0] + (lxNow / rect.width) * (data[data.length - 1] - data[0]);
-            } else {
-              endT = start;
+        // Region-zoom drag end — apply the selected x-range as the new x-scale.
+        // Cleared regardless of outcome so a tiny click-drag (no real range)
+        // doesn't leave the overlay visible.
+        if (zoomDragRef.current) {
+          const start = zoomDragRef.current.startT;
+          zoomDragRef.current = null;
+          if (chart) {
+            const rect = chart.over.getBoundingClientRect();
+            const lxNow = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+            let endT = chart.posToVal(lxNow, "x");
+            if (!Number.isFinite(endT)) {
+              const data = chart.data[0] as number[];
+              if (data && data.length > 1 && rect.width > 0) {
+                endT = data[0] + (lxNow / rect.width) * (data[data.length - 1] - data[0]);
+              } else {
+                endT = start;
+              }
             }
-          }
-          chart.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
-          chart.over.style.cursor = "default";
-          const lo = Math.min(start, endT);
-          const hi = Math.max(start, endT);
-          // Need at least 1 unit of range to count as a zoom; otherwise treat
-          // as a stray click and select whatever's under the cursor (segment
-          // or annotation) so the chart highlights the selection cleanly.
-          if (hi - lo >= 1) {
-            applyXScale(lo, hi);
-            const buffers = buffersRef.current;
-            const fullMin = buffers?.time?.[0];
-            const fullMax = buffers?.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
-            setIsZoomed(fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5);
-          } else {
-            // Click without zoom — annotations are still selectable in any
-            // mode (they're a separate concern from forecast editing), but
-            // segment selection only fires in forecast mode. Outside of it
-            // the chart should feel like a read-only viewer with zoom.
-            const clickT = start;
-            const annHit = annotationsRef.current.find(
-              (a) => clickT >= Math.min(a.tStart, a.tEnd) && clickT <= Math.max(a.tStart, a.tEnd),
-            );
-            if (annHit) {
-              setSelectedAnnotationId(annHit.id);
-            } else if (editModeRef.current) {
-              const sortedClick = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
-              if (sortedClick.length > 0) {
-                let hitIdx = 0;
-                for (let i = 0; i < sortedClick.length; i++) {
-                  if (sortedClick[i].tStart <= clickT) hitIdx = i;
+            chart.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+            chart.over.style.cursor = "default";
+            const lo = Math.min(start, endT);
+            const hi = Math.max(start, endT);
+            // Need at least 1 unit of range to count as a zoom; otherwise treat
+            // as a stray click and select whatever's under the cursor (segment
+            // or annotation) so the chart highlights the selection cleanly.
+            if (hi - lo >= 1) {
+              applyXScale(lo, hi);
+              const buffers = buffersRef.current;
+              const fullMin = buffers?.time?.[0];
+              const fullMax = buffers?.time?.length ? buffers.time[buffers.time.length - 1] : undefined;
+              setIsZoomed(fullMin == null || fullMax == null ? true : lo > fullMin + 0.5 || hi < fullMax - 0.5);
+            } else {
+              // Click without zoom — annotations are still selectable in any
+              // mode (they're a separate concern from forecast editing), but
+              // segment selection only fires in forecast mode. Outside of it
+              // the chart should feel like a read-only viewer with zoom.
+              const clickT = start;
+              const annHit = annotationsRef.current.find(
+                (a) => clickT >= Math.min(a.tStart, a.tEnd) && clickT <= Math.max(a.tStart, a.tEnd),
+              );
+              if (annHit) {
+                setSelectedAnnotationId(annHit.id);
+              } else if (editModeRef.current) {
+                const sortedClick = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
+                if (sortedClick.length > 0) {
+                  let hitIdx = 0;
+                  for (let i = 0; i < sortedClick.length; i++) {
+                    if (sortedClick[i].tStart <= clickT) hitIdx = i;
+                  }
+                  setSelectedId(sortedClick[hitIdx].id);
                 }
-                setSelectedId(sortedClick[hitIdx].id);
               }
             }
           }
-        }
-        mouseDownInfoRef.current = null;
-        return;
-      }
-
-      // Annotation boundary drag end — normalise tStart/tEnd ordering
-      if (annotationDragRef.current) {
-        const id = annotationDragRef.current.id;
-        annotationDragRef.current = null;
-        const next = annotationsRef.current.map((a) => {
-          if (a.id !== id) return a;
-          const lo = Math.min(a.tStart, a.tEnd);
-          const hi = Math.max(a.tStart, a.tEnd);
-          return { ...a, tStart: lo, tEnd: hi };
-        });
-        annotationsRef.current = next;
-        setAnnotations(next);
-        if (chart) chart.over.style.cursor = "crosshair";
-        mouseDownInfoRef.current = null;
-        return;
-      }
-
-      // Annotate mode — finalize a drawn range
-      if (drawingRef.current && annotateModeRef.current) {
-        const draft = drawingRef.current;
-        drawingRef.current = null;
-        setDrawingAnnotation(null);
-        const tStart = Math.min(draft.tStart, draft.tEnd);
-        const tEnd = Math.max(draft.tStart, draft.tEnd);
-        // Reject tiny accidental drags
-        if (tEnd - tStart < 0.25) {
           mouseDownInfoRef.current = null;
-          // Treat as a click — see if user clicked on an existing annotation to select/edit
-          const down = mouseDownInfoRef.current;
-          void down;
-          // Find an annotation containing the click point
-          const hit = annotationsRef.current.find(
-            (a) => draft.tStart >= Math.min(a.tStart, a.tEnd) && draft.tStart <= Math.max(a.tStart, a.tEnd),
-          );
-          if (hit) {
-            setSelectedAnnotationId(hit.id);
-            setAnnotationEditor({ annotationId: hit.id, clientX: e.clientX, clientY: e.clientY });
+          return;
+        }
+
+        // Annotation boundary drag end — normalise tStart/tEnd ordering
+        if (annotationDragRef.current) {
+          const id = annotationDragRef.current.id;
+          annotationDragRef.current = null;
+          const next = annotationsRef.current.map((a) => {
+            if (a.id !== id) return a;
+            const lo = Math.min(a.tStart, a.tEnd);
+            const hi = Math.max(a.tStart, a.tEnd);
+            return { ...a, tStart: lo, tEnd: hi };
+          });
+          annotationsRef.current = next;
+          setAnnotations(next);
+          if (chart) chart.over.style.cursor = "crosshair";
+          mouseDownInfoRef.current = null;
+          return;
+        }
+
+        // Annotate mode — finalize a drawn range
+        if (drawingRef.current && annotateModeRef.current) {
+          const draft = drawingRef.current;
+          drawingRef.current = null;
+          setDrawingAnnotation(null);
+          const tStart = Math.min(draft.tStart, draft.tEnd);
+          const tEnd = Math.max(draft.tStart, draft.tEnd);
+          // Reject tiny accidental drags
+          if (tEnd - tStart < 0.25) {
+            mouseDownInfoRef.current = null;
+            // Treat as a click — see if user clicked on an existing annotation to select/edit
+            const down = mouseDownInfoRef.current;
+            void down;
+            // Find an annotation containing the click point
+            const hit = annotationsRef.current.find(
+              (a) => draft.tStart >= Math.min(a.tStart, a.tEnd) && draft.tStart <= Math.max(a.tStart, a.tEnd),
+            );
+            if (hit) {
+              setSelectedAnnotationId(hit.id);
+              setAnnotationEditor({ annotationId: hit.id, clientX: e.clientX, clientY: e.clientY });
+            }
+            return;
+          }
+          const id = nextAnnotationId();
+          const newAnnotation: Annotation = {
+            id,
+            tStart,
+            tEnd,
+            type: "note",
+          };
+          setAnnotations((prev) => [...prev, newAnnotation]);
+          setSelectedAnnotationId(id);
+          setAnnotationEditor({ annotationId: id, clientX: e.clientX, clientY: e.clientY });
+          mouseDownInfoRef.current = null;
+          return;
+        }
+
+        if (boundaryDragRef.current) {
+          boundaryDragRef.current = null;
+          if (chart) {
+            chart.over.style.cursor = hoveredBoundaryRef.current != null ? "col-resize" : "default";
+          }
+          setSegments([...segmentsRef.current]);
+          mouseDownInfoRef.current = null;
+          return;
+        }
+        if (isDraggingRef.current) {
+          isDraggingRef.current = false;
+          dragSnapshotRef.current = null;
+          if (chart) chart.over.style.cursor = isOverForecastRef.current ? "grab" : "default";
+          setSegments([...segmentsRef.current]);
+          // Click without movement on the forecast line is intent to *select*,
+          // not drag — open the side panel so the user gets the details. Drag-
+          // tolerance check matches the regular click path.
+          const downInfo = mouseDownInfoRef.current;
+          mouseDownInfoRef.current = null;
+          if (downInfo && editModeRef.current) {
+            const dx = Math.abs(e.clientX - downInfo.clientX);
+            const dy = Math.abs(e.clientY - downInfo.clientY);
+            // Click without movement on a selected segment — switch the panel
+            // view to the editor for that segment, but don't auto-open the
+            // panel (it's intrusive during drag-clicks). User opens via the
+            // toolbar Segments button.
+            if (dx <= 4 && dy <= 4 && selectedIdRef.current) {
+              setSegmentPanelView("editor");
+            }
           }
           return;
         }
-        const id = nextAnnotationId();
-        const newAnnotation: Annotation = {
-          id,
-          tStart,
-          tEnd,
-          type: "note",
-        };
-        setAnnotations((prev) => [...prev, newAnnotation]);
-        setSelectedAnnotationId(id);
-        setAnnotationEditor({ annotationId: id, clientX: e.clientX, clientY: e.clientY });
-        mouseDownInfoRef.current = null;
-        return;
-      }
 
-      if (boundaryDragRef.current) {
-        boundaryDragRef.current = null;
-        if (chart) {
-          chart.over.style.cursor = hoveredBoundaryRef.current != null ? "col-resize" : "default";
+        // No drag happened — this was a click.
+        const down = mouseDownInfoRef.current;
+        mouseDownInfoRef.current = null;
+        if (!down) return;
+        const dx = Math.abs(e.clientX - down.clientX);
+        const dy = Math.abs(e.clientY - down.clientY);
+        if (dx > 4 || dy > 4) return; // small movement tolerance
+
+        // Annotation hit takes priority — clicking inside an annotation opens
+        // its editor popover (stats + edit) regardless of mode.
+        const annotationHit = annotationsRef.current.find(
+          (a) => down.t >= Math.min(a.tStart, a.tEnd) && down.t <= Math.max(a.tStart, a.tEnd),
+        );
+        if (annotationHit) {
+          setSelectedAnnotationId(annotationHit.id);
+          setAnnotationEditor({
+            annotationId: annotationHit.id,
+            clientX: e.clientX,
+            clientY: e.clientY,
+          });
+          return;
         }
-        setSegments([...segmentsRef.current]);
-        mouseDownInfoRef.current = null;
-        return;
-      }
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        dragSnapshotRef.current = null;
-        if (chart) chart.over.style.cursor = isOverForecastRef.current ? "grab" : "default";
-        setSegments([...segmentsRef.current]);
-        // Click without movement on the forecast line is intent to *select*,
-        // not drag — open the side panel so the user gets the details. Drag-
-        // tolerance check matches the regular click path.
-        const downInfo = mouseDownInfoRef.current;
-        mouseDownInfoRef.current = null;
-        if (downInfo && editModeRef.current) {
-          const dx = Math.abs(e.clientX - downInfo.clientX);
-          const dy = Math.abs(e.clientY - downInfo.clientY);
-          // Click without movement on a selected segment — switch the panel
-          // view to the editor for that segment, but don't auto-open the
-          // panel (it's intrusive during drag-clicks). User opens via the
-          // toolbar Segments button.
-          if (dx <= 4 && dy <= 4 && selectedIdRef.current) {
-            setSegmentPanelView("editor");
-          }
+
+        // Otherwise, select the segment at the click position. In edit mode
+        // also pop the inline editor right at the click — saves the user a
+        // right-click for the common "tweak this segment's params" workflow.
+        const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
+        if (sorted.length === 0) return;
+        let hitIdx = 0;
+        for (let i = 0; i < sorted.length; i++) {
+          if (sorted[i].tStart <= down.t) hitIdx = i;
         }
-        return;
-      }
-
-      // No drag happened — this was a click.
-      const down = mouseDownInfoRef.current;
-      mouseDownInfoRef.current = null;
-      if (!down) return;
-      const dx = Math.abs(e.clientX - down.clientX);
-      const dy = Math.abs(e.clientY - down.clientY);
-      if (dx > 4 || dy > 4) return; // small movement tolerance
-
-      // Annotation hit takes priority — clicking inside an annotation opens
-      // its editor popover (stats + edit) regardless of mode.
-      const annotationHit = annotationsRef.current.find(
-        (a) => down.t >= Math.min(a.tStart, a.tEnd) && down.t <= Math.max(a.tStart, a.tEnd),
-      );
-      if (annotationHit) {
-        setSelectedAnnotationId(annotationHit.id);
-        setAnnotationEditor({
-          annotationId: annotationHit.id,
-          clientX: e.clientX,
-          clientY: e.clientY,
-        });
-        return;
-      }
-
-      // Otherwise, select the segment at the click position. In edit mode
-      // also pop the inline editor right at the click — saves the user a
-      // right-click for the common "tweak this segment's params" workflow.
-      const sorted = [...segmentsRef.current].sort((a, b) => a.tStart - b.tStart);
-      if (sorted.length === 0) return;
-      let hitIdx = 0;
-      for (let i = 0; i < sorted.length; i++) {
-        if (sorted[i].tStart <= down.t) hitIdx = i;
-      }
-      const hitId = sorted[hitIdx].id;
-      setSelectedId(hitId);
-      if (editModeRef.current) {
-        // Switch the panel view to the editor for this segment, but don't
-        // auto-open the panel. User opens via the toolbar Segments button —
-        // auto-opening on every chart click was getting in the way of drag
-        // gestures and click-to-select-without-edit.
-        setSegmentPanelView("editor");
-      }
-    }, []);
+        const hitId = sorted[hitIdx].id;
+        setSelectedId(hitId);
+        if (editModeRef.current) {
+          // Switch the panel view to the editor for this segment, but don't
+          // auto-open the panel. User opens via the toolbar Segments button —
+          // auto-opening on every chart click was getting in the way of drag
+          // gestures and click-to-select-without-edit.
+          setSegmentPanelView("editor");
+        }
+      },
+      [applyXScale],
+    );
 
     const handleContextMenu = useCallback((e: MouseEvent) => {
       const chart = prodChartRef.current;
@@ -4325,6 +4414,14 @@ export const ForecastEngine = memo(
       const forecastArr = Array.from(buffers.forecast);
 
       const data: uPlot.AlignedData = [timeArr, actualArr, forecastArr, ...contextAligned.cols] as uPlot.AlignedData;
+      const axisStyle = {
+        ...AXIS_STYLE,
+        font: `${resolvedTypography.axisTickFontWeight} ${resolvedTypography.axisTickFontSize}px ${resolvedTypography.fontFamily}`,
+        labelFont: `${resolvedTypography.axisLabelFontWeight} ${resolvedTypography.axisLabelFontSize}px ${resolvedTypography.fontFamily}`,
+        labelSize: resolvedTypography.axisLabelFontSize + 10,
+        gap: 5,
+      };
+      const yAxisSize = Math.max(60, resolvedTypography.axisTickFontSize * 5.25);
 
       const opts: uPlot.Options = {
         width: chartWidth,
@@ -4369,8 +4466,10 @@ export const ForecastEngine = memo(
           tooltipPlugin(
             unit,
             () => segmentsRef.current,
-            () => hoveredChartRef.current === "prod",
             () => buffersRef.current,
+            formatXValue,
+            formatYValue,
+            resolvedTypography,
           ),
           // When the forecast chart's x-scale changes (drag-zoom, reset),
           // propagate it to the variance chart so the two stay aligned, and
@@ -4386,12 +4485,11 @@ export const ForecastEngine = memo(
                   const fullMin = data[0];
                   const fullMax = data[data.length - 1];
                   setIsZoomed(min > fullMin + 0.5 || max < fullMax - 0.5);
-                  const varChart = varChartRef.current;
-                  if (varChart && varChart !== u) {
-                    const vMin = varChart.scales.x.min;
-                    const vMax = varChart.scales.x.max;
-                    if (vMin !== min || vMax !== max) {
-                      varChart.setScale("x", { min, max });
+                  for (const relatedChart of relatedChartRefs.current.values()) {
+                    const relatedMin = relatedChart.scales.x.min;
+                    const relatedMax = relatedChart.scales.x.max;
+                    if (relatedMin !== min || relatedMax !== max) {
+                      relatedChart.setScale("x", { min, max });
                     }
                   }
                 }
@@ -4414,26 +4512,40 @@ export const ForecastEngine = memo(
         },
         legend: { show: false },
         axes: [
-          { ...AXIS_STYLE, label: "Time", labelFont: `11px ${FONT_FAMILY}`, labelSize: 20 },
           {
-            ...AXIS_STYLE,
+            ...axisStyle,
+            label: "Time",
+            ...(formatXValue
+              ? { values: (_self: uPlot, ticks: number[]) => ticks.map((value) => formatXValue(value)) }
+              : {}),
+          },
+          {
+            ...axisStyle,
             scale: "y",
-            size: 55,
+            size: yAxisSize,
             label: unit,
-            labelFont: `11px ${FONT_FAMILY}`,
-            labelSize: 20,
-            values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
+            values: (_self: uPlot, ticks: number[]) =>
+              ticks.map((value) =>
+                formatChartYValue(value, { axis: "left", location: "axis", chartId: "production", unit }, formatYValue),
+              ),
           },
           // Secondary right axis for context series in rightAxisFluids (e.g. gas).
           ...(contextAligned.hasRight
             ? [
                 {
-                  ...AXIS_STYLE,
+                  ...axisStyle,
                   scale: "yctx",
                   side: 1 as const,
-                  size: 55,
+                  size: yAxisSize,
                   grid: { show: false },
-                  values: (_self: uPlot, ticks: number[]) => ticks.map((v) => formatNumber(v, 0)),
+                  values: (_self: uPlot, ticks: number[]) =>
+                    ticks.map((value) =>
+                      formatChartYValue(
+                        value,
+                        { axis: "right", location: "axis", chartId: "production" },
+                        formatYValue,
+                      ),
+                    ),
                 },
               ]
             : []),
@@ -4524,22 +4636,12 @@ export const ForecastEngine = memo(
 
       const overlay = chart.over;
       overlay.style.cursor = "default";
-      const onEnterProd = () => {
-        hoveredChartRef.current = "prod";
-      };
-      const onLeaveProd = () => {
-        if (hoveredChartRef.current === "prod") hoveredChartRef.current = null;
-      };
-      overlay.addEventListener("mouseenter", onEnterProd);
-      overlay.addEventListener("mouseleave", onLeaveProd);
       overlay.addEventListener("mousedown", handleMouseDown);
       overlay.addEventListener("contextmenu", handleContextMenu);
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
 
       return () => {
-        overlay.removeEventListener("mouseenter", onEnterProd);
-        overlay.removeEventListener("mouseleave", onLeaveProd);
         overlay.removeEventListener("mousedown", handleMouseDown);
         overlay.removeEventListener("contextmenu", handleContextMenu);
         window.removeEventListener("mousemove", handleMouseMove);
@@ -4551,144 +4653,22 @@ export const ForecastEngine = memo(
         }
       };
     }, [
-      extendedTime,
-      actualData,
       height,
       width,
       unit,
       actualColor,
       forecastColor,
       showForecast,
-      forecastEditable,
       contextAligned,
       syncKey,
+      formatXValue,
+      formatYValue,
+      resolvedTypography,
       handleMouseDown,
       handleMouseMove,
       handleMouseUp,
       handleContextMenu,
     ]);
-
-    // ── Variance chart ───────────────────────────────────────────────────────
-    useLayoutEffect(() => {
-      const buffers = buffersRef.current;
-      if (!varChartContainerRef.current || !buffers) return;
-
-      const el = varChartContainerRef.current;
-      const chartWidth = width ?? el.clientWidth ?? 600;
-
-      const timeArr = Array.from(buffers.time);
-      const varianceArr = Array.from(buffers.variance);
-      const data: uPlot.AlignedData = [timeArr, varianceArr];
-
-      let maxAbs = 0;
-      for (let i = 0; i < varianceArr.length; i++) {
-        const v = varianceArr[i];
-        if (!Number.isNaN(v) && Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
-      }
-      maxAbs = maxAbs * 1.2 || 100;
-
-      const getVariance = () => buffersRef.current?.variance ?? new Float64Array(0);
-
-      const opts: uPlot.Options = {
-        width: chartWidth,
-        height: varianceHeight,
-        plugins: [
-          // Annotation regions — same plugin used on the production chart so
-          // a selected annotation lights up on both charts (background fill
-          // + dashed boundaries + solid full-height lines on the selected
-          // one). Honors the showAnnotationsOnChart toggle exactly like the
-          // production chart.
-          annotationRegionsPlugin(
-            () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
-            () => hoveredAnnotationIdRef.current,
-            () => selectedAnnotationIdRef.current,
-            () => drawingRef.current,
-            () => varianceModeRef.current === "byAnnotation" || varianceModeRef.current === "combined",
-          ),
-          varianceBarsPlugin(
-            getVariance,
-            () => varianceModeRef.current,
-            () => annotationsRef.current,
-          ),
-          // Same tooltip as the forecast chart, gated on the mouse actually
-          // being over this sub-chart. Shared buffers feed all values so the
-          // tooltip shows Actual + Forecast + Δ even though this chart only
-          // has a variance series.
-          tooltipPlugin(
-            unit,
-            () => segmentsRef.current,
-            () => hoveredChartRef.current === "var",
-            () => buffersRef.current,
-          ),
-        ],
-        cursor: {
-          drag: { x: false, y: false },
-          // Same sync key as the forecast chart — hovering one moves the
-          // vertical crosshair on the other to the same time value.
-          sync: { key: syncKey, setSeries: false },
-          points: { show: false },
-        },
-        legend: { show: false },
-        axes: [
-          { ...AXIS_STYLE, label: "Time", labelFont: `11px ${FONT_FAMILY}`, labelSize: 20 },
-          {
-            ...AXIS_STYLE,
-            scale: "y",
-            size: 55,
-            label: `Δ ${unit}`,
-            labelFont: `11px ${FONT_FAMILY}`,
-            labelSize: 20,
-            values: (_self: uPlot, ticks: number[]) =>
-              ticks.map((v) => {
-                const sign = v >= 0 ? "+" : "";
-                return `${sign}${formatNumber(v, 0)}`;
-              }),
-          },
-        ],
-        scales: {
-          x: {
-            time: false,
-            range: (self: uPlot) => {
-              // Honor an active zoom range (set by buttons or shift-drag) so
-              // setScale actually sticks. Fall back to full data extent.
-              const z = xZoomRangeRef.current;
-              if (z) return z;
-              const data = self.data[0];
-              if (!data || data.length === 0) return [0, 1];
-              return [data[0] as number, data[data.length - 1] as number];
-            },
-          },
-          y: {
-            range: () => yVarZoomRangeRef.current ?? [-maxAbs, maxAbs],
-          },
-        },
-        series: [{}, { label: "Variance", stroke: "transparent", width: 0, points: { show: false } }],
-      };
-
-      if (varChartRef.current) varChartRef.current.destroy();
-      el.innerHTML = "";
-      const vChart = new uPlot(opts, data, el);
-      varChartRef.current = vChart;
-
-      const varOverlay = vChart.over;
-      const onEnterVar = () => {
-        hoveredChartRef.current = "var";
-      };
-      const onLeaveVar = () => {
-        if (hoveredChartRef.current === "var") hoveredChartRef.current = null;
-      };
-      varOverlay.addEventListener("mouseenter", onEnterVar);
-      varOverlay.addEventListener("mouseleave", onLeaveVar);
-
-      return () => {
-        varOverlay.removeEventListener("mouseenter", onEnterVar);
-        varOverlay.removeEventListener("mouseleave", onLeaveVar);
-        if (varChartRef.current) {
-          varChartRef.current.destroy();
-          varChartRef.current = null;
-        }
-      };
-    }, [extendedTime, actualData, varianceHeight, width, unit, showVarianceChart, syncKey]);
 
     // ── Resize ───────────────────────────────────────────────────────────────
     // In fullscreen, prodChart's height is driven by the container's own size
@@ -4697,7 +4677,6 @@ export const ForecastEngine = memo(
     useEffect(() => {
       if (width) return;
       const prodContainer = prodChartContainerRef.current;
-      const varContainer = varChartContainerRef.current;
       if (!prodContainer) return;
 
       const observer = new ResizeObserver((entries) => {
@@ -4707,16 +4686,12 @@ export const ForecastEngine = memo(
           if (entry.target === prodContainer) {
             const effectiveHeight = isFullscreen ? Math.max(h, height) : height;
             prodChartRef.current?.setSize({ width: w, height: effectiveHeight });
-          } else if (entry.target === varContainer) {
-            const effectiveHeight = isFullscreen ? Math.max(h, varianceHeight) : varianceHeight;
-            varChartRef.current?.setSize({ width: w, height: effectiveHeight });
           }
         }
       });
       observer.observe(prodContainer);
-      if (varContainer) observer.observe(varContainer);
       return () => observer.disconnect();
-    }, [width, height, varianceHeight, isFullscreen]);
+    }, [width, height, isFullscreen]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     // All supported timeUnits (day / month / year) are integral — production
@@ -4799,7 +4774,7 @@ export const ForecastEngine = memo(
       onSave?.(segmentsRef.current);
       // We intentionally read from ref to avoid a stale-array commit when
       // multiple updates batch in the same tick.
-    }, [segments, onSave]);
+    }, [onSave]);
 
     return (
       <div
@@ -4840,7 +4815,7 @@ export const ForecastEngine = memo(
                 className={cn(
                   "inline-flex h-6 w-6 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
                   "disabled:cursor-not-allowed disabled:opacity-40",
-                  isZoomed && "text-indigo-600",
+                  isZoomed && "text-primary",
                 )}
                 title="Reset zoom"
               >
@@ -4857,7 +4832,7 @@ export const ForecastEngine = memo(
               className={cn(
                 "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
                 "hover:text-foreground hover:bg-muted transition-colors order-6",
-                isFullscreen && "border-indigo-500/40 text-indigo-600",
+                isFullscreen && "border-primary/40 text-primary",
               )}
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
@@ -4872,7 +4847,7 @@ export const ForecastEngine = memo(
                 className={cn(
                   "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground",
                   "hover:text-foreground hover:bg-muted transition-colors",
-                  settingsOpen && "border-indigo-500/40 text-indigo-600",
+                  settingsOpen && "border-primary/40 text-primary",
                 )}
                 title="View settings"
               >
@@ -4880,6 +4855,8 @@ export const ForecastEngine = memo(
               </button>
               {settingsOpen && (
                 <div
+                  role="dialog"
+                  aria-label="Chart view settings"
                   ref={settingsRef}
                   className={cn(
                     "absolute right-0 z-[100003] mt-1 w-[280px] rounded-md border border-border bg-popover p-3 shadow-lg",
@@ -4997,7 +4974,7 @@ export const ForecastEngine = memo(
                       type="checkbox"
                       checked={showAnnotationsOnChart}
                       onChange={(e) => setShowAnnotationsOnChart(e.target.checked)}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-indigo-500"
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary"
                     />
                     <div className="flex flex-col">
                       <span className="text-xs font-medium">Annotation backdrop</span>
@@ -5006,18 +4983,22 @@ export const ForecastEngine = memo(
                       </span>
                     </div>
                   </label>
-                  <label className="mt-2 flex cursor-pointer items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={showVarianceChart}
-                      onChange={(e) => setShowVarianceChart(e.target.checked)}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-indigo-500"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium">Variance sub-chart</span>
-                      <span className="text-[10px] text-muted-foreground">Attached bars below the forecast.</span>
-                    </div>
-                  </label>
+                  {!hasExplicitVariance && (
+                    <label className="mt-2 flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={showVarianceChart}
+                        onChange={(e) => setShowVarianceChart(e.target.checked)}
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium">Variance related chart</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Synchronized bars below the parent chart.
+                        </span>
+                      </div>
+                    </label>
+                  )}
                 </div>
               )}
             </div>
@@ -5025,7 +5006,7 @@ export const ForecastEngine = memo(
             {/* ── Toolbar buttons ─────────────────────────────────────────
                 Three buttons total, all share one visual style:
                   idle  = muted text on background
-                  active = indigo tint (border + bg + text)
+                  active = primary treatment (border + bg + text)
                 Layout (left → right after the icon controls):
                   Actions ▼  ·  Segments  ·  Annotations
                 Actions opens a dropdown with the two mode toggles
@@ -5037,12 +5018,11 @@ export const ForecastEngine = memo(
               <button
                 type="button"
                 onClick={() => setActionsOpen((v) => !v)}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                style={
-                  editForecastMode || annotateMode
-                    ? { borderColor: "rgba(18,128,92,0.40)", background: "rgba(18,128,92,0.10)", color: "#0A4A39" }
-                    : undefined
-                }
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  (editForecastMode || annotateMode) &&
+                    "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+                )}
                 title="Forecast or Annotate actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
@@ -5114,38 +5094,39 @@ export const ForecastEngine = memo(
                       onClick={item.onClick}
                       className={cn(
                         "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
-                        item.active ? "" : "text-foreground hover:bg-muted",
+                        item.active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
                       )}
-                      style={item.active ? { background: "rgba(18,128,92,0.10)", color: "#0A4A39" } : undefined}
                     >
                       <span>{item.label}</span>
-                      {item.active && (
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#12805C" }} aria-hidden />
-                      )}
+                      {item.active && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />}
                     </button>
                   ))}
 
                   {/* Panels — housed here so the toolbar stays one button. */}
                   <div className="my-1 h-px" style={{ background: "#E2E6EC" }} />
                   {[
-                    {
-                      key: "segments",
-                      label: "Segments",
-                      count: sortedSegments.length,
-                      active: segmentPanelOpen && panelMode === "segments",
-                      onClick: () => {
-                        if (segmentPanelOpen && panelMode === "segments") {
-                          setSegmentPanelOpen(false);
-                          setSelectedId(null);
-                          setSelectedAnnotationId(null);
-                        } else {
-                          setSegmentPanelOpen(true);
-                          setPanelMode("segments");
-                          setSegmentPanelView("list");
-                        }
-                        setActionsOpen(false);
-                      },
-                    },
+                    ...(showForecast
+                      ? [
+                          {
+                            key: "segments",
+                            label: "Segments",
+                            count: sortedSegments.length,
+                            active: segmentPanelOpen && panelMode === "segments",
+                            onClick: () => {
+                              if (segmentPanelOpen && panelMode === "segments") {
+                                setSegmentPanelOpen(false);
+                                setSelectedId(null);
+                                setSelectedAnnotationId(null);
+                              } else {
+                                setSegmentPanelOpen(true);
+                                setPanelMode("segments" as const);
+                                setSegmentPanelView("list");
+                              }
+                              setActionsOpen(false);
+                            },
+                          },
+                        ]
+                      : []),
                     {
                       key: "annotations",
                       label: "Annotations",
@@ -5171,9 +5152,8 @@ export const ForecastEngine = memo(
                       onClick={item.onClick}
                       className={cn(
                         "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
-                        item.active ? "" : "text-foreground hover:bg-muted",
+                        item.active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
                       )}
-                      style={item.active ? { background: "rgba(18,128,92,0.10)", color: "#0A4A39" } : undefined}
                     >
                       <span>{item.label}</span>
                       <span className="text-[11px] tabular-nums text-muted-foreground">{item.count}</span>
@@ -5284,74 +5264,24 @@ export const ForecastEngine = memo(
               />
             </div>
 
-            {/* ── Variance sub-chart ── (attached to the forecast chart; toggle
-             in the gear menu). Shares the forecast chart's x-range and picks
-             up coloring from the current variance mode so annotation colors
-             propagate down. */}
-            {showVarianceChart && (
-              <>
-                {/* Visual divider — separates the forecast chart from the
-                attached variance sub-chart so it reads as "a different thing". */}
-                <div className="mt-2 h-px w-full bg-border" />
-                <div className="flex items-center justify-between pb-0.5 pt-1.5 text-[10px] font-semibold text-muted-foreground">
-                  <span>Variance (Actual − Forecast)</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowVarianceChart(false)}
-                    className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Hide variance chart"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "stretch",
-                    width: "100%",
-                    flex: isFullscreen ? `${varianceHeight} 1 0` : undefined,
-                    height: isFullscreen ? undefined : varianceHeight,
-                    minHeight: varianceHeight,
-                    gap: 4,
-                  }}
-                >
-                  {(() => {
-                    // Re-derive the variance chart's full y-range for the slider
-                    // track. Mirrors the maxAbs calc in varChart init — kept
-                    // here at render time so changes to actuals/segments update
-                    // the slider's bounds without a remount.
-                    const buffers = buffersRef.current;
-                    let maxAbs = 0;
-                    if (buffers) {
-                      for (let i = 0; i < buffers.length; i++) {
-                        const v = buffers.variance[i];
-                        if (!Number.isNaN(v) && Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
-                      }
-                    }
-                    const fullVar = maxAbs * 1.2 || 100;
-                    const value: [number, number] = zoomVarYRange ?? [-fullVar, fullVar];
-                    return (
-                      <RangeSlider
-                        orientation="vertical"
-                        fullMin={-fullVar}
-                        fullMax={fullVar}
-                        value={value}
-                        onChange={(r) => applyVarYScale(r[0], r[1])}
-                        onReset={resetVarYZoom}
-                      />
-                    );
-                  })()}
-                  <div
-                    ref={varChartContainerRef}
-                    style={{
-                      flex: "1 1 auto",
-                      minWidth: 0,
-                      minHeight: varianceHeight,
-                    }}
-                  />
-                </div>
-              </>
-            )}
+            {preparedRelatedCharts.map((prepared) => (
+              <RelatedChartView
+                key={prepared.id}
+                prepared={prepared}
+                context={visibleRelatedContext}
+                syncKey={syncKey}
+                width={width}
+                xRange={zoomRange}
+                selectedAnnotationId={showAnnotationsOnChart ? selectedAnnotationId : null}
+                formatX={formatRelatedX}
+                formatY={formatYValue}
+                typography={resolvedTypography}
+                onChartReady={handleRelatedChartReady}
+                onDismiss={
+                  prepared.id === "variance" && !hasExplicitVariance ? () => setShowVarianceChart(false) : undefined
+                }
+              />
+            ))}
 
             {/* ── X-axis range slider ── pan/resize the visible window.
              Track is left-padded to line up exactly with the chart's plot
@@ -5363,7 +5293,7 @@ export const ForecastEngine = memo(
               (() => {
                 const fullMin = extendedTime[0];
                 const fullMax = extendedTime[extendedTime.length - 1];
-                const value: [number, number] = zoomRange ?? [fullMin, fullMax];
+                const value: [number, number] = zoomRange ? [...zoomRange] : [fullMin, fullMax];
                 return (
                   <div className="flex items-center" style={{ paddingLeft: 75 }}>
                     <div className="flex-1 min-w-0">
@@ -5466,7 +5396,7 @@ export const ForecastEngine = memo(
                             className={cn(
                               "w-full flex items-start gap-2 rounded-md border px-2 py-2 text-left transition-colors",
                               isSelected
-                                ? "border-indigo-500/40 bg-indigo-500/5"
+                                ? "border-primary/40 bg-primary/5"
                                 : "border-border bg-background hover:bg-muted",
                             )}
                           >
@@ -5552,7 +5482,7 @@ export const ForecastEngine = memo(
                             className={cn(
                               "w-full flex items-center gap-2 rounded-md border px-2 py-2 text-left transition-colors",
                               isSelected
-                                ? "border-indigo-500/40 bg-indigo-500/5"
+                                ? "border-primary/40 bg-primary/5"
                                 : "border-border bg-background hover:bg-muted",
                             )}
                           >
