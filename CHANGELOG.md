@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## [0.5.1] - 2026-08-19
+## [0.5.2] - 2026-08-19
 
 ### Changed
 
@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Updated CI and npm publishing to Node 24, matching pnpm 11's supported runtime and restoring tagged releases.
+- Replaced the expired npm automation token with OIDC trusted publishing and upgraded the GitHub Actions to their current Node 24-native majors.
 - Chart tooltip labels and values now use the same compact regular-weight typography across plain, grouped, related, and decline-forecast charts; default left and right axis ticks are larger for readability.
 - Defining `annotations={[]}` now enables annotation tools for an initially empty profile.
 - Annotation-only charts no longer expose forecast segment controls.
