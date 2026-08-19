@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.5.1] - 2026-08-19
+
 ### Changed
 
 - Split the plain `LineChart` into an exported XState visibility machine, pure data-preparation services, a stateless view, and an isolated uPlot DOM adapter.
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Updated CI and npm publishing to Node 24, matching pnpm 11's supported runtime and restoring tagged releases.
 - Chart tooltip labels and values now use the same compact regular-weight typography across plain, grouped, related, and decline-forecast charts; default left and right axis ticks are larger for readability.
 - Defining `annotations={[]}` now enables annotation tools for an initially empty profile.
 - Annotation-only charts no longer expose forecast segment controls.
