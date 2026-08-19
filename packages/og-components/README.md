@@ -64,6 +64,11 @@ const App = () => (
 Plain, grouped, related, and forecast charts share the same value-formatting and typography options:
 
 ```tsx
+import { Chart, ChartGroup } from "@aai-agency/og-components/chart";
+
+<Chart kind="line" series={series} height={320} />
+<Chart kind="bar" series={series} height={320} />
+
 <ChartGroup
   series={series}
   charts={charts}
@@ -93,8 +98,8 @@ Plain, grouped, related, and forecast charts share the same value-formatting and
 ## What You Get
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
-- **LineChart + ChartGroup** — Domain-neutral native-resolution series, ordinary forecast series, explicit cross-resolution resampling, ID-based derivations, configurable per-panel X/Y controls and presentation mode, dual axes, annotations, and synchronized line/bar panels
-- **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
+- **Chart + ChartGroup** — Domain-neutral native-resolution series, line or bar rendering, ordinary forecast series, explicit cross-resolution resampling, ID-based derivations, configurable per-panel X/Y controls and presentation mode, dual axes, annotations, and synchronized panels
+- **Asset Detail Cards** — Click any asset to see its properties, custom fields, and an embedded `Chart` for actual and forecast series
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
@@ -118,7 +123,7 @@ pnpm typecheck  # Type check
 pnpm test       # Run tests
 ```
 
-Focused imports are available at `@aai-agency/og-components/line-chart`, `/map`, `/asset-card`, `/decline-curve`, `/types`, and `/ui`.
+Focused imports are available at `@aai-agency/og-components/chart`, `/map`, `/asset-card`, `/decline-curve`, `/types`, and `/ui`. The `/line-chart` entry remains available for compatibility.
 
 ## Documentation
 

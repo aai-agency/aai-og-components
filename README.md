@@ -58,17 +58,26 @@ const App = () => (
 );
 ```
 
+The canonical single-panel visualization is `Chart`; choose its renderer explicitly while keeping actual and forecast identity in each series:
+
+```tsx
+import { Chart } from "@aai-agency/og-components/chart";
+
+<Chart kind="line" series={series} height={320} />;
+<Chart kind="bar" series={series} height={320} />;
+```
+
 ## What You Get
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
-- **LineChart + ChartGroup** — Plot one domain-neutral chart or compose synchronized line/bar panels over an ID-addressable native-resolution registry. Forecasts are ordinary `TimeSeries` entries. Every panel has mirrored X controls, independent Y controls, functional X/Y value formatters, configurable typography sizes and weights, and its own presentation/settings menu; monthly bar clicks can reveal daily, hourly, or secondly detail. Cross-resolution derivations use explicit resampling policies. Interactive forecasting remains an opt-in `LineChart` adapter. (`ProductionChart` and `DeclineCurve` remain deprecated compatibility entries.)
-- **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
+- **Chart + ChartGroup** — Render one line or bar chart or compose synchronized panels over an ID-addressable native-resolution registry. Forecasts are ordinary `TimeSeries` entries. Every panel has mirrored X controls, independent Y controls, functional X/Y value formatters, configurable typography sizes and weights, and its own presentation/settings menu; monthly bar clicks can reveal daily, hourly, or secondly detail. Cross-resolution derivations use explicit resampling policies. (`LineChart`, `ProductionChart`, and `DeclineCurve` remain deprecated compatibility entries.)
+- **Asset Detail Cards** — Click any asset to see its properties, embedded `Chart`, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
 - **Data Persistence** — LocalStorage or in-browser SQLite for large datasets
 - **Validation Schemas** — Zod schemas for assets, production records, overlays, and configuration
-- **Sample Data** — Deterministic demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day forecast/annotation dataset for LineChart
+- **Sample Data** — Deterministic demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day forecast/annotation dataset for Chart
 
 ## Requirements
 
@@ -87,7 +96,7 @@ pnpm typecheck  # Type check
 pnpm test       # Run behavioral and domain tests
 ```
 
-For smaller bundles, import focused entry points such as `@aai-agency/og-components/line-chart`, `/map`, `/types`, and `/ui`.
+For smaller bundles, import focused entry points such as `@aai-agency/og-components/chart`, `/map`, `/types`, and `/ui`. The `/line-chart` entry remains available for compatibility.
 
 ## Documentation
 

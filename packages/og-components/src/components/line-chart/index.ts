@@ -46,8 +46,8 @@ export {
   formatChartYValue,
   resolveChartTypography,
 } from "./chart-presentation";
-export type { ForecastConfig, LineChartProps, ProductionChartProps } from "./line-chart";
-export { LineChart, ProductionChart } from "./line-chart";
+export type { ChartProps, ForecastConfig, LineChartProps, ProductionChartProps } from "./line-chart";
+export { Chart, LineChart, ProductionChart } from "./line-chart";
 export type {
   LineChartSeriesMeta,
   PreparedLineChart,

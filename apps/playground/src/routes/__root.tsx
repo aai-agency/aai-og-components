@@ -7,7 +7,7 @@ const NAV_ITEMS = [
     group: "Components",
     items: [
       { label: "Map", to: "/components/map" },
-      { label: "LineChart", to: "/components/line-chart" },
+      { label: "Chart", to: "/components/line-chart" },
       { label: "AssetDetailCard", to: "/components/asset-detail-card" },
       { label: "SelectionPanel", to: "/components/selection-panel" },
       { label: "OverlayManager", to: "/components/overlay-manager" },

@@ -251,7 +251,7 @@ const ChartPanelSurface = ({
   );
   const displayHeight = prepared.height + (presentationMode ? 36 : 0);
   const typographyToken = Object.values(typography).join(":");
-  const fingerprint = `${prepared.id}:${prepared.kind}:${displayHeight}:${prepared.symmetricY}:${timeZone}:${typographyToken}:${prepared.series.map((series) => `${series.id}:${series.axis}:${series.unit}`).join("|")}`;
+  const fingerprint = `${prepared.id}:${prepared.kind}:${displayHeight}:${prepared.xAxisLabel ?? ""}:${prepared.symmetricY}:${timeZone}:${typographyToken}:${prepared.series.map((series) => `${series.id}:${series.axis}:${series.unit}`).join("|")}`;
   const annotationToken = annotations
     .map((annotation) => `${annotation.id}:${annotation.tStart}:${annotation.tEnd}:${annotation.color ?? ""}`)
     .join("|");
@@ -285,6 +285,7 @@ const ChartPanelSurface = ({
       {
         ...axisStyle,
         scale: "x",
+        label: initial.xAxisLabel,
         values: (_chart, ticks) =>
           ticks.map((value) =>
             formatXTickRef.current
@@ -639,25 +640,29 @@ export const ChartGroupView = ({
                 padding: presentationMode ? "8px 0 4px" : "4px 0 2px",
               }}
             >
-              <strong
-                style={{
-                  fontSize: presentationMode ? typography.titleFontSize + 4 : typography.titleFontSize,
-                  fontWeight: typography.titleFontWeight,
-                  color: TEXT_MUTED,
-                }}
-              >
-                {chart.label}
-              </strong>
-              <span
-                style={{
-                  color: TEXT_FAINT,
-                  fontSize: presentationMode ? 10 : 9,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                {chart.kind}
-              </span>
+              {chart.showTitle && (
+                <>
+                  <strong
+                    style={{
+                      fontSize: presentationMode ? typography.titleFontSize + 4 : typography.titleFontSize,
+                      fontWeight: typography.titleFontWeight,
+                      color: TEXT_MUTED,
+                    }}
+                  >
+                    {chart.label}
+                  </strong>
+                  <span
+                    style={{
+                      color: TEXT_FAINT,
+                      fontSize: presentationMode ? 10 : 9,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {chart.kind}
+                  </span>
+                </>
+              )}
               <ul
                 aria-label={`${chart.label} series`}
                 style={{

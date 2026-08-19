@@ -1,11 +1,11 @@
-# LineChart Rules
+# Chart Rules
 
-Use `LineChart` for one independently configured plot and `ChartGroup` to compose synchronized line or bar charts. `ProductionChart` and `DeclineCurve` remain deprecated compatibility aliases.
+Use `Chart` for one independently configured plot and `ChartGroup` to compose synchronized line or bar charts. `ProductionChart` and `DeclineCurve` remain deprecated compatibility aliases.
 
 ## Prefer the focused export
 
 ```tsx
-import { LineChart } from "@aai-agency/og-components/line-chart";
+import { Chart } from "@aai-agency/og-components/chart";
 import type { TimeSeries } from "@aai-agency/og-components/types";
 ```
 
@@ -44,7 +44,7 @@ Rules:
 ## Plain chart
 
 ```tsx
-<LineChart series={series} height={320} xAxisLabel="Session date" />
+<Chart kind="line" series={series} height={320} xAxisLabel="Session date" />
 ```
 
 The legend is interactive and accessible. XState owns visibility; pure services align sparse series by date and assign axes. The React view receives prepared data and event callbacks. Only the isolated uPlot adapter uses layout effects for DOM lifecycle and resize observation.
@@ -52,7 +52,7 @@ The legend is interactive and accessible. XState owns visibility; pure services 
 ## Composable chart groups
 
 ```tsx
-import { ChartGroup, type ChartConfig } from "@aai-agency/og-components/line-chart";
+import { ChartGroup, type ChartConfig } from "@aai-agency/og-components/chart";
 
 const charts: ChartConfig[] = [
   {
@@ -135,9 +135,9 @@ Never guess aggregation from a series label or association. The domain must choo
 ```tsx
 import {
   createVarianceRelatedChart,
-  LineChart,
+  Chart,
   type RelatedChartConfig,
-} from "@aai-agency/og-components/line-chart";
+} from "@aai-agency/og-components/chart";
 
 const relatedCharts: RelatedChartConfig[] = [
   createVarianceRelatedChart({ height: 180, mode: "combined" }),
@@ -156,7 +156,8 @@ const relatedCharts: RelatedChartConfig[] = [
   },
 ];
 
-<LineChart
+<Chart
+  kind="line"
   series={productionSeries}
   forecast={{
     seriesId: "oil-actual",
@@ -172,7 +173,7 @@ const relatedCharts: RelatedChartConfig[] = [
 />
 ```
 
-`LineChart.forecast` remains the interactive piecewise forecast editor. It is a convenience adapter over a selected source series, not a separate public forecast data type. For declarative or persisted forecasts, pass an ordinary `TimeSeries` with `seriesType: "forecast"`.
+`Chart.forecast` remains the interactive piecewise forecast editor. It is a convenience adapter over a selected source series, not a separate public forecast data type. For declarative or persisted forecasts, pass an ordinary `TimeSeries` with `seriesType: "forecast"`.
 
 `relatedCharts` remains supported for existing single-primary forecast integrations. Prefer `ChartGroup` for new multi-series composition because every chart declares its own source and derived series by ID.
 
@@ -183,7 +184,8 @@ Use `seriesId`, not the deprecated `forecast.series` key. Forecast segments are 
 ## Annotations
 
 ```tsx
-<LineChart
+<Chart
+  kind="line"
   series={series}
   annotations={annotations}
   onAnnotationsChange={setAnnotations}
@@ -196,6 +198,7 @@ Defining `annotations`, including as an empty array, enables the annotation engi
 
 | Prop | Purpose |
 | --- | --- |
+| `kind` | Required single-panel renderer: `"line"` or `"bar"` |
 | `ChartGroup.series` | Shared source registry; forecasts are ordinary entries |
 | `ChartGroup.charts` | Ordered line/bar panels with ID references or derivations |
 | `series` | Required domain-neutral `TimeSeries[]` input |
@@ -214,13 +217,14 @@ Defining `annotations`, including as an empty array, enables the annotation engi
 
 ```ts
 import { lineChartMachine } from "@aai-agency/og-components/machines";
-import { prepareChartGroup, prepareLineChart } from "@aai-agency/og-components/line-chart";
+import { prepareChartGroup, prepareLineChart } from "@aai-agency/og-components/chart";
 ```
 
 Use `lineChartMachine` when composing custom chart chrome. Use `prepareLineChart` for one plot and `prepareChartGroup` when another renderer needs the same ID registry, dependency validation, and aligned derived series.
 
 ## Compatibility aliases
 
-- `ProductionChart` is exactly `LineChart`; it has no extra props.
+- `LineChart` remains available for source compatibility, but is deprecated. Migrate to `Chart kind="line"`.
+- `ProductionChart` is the deprecated legacy line-chart alias and does not accept `kind`.
 - `DeclineCurve` preserves the older array-based API. Do not use it for new integrations.
 - Do not use removed historical props such as `showBrush`, `enableAnnotations`, or `showVarianceFill`.

@@ -51,6 +51,7 @@ export type {
   ChartGroupIssue,
   ChartGroupProps,
   ChartKind,
+  ChartProps,
   ChartResampleConfig,
   ChartResolution,
   ChartSeriesConfig,
@@ -83,6 +84,7 @@ export type {
 } from "./line-chart";
 export {
   annotationAtTime,
+  Chart,
   ChartGroup,
   calculateChartZoomRange,
   createVarianceRelatedChart,

@@ -14,6 +14,7 @@
       "@aai-agency/og-components": ["../../packages/og-components/src/index.ts"],
       "@aai-agency/og-components/asset-card": ["../../packages/og-components/src/components/asset-card/index.ts"],
       "@aai-agency/og-components/decline-curve": ["../../packages/og-components/src/components/decline-curve/index.ts"],
+      "@aai-agency/og-components/chart": ["../../packages/og-components/src/components/line-chart/index.ts"],
       "@aai-agency/og-components/line-chart": ["../../packages/og-components/src/components/line-chart/index.ts"],
       "@aai-agency/og-components/map": ["../../packages/og-components/src/components/map/index.ts"],
       "@aai-agency/og-components/sample-data": ["../../packages/og-components/src/sample-data/index.ts"],

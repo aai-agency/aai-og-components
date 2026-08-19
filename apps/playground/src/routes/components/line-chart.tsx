@@ -1,14 +1,14 @@
-import type { Annotation } from "@aai-agency/og-components/decline-curve";
 import {
+  Chart,
   type ChartConfig,
   ChartGroup,
   type ChartSeriesDerivationContext,
   type ChartTypography,
   type ChartYValueFormatter,
   createVarianceRelatedChart,
-  LineChart,
   type RelatedChartConfig,
-} from "@aai-agency/og-components/line-chart";
+} from "@aai-agency/og-components/chart";
+import type { Annotation } from "@aai-agency/og-components/decline-curve";
 import {
   sampleDeclineCurveAnnotations,
   sampleDeclineCurveProduction,
@@ -280,17 +280,35 @@ const forecastRelatedCharts: RelatedChartConfig[] = [
   },
 ];
 
-const LineChartPage = () => (
+const ChartPage = () => (
   <PageWrapper
-    title="LineChart"
-    description="Composable time-series surfaces for multi-series plots, ordinary forecast series, derived panels, interactive forecasting, and annotations."
+    title="Chart"
+    description="One canonical chart for line or bar rendering, ordinary forecast series, derived panels, interactive forecasting, and annotations."
   >
     <DemoCard title="Domain-neutral signals — Petry profile concept">
-      <LineChart series={petrySeries} height={320} xAxisLabel="Session date" />
+      <Chart
+        id="petry-profile"
+        label="Session insights"
+        kind="line"
+        series={petrySeries}
+        height={320}
+        xAxisLabel="Session date"
+      />
     </DemoCard>
 
     <DemoCard title="Production history — legend toggles and dual axes">
-      <LineChart series={production} height={340} xAxisLabel="Production month" />
+      <Chart
+        id="production-history"
+        label="Production history"
+        kind="line"
+        series={production}
+        height={340}
+        xAxisLabel="Production month"
+      />
+    </DemoCard>
+
+    <DemoCard title="The same series rendered as bars">
+      <Chart id="production-bars" label="Monthly production" kind="bar" series={production} height={340} />
     </DemoCard>
 
     <DemoCard title="Composable chart group — ID-based forecasts and derivatives">
@@ -312,7 +330,10 @@ const LineChartPage = () => (
 
     <DemoCard title="Grouped charts — forecast + synchronized derivatives">
       <div style={{ minHeight: 920 }}>
-        <LineChart
+        <Chart
+          id="interactive-forecast"
+          label="Interactive forecast"
+          kind="line"
           series={[forecastSeries]}
           height={360}
           forecast={{
@@ -331,12 +352,30 @@ const LineChartPage = () => (
 
     <DemoCard title="Annotation-only profile timeline">
       <div style={{ minHeight: 420 }}>
-        <LineChart series={[petrySeries[0]]} height={340} showForecast={false} annotations={sessionAnnotations} />
+        <Chart
+          id="annotated-profile"
+          label="Annotated profile"
+          kind="line"
+          series={[petrySeries[0]]}
+          height={340}
+          showForecast={false}
+          annotations={sessionAnnotations}
+        />
       </div>
     </DemoCard>
 
     <PropTable
       props={[
+        {
+          name: "Chart",
+          type: "component",
+          description: "Renders one line or bar panel from the canonical series registry.",
+        },
+        {
+          name: "kind",
+          type: '"line" | "bar"',
+          description: "Selects rendering independently from actual or forecast series semantics.",
+        },
         {
           name: "ChartGroup",
           type: "component",
@@ -389,8 +428,7 @@ const LineChartPage = () => (
         {
           name: "relatedCharts",
           type: "RelatedChartConfig[]",
-          description:
-            "Compatibility API for attaching derived bar or line charts to one interactive LineChart parent.",
+          description: "Compatibility API for attaching derived bar or line charts to one interactive Chart panel.",
         },
         {
           name: "annotations",
@@ -423,4 +461,4 @@ const LineChartPage = () => (
   </PageWrapper>
 );
 
-export const Route = createFileRoute("/components/line-chart")({ component: LineChartPage });
+export const Route = createFileRoute("/components/line-chart")({ component: ChartPage });

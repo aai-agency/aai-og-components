@@ -1,6 +1,6 @@
 {
   "name": "@aai-agency/og-components",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Production-grade O&G React components for AI coding agents — maps, charts, detail cards, and more",
   "author": "Husam @ aai.agency <husam@aai.agency>",
   "type": "module",
@@ -21,6 +21,10 @@
       "import": "./dist/components/decline-curve/index.js"
     },
     "./line-chart": {
+      "types": "./dist/components/line-chart/index.d.ts",
+      "import": "./dist/components/line-chart/index.js"
+    },
+    "./chart": {
       "types": "./dist/components/line-chart/index.d.ts",
       "import": "./dist/components/line-chart/index.js"
     },

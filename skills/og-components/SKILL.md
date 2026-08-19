@@ -24,7 +24,7 @@ Read these before generating code:
 
 - [Map usage rules](./rules/map.md) — Required props, common mistakes, controls
 - [Data rules](./rules/data.md) — Asset schema, validation, stores
-- [Chart rules](./rules/charts.md) — TimeSeries format and the unified LineChart API
+- [Chart rules](./rules/charts.md) — TimeSeries format and the unified Chart API
 - [DeclineCurve rules](./rules/decline-curve.md) — Segments, equations, annotations, edit modes
 - [Styling rules](./rules/styling.md) — Tailwind, theme tokens, z-index
 
@@ -33,8 +33,8 @@ Read these before generating code:
 | Need                            | Component                        | Key props                                |
 | ------------------------------- | -------------------------------- | ---------------------------------------- |
 | Interactive asset map           | `Map`                            | `assets`, `mapboxAccessToken`, `colorBy` |
-| Any time series                 | `LineChart`                      | `series: TimeSeries[]`                   |
-| Forecast / variance editor      | `LineChart`                      | `series`, `forecast`, `annotations`      |
+| Any time series                 | `Chart`                          | `kind`, `series: TimeSeries[]`           |
+| Forecast / variance editor      | `Chart`                          | `kind="line"`, `series`, `forecast`     |
 | Asset info on click             | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
 | Multi-asset selection           | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
 | File overlay management         | `OverlayManager`                 | `overlays`, `onUpload`                   |
@@ -147,7 +147,7 @@ const MapPage = () => (
 // Components
 import {
   Map,
-  LineChart,
+  Chart,
   ProductionChart,
   DeclineCurve,
   AssetDetailCard,
@@ -224,13 +224,13 @@ const MapDemo = () => (
 ```
 
 ```tsx
-// Unified LineChart forecast demo with the sample well
+// Unified Chart forecast demo with the sample well
 import {
   sampleDeclineCurveProduction,
   sampleDeclineCurveSegments,
   sampleDeclineCurveAnnotations,
 } from "@aai-agency/og-components/sample-data";
-import { createVarianceRelatedChart, LineChart } from "@aai-agency/og-components/line-chart";
+import { createVarianceRelatedChart, Chart } from "@aai-agency/og-components/chart";
 
 const productionSeries = {
   id: "oil.actual",
@@ -245,7 +245,8 @@ const productionSeries = {
 };
 
 const DeclineDemo = () => (
-  <LineChart
+  <Chart
+    kind="line"
     series={[productionSeries]}
     forecast={{
       seriesId: "oil.actual",

@@ -92,6 +92,9 @@ export interface ChartConfig {
   kind: ChartKind;
   series: readonly ChartSeriesConfig[];
   height?: number;
+  xAxisLabel?: string;
+  /** Hide the panel title and kind while retaining its legend and controls. */
+  showTitle?: boolean;
   symmetricY?: boolean;
   inheritAnnotations?: boolean;
   /** Initial interaction chrome. Runtime changes are owned by the chart-group machine. */
@@ -108,6 +111,8 @@ export interface PreparedChart {
   label: string;
   kind: ChartKind;
   height: number;
+  xAxisLabel?: string;
+  showTitle: boolean;
   symmetricY: boolean;
   inheritAnnotations: boolean;
   controls: ChartControlSettings;
@@ -553,6 +558,8 @@ export const prepareChartGroup = (
       label: chart.label,
       kind: chart.kind,
       height: Math.max(140, chart.height ?? (preparedCharts.length === 0 ? 280 : 180)),
+      xAxisLabel: chart.xAxisLabel,
+      showTitle: chart.showTitle ?? true,
       symmetricY: chart.symmetricY ?? false,
       inheritAnnotations: chart.inheritAnnotations ?? true,
       controls: { ...DEFAULT_CHART_CONTROL_SETTINGS, ...chart.controls },

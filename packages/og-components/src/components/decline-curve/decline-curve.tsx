@@ -149,7 +149,7 @@ export interface DeclineCurveProps {
    * Purely for context — they are never forecast or editable.
    */
   contextSeries?: TimeSeries[];
-  /** All source series from the parent LineChart, exposed to related-chart derivations. */
+  /** All source series from the parent Chart, exposed to related-chart derivations. */
   sourceSeries?: TimeSeries[];
   /** Synchronized line or bar charts derived from this chart's parent context. */
   relatedCharts?: RelatedChartConfig[];
@@ -2805,7 +2805,7 @@ const RangeSlider = ({
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
-// The forecast/annotation engine. Public consumers use `LineChart` (which renders
+// The forecast/annotation engine. Public consumers use `Chart` (which renders
 // this for its forecast/annotation path); `DeclineCurve` below is a deprecated
 // alias kept for back-compat.
 export const ForecastEngine = memo(
@@ -5615,7 +5615,7 @@ export const ForecastEngine = memo(
 ForecastEngine.displayName = "DeclineCurve";
 
 /**
- * @deprecated Use `LineChart` with a `forecast` config instead — it is the single
+ * @deprecated Use `Chart` with `kind="line"` and a `forecast` config instead — it is the single
  * time-series chart (plain plot, or with the decline-forecast + annotation engine
  * turned on). This alias renders the same engine, so existing code keeps working.
  */
