@@ -28,7 +28,7 @@ pnpm build
 ```
 packages/og-components/   # The published library
   src/
-    components/            # React components (Map, LineChart, etc.)
+    components/            # React components (Map, Chart, etc.)
     types/                 # TypeScript type definitions
     schemas/               # Zod validation schemas
     utils/                 # Helpers (formatting, geo, CSV)

@@ -1,7 +1,7 @@
 export type { AssetDetailCardProps, AssetDetailSection } from "../asset-card";
 export { AssetDetailCard } from "../asset-card";
-export type { LineChartProps, ProductionChartProps } from "../line-chart";
-export { LineChart, ProductionChart } from "../line-chart";
+export type { ChartProps, LineChartProps, ProductionChartProps } from "../line-chart";
+export { Chart, LineChart, ProductionChart } from "../line-chart";
 export type { MapControlId, MapControlsProps, MapLayerId } from "./components/controls";
 export { MapControls } from "./components/controls";
 export type { OverlayManagerProps } from "./components/overlay-manager";

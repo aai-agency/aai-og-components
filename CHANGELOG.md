@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.6.0] - 2026-08-19
+
+### Changed — breaking chart API consolidation
+
+- `Chart` is now the canonical single-panel component and requires an explicit `kind="line"` or `kind="bar"`. Chart type is visual configuration; actual and forecast remain ordinary series distinguished by `seriesType`.
+- Added the focused `@aai-agency/og-components/chart` export. The existing `/line-chart` entry remains available for compatibility.
+- `ChartGroup` remains the composition surface for synchronized panels, ID-addressable source and derived series, shared X navigation, independent Y ranges, annotations, and per-panel controls.
+- `AssetDetailCard` and all executable demos now consume `Chart` instead of the line-specific compatibility entry.
+- `LineChart`, `ProductionChart`, and `DeclineCurve` remain functional but deprecated so existing applications can migrate deliberately.
+
+### Migration
+
+```tsx
+// Before
+<LineChart series={series} />
+
+// After
+<Chart kind="line" series={series} />
+
+// The same data can use a different visual renderer.
+<Chart kind="bar" series={series} />
+```
+
+### Tests
+
+- Added public-boundary rendering coverage for both `Chart` kinds and retained compatibility coverage for `LineChart`.
+
 ## [0.5.2] - 2026-08-19
 
 ### Changed

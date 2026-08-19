@@ -13,7 +13,7 @@ export interface RelatedChartDerivationContext {
   forecast: ArrayLike<number>;
   /** Actual minus forecast aligned to time. */
   variance: ArrayLike<number>;
-  /** Source series supplied to the parent LineChart. */
+  /** Source series supplied to the parent Chart. */
   sourceSeries: readonly TimeSeries[];
   /** Current forecast segments. */
   segments: readonly Segment[];

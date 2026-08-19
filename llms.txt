@@ -23,10 +23,10 @@ import "mapbox-gl/dist/mapbox-gl.css";
 ## Components
 
 - Map — Interactive asset map with deck.gl, clustering, overlays, drawing tools, lasso selection
-- LineChart — One domain-neutral time-series chart. Per-series label/color/axis, functional X/Y value formatting, and configurable axis/tooltip/legend/title typography sizes and weights are supported. Forecasts supplied as data are ordinary TimeSeries entries with `seriesType: "forecast"`; `forecast={{ seriesId, ... }}` is the optional interactive editor adapter.
+- Chart — The canonical single-panel chart. Choose `kind="line"` or `kind="bar"`. Per-series label/color/axis, functional X/Y value formatting, and configurable axis/tooltip/legend/title typography sizes and weights are supported. Forecasts supplied as data are ordinary TimeSeries entries with `seriesType: "forecast"`; `forecast={{ seriesId, ... }}` is the optional interactive line-chart editor adapter.
 - ChartGroup — Composes ordered line/bar panels over an ID-addressable registry that preserves native timestamps. Each panel selects or derives series by explicit IDs. Visible X controls mirror one shared XState window; Y controls stay local to each panel and axis. Per-chart settings can hide X/Y bars or zoom buttons, independently enable a larger presentation treatment, and apply a layout everywhere. Presentation mode temporarily suppresses chrome without overwriting visibility preferences. Bar buckets drill the shared window across monthly, daily, hourly, or secondly panels. Cross-resolution derivations require explicit resampling and aggregation.
-- ProductionChart — Alias of LineChart
-- DeclineCurve — Deprecated. Use LineChart with a `forecast` config; kept as an alias of the same engine
+- LineChart and ProductionChart — Deprecated compatibility entries; migrate to Chart with `kind="line"`
+- DeclineCurve — Deprecated. Use Chart with a `forecast` config; kept as an alias of the same engine
 - AssetDetailCard — Expandable detail panel for any asset, auto-generates sections
 - SelectionPanel — Multi-select panel with filter chips and summary stats
 - OverlayManager — Upload and style KMZ/KML/GeoJSON/Shapefile overlays
@@ -47,7 +47,7 @@ Every entity is an Asset:
 - @aai-agency/og-components/schemas — Zod validation schemas
 - @aai-agency/og-components/utils — Data helpers (formatting, geo, CSV)
 - @aai-agency/og-components/services — Storage backends (localStorage, SQLite, in-memory)
-- @aai-agency/og-components/line-chart — focused chart component and pure preparation services
+- @aai-agency/og-components/chart — focused chart component and pure preparation services
 - @aai-agency/og-components/map — focused map components
 - @aai-agency/og-components/types — shared domain types
 - @aai-agency/og-components/ui — shared UI providers/primitives

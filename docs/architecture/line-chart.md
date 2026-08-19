@@ -1,4 +1,4 @@
-# LineChart architecture
+# Chart architecture
 
 `TimeSeries` is the canonical data primitive. Forecasts are ordinary series with `seriesType: "forecast"`; `associatedType` is optional metadata and never determines identity. Two public visual surfaces consume that primitive:
 
@@ -9,7 +9,7 @@
 
 ## Presentation contract
 
-`LineChart`, `ChartGroup`, related charts, and the forecast compatibility engine share the typed presentation primitive in `chart-presentation.ts`:
+`Chart`, `ChartGroup`, related charts, and the forecast compatibility engine share the typed presentation primitive in `chart-presentation.ts`:
 
 - `formatXValue(value)` formats both X-axis ticks and tooltip headers.
 - `formatYValue(value, context)` formats Y-axis ticks and tooltip values. Its context identifies `location`, `axis`, and, when available, `chartId`, `seriesId`, `label`, and `unit`, so one function can make axis labels compact while keeping tooltip values precise.
@@ -34,16 +34,16 @@ A custom Y formatter returns the complete display string. The chart appends unit
 - XState machines own user and workflow state that has meaningful events or transitions.
 - Services own parsing, validation, alignment, persistence, calculations, and external I/O.
 - Hooks are adapters at framework boundaries. An imperative library lifecycle may use `useLayoutEffect`; application workflows should not be implemented as effect chains.
-- Public consumers should import from focused entries such as `@aai-agency/og-components/line-chart`, `/machines`, `/services`, and `/types`.
+- Public consumers should import from focused entries such as `@aai-agency/og-components/chart`, `/machines`, `/services`, and `/types`.
 - Variance is implemented with `createVarianceRelatedChart`, the same related-chart primitive available to consumers. Compatibility props are adapters, not a parallel rendering path.
 - Do not encode chart relationships through fluid names or array position. Stable series IDs and explicit `sourceSeriesIds` are the composition contract.
 - Do not infer aggregation from display metadata. For example, volumes commonly use `sum`, pressures commonly use `average` or `last`, and only the consuming domain can choose correctly.
 
 ## Compatibility boundary
 
-`ProductionChart` remains a deprecated `LineChart` alias. `DeclineCurve` remains a deprecated advanced-engine entry for existing consumers. New development should extend `LineChart` and keep domain-specific equations inside the forecast service/engine boundary.
+`LineChart` and `ProductionChart` remain deprecated compatibility entries with their historical line-only props. `DeclineCurve` remains a deprecated advanced-engine entry for existing consumers. New development should use `Chart` with an explicit `kind` and keep domain-specific equations inside the forecast service/engine boundary.
 
-The advanced forecast editor predates the plain-path separation and still contains local interaction state. Its public behavior is covered by the decline-math suite and executable playground. Further internal extraction should move workflows into small XState actors without changing the unified `LineChart` contract.
+The advanced forecast editor predates the plain-path separation and still contains local interaction state. Its public behavior is covered by the decline-math suite and executable playground. Further internal extraction should move workflows into small XState actors without changing the unified `Chart` contract.
 
 ## Extension for Petry-style insights
 

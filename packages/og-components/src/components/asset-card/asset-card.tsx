@@ -18,7 +18,7 @@ import {
 } from "../../theme";
 import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../types";
 import { formatNumber } from "../../utils";
-import { LineChart } from "../line-chart";
+import { Chart } from "../line-chart";
 import { Tooltip, TooltipProvider } from "../ui/tooltip";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -474,7 +474,15 @@ const LineChartSection = memo(({ asset }: { asset: Asset }) => {
       </div>
       {!collapsed && (
         <div style={{ padding: "8px 0" }}>
-          <LineChart series={timeSeries} height={160} />
+          <Chart
+            id={`${asset.id}-summary`}
+            label={chartTitle}
+            kind="line"
+            series={timeSeries}
+            height={160}
+            showTitle={false}
+            controls={{ showXZoom: false, showYZoom: false, showZoomButtons: false }}
+          />
         </div>
       )}
       {expanded &&
@@ -558,7 +566,14 @@ const LineChartSection = memo(({ asset }: { asset: Asset }) => {
                   </button>
                 </Tooltip>
               </div>
-              <LineChart series={timeSeries} height={500} />
+              <Chart
+                id={`${asset.id}-expanded`}
+                label={chartTitle}
+                kind="line"
+                series={timeSeries}
+                height={500}
+                showTitle={false}
+              />
             </div>
           </div>,
           document.body,

@@ -119,7 +119,7 @@ const AssetDetailCardPage = () => {
   return (
     <PageWrapper
       title="AssetDetailCard"
-      description="Expandable asset details with an embedded LineChart powered by properties.timeSeries."
+      description="Expandable asset details with an embedded Chart powered by properties.timeSeries."
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <DemoCard title="Producing Well">
@@ -140,7 +140,7 @@ const AssetDetailCardPage = () => {
           {
             name: "asset",
             type: "Asset",
-            description: "The asset to display; properties.timeSeries renders the unified LineChart",
+            description: "The asset to display; properties.timeSeries renders the unified Chart",
           },
           {
             name: "sections",

@@ -5,10 +5,13 @@ import { lineChartMachine } from "../../machines/line-chart.machine";
 import type { TimeSeries } from "../../types";
 import { ForecastEngine } from "../decline-curve/decline-curve";
 import type { Annotation, Segment } from "../decline-curve/decline-math";
+import { ChartGroup } from "./chart-group";
+import type { ChartControlSettings, ChartKind, ChartSeriesReference } from "./chart-group.services";
 import { type ChartTypography, type ChartYValueFormatter, resolveChartTypography } from "./chart-presentation";
 import {
   createXValueFormatter,
   DEFAULT_RIGHT_AXIS_SERIES,
+  DEFAULT_SERIES_LABELS,
   getTimeSeriesAssociatedType,
   getTimeSeriesType,
   lineChartSeriesFingerprint,
@@ -36,6 +39,7 @@ export interface ForecastConfig {
   varianceHeight?: number;
 }
 
+/** @deprecated Use `ChartProps` and `Chart` with `kind="line"` instead. */
 export interface LineChartProps {
   series: TimeSeries[];
   height?: number;
@@ -59,6 +63,22 @@ export interface LineChartProps {
   onAnnotationsChange?: (annotations: Annotation[]) => void;
   /** Charts derived from and synchronized with this chart's primary series. */
   relatedCharts?: RelatedChartConfig[];
+}
+
+/** Canonical single-panel chart API. Rendering is selected independently from series semantics. */
+export interface ChartProps extends LineChartProps {
+  /** Visual primitive for the panel. Forecast remains a series type, not a chart kind. */
+  kind: ChartKind;
+  /** Stable panel ID used by chart state and tooltip context. */
+  id?: string;
+  /** Visible and accessible panel label. */
+  label?: string;
+  /** Hide the panel title and kind while retaining its series legend and controls. */
+  showTitle?: boolean;
+  /** Initial visibility for this panel's presentation and zoom controls. */
+  controls?: Partial<ChartControlSettings>;
+  /** IANA timezone used for calendar buckets, tooltips, and axis labels. */
+  timeZone?: string;
 }
 
 type PlainLineChartControllerProps = Omit<LineChartProps, "forecast" | "annotations" | "onAnnotationsChange">;
@@ -111,6 +131,7 @@ const PlainLineChartController = ({
 const inferTimeUnit = (series?: TimeSeries): "day" | "month" | "year" =>
   series?.frequency === "daily" ? "day" : series?.frequency === "yearly" ? "year" : "month";
 
+/** @deprecated Use `Chart` with `kind="line"` instead. */
 export const LineChart = ({
   series,
   height,
@@ -198,7 +219,107 @@ export const LineChart = ({
 
 LineChart.displayName = "LineChart";
 
-/** @deprecated Use `LineChart` instead. */
+/**
+ * Canonical single-panel chart. Use `kind` to select line or bar rendering;
+ * seriesType continues to distinguish actual and forecast data.
+ */
+export const Chart = ({
+  kind,
+  id = "chart",
+  label = "Chart",
+  showTitle = true,
+  controls,
+  timeZone = "UTC",
+  series,
+  height,
+  width,
+  colors,
+  labels,
+  rightAxisFluids = [...DEFAULT_RIGHT_AXIS_SERIES],
+  formatXValue,
+  formatYValue,
+  typography,
+  xAxisLabel,
+  xScale,
+  showForecast = true,
+  emptyMessage,
+  forecast,
+  annotations,
+  onAnnotationsChange,
+  relatedCharts,
+}: ChartProps) => {
+  const interactiveLine =
+    kind === "line" &&
+    (forecast != null || annotations != null || (relatedCharts?.length ?? 0) > 0 || xScale === "linear");
+  if (interactiveLine) {
+    return (
+      <LineChart
+        series={series}
+        height={height}
+        width={width}
+        colors={colors}
+        labels={labels}
+        rightAxisFluids={rightAxisFluids}
+        formatXValue={formatXValue}
+        formatYValue={formatYValue}
+        typography={typography}
+        xAxisLabel={xAxisLabel}
+        xScale={xScale}
+        showForecast={showForecast}
+        emptyMessage={emptyMessage}
+        forecast={forecast}
+        annotations={annotations}
+        onAnnotationsChange={onAnnotationsChange}
+        relatedCharts={relatedCharts}
+      />
+    );
+  }
+
+  const visibleSeries = series.filter((item) => showForecast || getTimeSeriesType(item) !== "forecast");
+  const panelSeries: ChartSeriesReference[] = visibleSeries.map((item) => {
+    const associatedType = getTimeSeriesAssociatedType(item);
+    const baseLabel =
+      item.label ??
+      (associatedType
+        ? (labels?.[associatedType] ?? DEFAULT_SERIES_LABELS[associatedType] ?? associatedType)
+        : item.id);
+    return {
+      seriesId: item.id,
+      label: getTimeSeriesType(item) === "forecast" && baseLabel ? `${baseLabel} (Forecast)` : baseLabel,
+      color: item.color ?? (associatedType ? colors?.[associatedType] : undefined),
+      axis: item.axis ?? (associatedType && rightAxisFluids.includes(associatedType) ? "right" : "left"),
+    };
+  });
+
+  return (
+    <ChartGroup
+      series={visibleSeries}
+      charts={[
+        {
+          id,
+          label,
+          kind,
+          series: panelSeries,
+          height,
+          xAxisLabel,
+          showTitle,
+          controls,
+        },
+      ]}
+      annotations={annotations}
+      width={width}
+      timeZone={timeZone}
+      formatXValue={formatXValue}
+      formatYValue={formatYValue}
+      typography={typography}
+      emptyMessage={emptyMessage}
+    />
+  );
+};
+
+Chart.displayName = "Chart";
+
+/** @deprecated Use `Chart` with `kind="line"` instead. */
 export const ProductionChart = LineChart;
-/** @deprecated Use `LineChartProps` instead. */
+/** @deprecated Use `ChartProps` instead. */
 export type ProductionChartProps = LineChartProps;

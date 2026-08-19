@@ -1,6 +1,6 @@
 # DeclineCurve
 
-> **Deprecated.** Use **`LineChart`** with a `forecast` config instead — it's the single
+> **Deprecated.** Use **`Chart`** with `kind="line"` and a `forecast` config instead — it's the single
 > time-series chart (plain plot, or with this decline-forecast + annotation engine
 > turned on). `DeclineCurve` remains exported as a thin alias of the same engine, so
 > existing code keeps working. This doc describes that engine's behavior.
@@ -16,7 +16,7 @@ A React component that renders a production chart with two parts on top of the a
 1. A **multi-segment forecast line** the user can reshape by dragging (each segment chains C0-continuously from the prior segment's end).
 2. A **range-annotation system** for events like flowback ramps, workovers, and shut-ins, with aggregate Δ stats inside each range.
 
-There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and support for synchronized related charts attached below. The historical variance sub-chart is now the `createVarianceRelatedChart` bar preset used by `LineChart.relatedCharts`.
+There's a side panel for navigating the segment / annotation list and editing one item at a time, an Actions menu that toggles between Forecast (drag-to-edit) and Annotate (draw regions) modes, and support for synchronized related charts attached below. The historical variance sub-chart is now the `createVarianceRelatedChart` bar preset used by `Chart.relatedCharts`.
 
 ## Quick start
 
