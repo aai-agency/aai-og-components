@@ -367,13 +367,15 @@ const MetadataView = memo(({ asset }: { asset: Asset }) => {
 });
 MetadataView.displayName = "MetadataView";
 
-// ── ProductionChartSection ───────────────────────────────────────────────────
+// ── LineChartSection ─────────────────────────────────────────────────────────
 
-const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
+const LineChartSection = memo(({ asset }: { asset: Asset }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const timeSeries = asset.properties?.timeSeries as TimeSeries[] | undefined;
   if (!timeSeries || timeSeries.length === 0) return null;
+  const hasForecast = timeSeries.some((series) => series.seriesType === "forecast" || series.curveType === "forecast");
+  const chartTitle = hasForecast ? "Production & Forecast" : "Production History";
 
   return (
     <div style={{ marginBottom: 0 }}>
@@ -412,13 +414,14 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
             letterSpacing: "0.05em",
           }}
         >
-          Production History
+          {chartTitle}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {!collapsed && (
             <Tooltip label="Expand chart">
               <button
                 type="button"
+                aria-label={`Expand ${chartTitle.toLowerCase()}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpanded(true);
@@ -490,7 +493,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
           >
             <button
               type="button"
-              aria-label="Close expanded production history"
+              aria-label={`Close expanded ${chartTitle.toLowerCase()}`}
               onClick={() => setExpanded(false)}
               style={{
                 position: "absolute",
@@ -504,7 +507,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`${asset.name} production history`}
+              aria-label={`${asset.name} ${chartTitle.toLowerCase()}`}
               style={{
                 background: "#ffffff",
                 borderRadius: 12,
@@ -520,11 +523,12 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING }}>
-                  {asset.name} - Production History
+                  {asset.name} - {chartTitle}
                 </span>
                 <Tooltip label="Close">
                   <button
                     type="button"
+                    aria-label={`Close ${chartTitle.toLowerCase()}`}
                     onClick={() => setExpanded(false)}
                     style={{
                       width: 28,
@@ -562,7 +566,7 @@ const ProductionChartSection = memo(({ asset }: { asset: Asset }) => {
     </div>
   );
 });
-ProductionChartSection.displayName = "ProductionChartSection";
+LineChartSection.displayName = "LineChartSection";
 
 // ── AssetDetailCard ──────────────────────────────────────────────────────────
 
@@ -797,7 +801,7 @@ export const AssetDetailCard = memo(
           ) : (
             <>
               {renderSlot(slots?.afterHeader)}
-              <ProductionChartSection asset={asset} />
+              <LineChartSection asset={asset} />
               {renderSlot(slots?.afterChart)}
               {sections.map((section) =>
                 renderSection ? (

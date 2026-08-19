@@ -94,7 +94,7 @@ Plain, grouped, related, and forecast charts share the same value-formatting and
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
 - **LineChart + ChartGroup** — Domain-neutral native-resolution series, ordinary forecast series, explicit cross-resolution resampling, ID-based derivations, configurable per-panel X/Y controls and presentation mode, dual axes, annotations, and synchronized line/bar panels
-- **Asset Detail Cards** — Click any asset to see its properties, production chart, and custom fields
+- **Asset Detail Cards** — Click any asset to see its properties, custom fields, and an embedded `LineChart` for actual and forecast series
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
