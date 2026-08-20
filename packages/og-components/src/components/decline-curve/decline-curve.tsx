@@ -31,7 +31,11 @@ import {
   type ResolvedChartTypography,
   resolveChartTypography,
 } from "../line-chart/chart-presentation";
-import { getChartTooltipPosition } from "../line-chart/chart-tooltip.services";
+import {
+  escapeChartTooltipHtml,
+  getChartAnnotationTooltipItems,
+  getChartTooltipPosition,
+} from "../line-chart/chart-tooltip.services";
 import { getTimeSeriesAssociatedType } from "../line-chart/line-chart.services";
 import {
   createVarianceRelatedChart,
@@ -281,6 +285,7 @@ const AXIS_STYLE = {
 const tooltipPlugin = (
   unit: string,
   getSegments: () => Segment[],
+  getAnnotations: () => readonly Annotation[],
   /** Shared buffers — the variance chart's own series data doesn't include
    *  actual/forecast, so we pull everything from here regardless of which
    *  chart is hosting the tooltip. */
@@ -306,6 +311,7 @@ const tooltipPlugin = (
       pointerEvents: "none",
       zIndex: "100000",
       minWidth: "172px",
+      maxWidth: "320px",
       background: "#ffffff",
       color: "#0f172a",
       border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -365,6 +371,8 @@ const tooltipPlugin = (
       tooltip.style.display = "none";
       return;
     }
+    const cursorTime = u.cursor.left == null ? month : u.posToVal(u.cursor.left, "x");
+    const annotationItems = getChartAnnotationTooltipItems(getAnnotations(), cursorTime);
 
     let html =
       `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid rgba(15, 23, 42, 0.06)">` +
@@ -433,6 +441,18 @@ const tooltipPlugin = (
             : `${sign}${formatNumber(delta, 0)} ${unit}`
         }</span>` +
         `</div>`;
+    }
+
+    if (annotationItems.length > 0) {
+      html += `<div style="border-top:1px solid rgba(15, 23, 42, 0.08);margin-top:2px;padding:4px 12px 7px">`;
+      for (const annotation of annotationItems) {
+        html +=
+          `<div style="display:grid;grid-template-columns:8px minmax(0,1fr);gap:6px 8px;padding-top:5px">` +
+          `<span aria-hidden="true" style="width:8px;height:8px;margin-top:3px;border-radius:999px;background:${escapeChartTooltipHtml(annotation.color)}"></span>` +
+          `<div><div style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipHeaderFontWeight};color:#334155">${escapeChartTooltipHtml(annotation.label)}</div>` +
+          `${annotation.description ? `<div style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight};color:#64748b;line-height:1.4">${escapeChartTooltipHtml(annotation.description)}</div>` : ""}</div></div>`;
+      }
+      html += `</div>`;
     }
 
     html += `</div>`;
@@ -4466,6 +4486,7 @@ export const ForecastEngine = memo(
           tooltipPlugin(
             unit,
             () => segmentsRef.current,
+            () => (showAnnotationsOnChartRef.current ? annotationsRef.current : []),
             () => buffersRef.current,
             formatXValue,
             formatYValue,

@@ -15,7 +15,11 @@ import {
 } from "./chart-group.services";
 import { type ChartYValueFormatter, formatChartYValue, type ResolvedChartTypography } from "./chart-presentation";
 import { ChartRangeControl } from "./chart-range-control";
-import { getChartTooltipPosition } from "./chart-tooltip.services";
+import {
+  escapeChartTooltipHtml,
+  getChartAnnotationTooltipItems,
+  getChartTooltipPosition,
+} from "./chart-tooltip.services";
 
 const AXIS_STYLE = {
   stroke: TEXT_FAINT,
@@ -23,12 +27,6 @@ const AXIS_STYLE = {
   ticks: { stroke: "rgba(148, 163, 184, 0.15)", width: 1 },
   gap: 4,
 } as const;
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>'"]/g, (character) => {
-    const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" };
-    return entities[character] ?? character;
-  });
 
 const annotationsPlugin = (
   preparedRef: RefObject<PreparedChart>,
@@ -106,6 +104,7 @@ const barsPlugin = (preparedRef: RefObject<PreparedChart>): uPlot.Plugin => ({
 
 const tooltipPlugin = (
   preparedRef: RefObject<PreparedChart>,
+  annotationsRef: RefObject<readonly Annotation[]>,
   formatXRef: RefObject<(value: number) => string>,
   formatYRef: RefObject<ChartYValueFormatter | undefined>,
   typography: ResolvedChartTypography,
@@ -131,7 +130,7 @@ const tooltipPlugin = (
           fontWeight: `${typography.tooltipFontWeight}`,
           color: "#334155",
           lineHeight: "1.5",
-          whiteSpace: "nowrap",
+          maxWidth: "300px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         });
         document.body.appendChild(tooltip);
@@ -161,14 +160,28 @@ const tooltipPlugin = (
             1,
           );
           return [
-            `<div style="display:flex;gap:8px"><span style="color:${series.color}">${escapeHtml(series.label)}</span><span style="margin-left:auto;font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight}">${escapeHtml(formattedValue)}</span></div>`,
+            `<div style="display:flex;gap:8px;white-space:nowrap"><span style="color:${escapeChartTooltipHtml(series.color)}">${escapeChartTooltipHtml(series.label)}</span><span style="margin-left:auto;font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight}">${escapeChartTooltipHtml(formattedValue)}</span></div>`,
           ];
         });
-        if (rows.length === 0) {
+        const cursorTime = chart.cursor.left == null ? x : chart.posToVal(chart.cursor.left, "x");
+        const annotationItems = getChartAnnotationTooltipItems(annotationsRef.current, cursorTime);
+        if (rows.length === 0 && annotationItems.length === 0) {
           tooltip.style.display = "none";
           return;
         }
-        tooltip.innerHTML = `<div style="font-weight:${typography.tooltipHeaderFontWeight};color:#94a3b8">${escapeHtml(formatXRef.current(x))}</div>${rows.join("")}`;
+        const annotationRows = annotationItems
+          .map(
+            (annotation) =>
+              `<div style="display:grid;grid-template-columns:8px minmax(0,1fr);gap:6px 8px;padding-top:5px">` +
+              `<span aria-hidden="true" style="width:8px;height:8px;margin-top:3px;border-radius:999px;background:${escapeChartTooltipHtml(annotation.color)}"></span>` +
+              `<div><div style="font-weight:${typography.tooltipHeaderFontWeight};color:#334155">${escapeChartTooltipHtml(annotation.label)}</div>` +
+              `${annotation.description ? `<div style="color:#64748b;line-height:1.4">${escapeChartTooltipHtml(annotation.description)}</div>` : ""}</div></div>`,
+          )
+          .join("");
+        const annotationSection = annotationRows
+          ? `<div style="border-top:1px solid #e2e8f0;margin-top:5px;padding-top:1px">${annotationRows}</div>`
+          : "";
+        tooltip.innerHTML = `<div style="font-weight:${typography.tooltipHeaderFontWeight};color:#94a3b8">${escapeChartTooltipHtml(formatXRef.current(x))}</div>${rows.join("")}${annotationSection}`;
         tooltip.style.display = "block";
         const rect = chart.over.getBoundingClientRect();
         const cursorX = rect.left + (chart.cursor.left ?? 0);
@@ -253,7 +266,10 @@ const ChartPanelSurface = ({
   const typographyToken = Object.values(typography).join(":");
   const fingerprint = `${prepared.id}:${prepared.kind}:${displayHeight}:${prepared.xAxisLabel ?? ""}:${prepared.symmetricY}:${timeZone}:${typographyToken}:${prepared.series.map((series) => `${series.id}:${series.axis}:${series.unit}`).join("|")}`;
   const annotationToken = annotations
-    .map((annotation) => `${annotation.id}:${annotation.tStart}:${annotation.tEnd}:${annotation.color ?? ""}`)
+    .map(
+      (annotation) =>
+        `${annotation.id}:${annotation.tStart}:${annotation.tEnd}:${annotation.type}:${annotation.label ?? ""}:${annotation.description ?? ""}:${annotation.color ?? ""}`,
+    )
     .join("|");
 
   useLayoutEffect(() => {
@@ -333,7 +349,7 @@ const ChartPanelSurface = ({
         plugins: [
           annotationsPlugin(preparedRef, annotationsRef),
           barsPlugin(preparedRef),
-          tooltipPlugin(preparedRef, formatXRef, formatYRef, typography),
+          tooltipPlugin(preparedRef, annotationsRef, formatXRef, formatYRef, typography),
         ],
         cursor: {
           drag: { x: false, y: false },

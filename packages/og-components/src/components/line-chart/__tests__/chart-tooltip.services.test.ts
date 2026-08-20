@@ -1,6 +1,54 @@
 import { describe, expect, it } from "vitest";
 
-import { getChartTooltipPosition } from "../chart-tooltip.services";
+import {
+  escapeChartTooltipHtml,
+  getChartAnnotationTooltipItems,
+  getChartTooltipPosition,
+} from "../chart-tooltip.services";
+
+describe("chart annotation tooltip content", () => {
+  it("returns the label, description, and color for every overlapping annotation", () => {
+    expect(
+      getChartAnnotationTooltipItems(
+        [
+          {
+            id: "workover",
+            tStart: 20,
+            tEnd: 10,
+            type: "workover",
+            label: "  Pump workover  ",
+            description: "  Replaced the ESP.  ",
+          },
+          {
+            id: "note",
+            tStart: 15,
+            tEnd: 25,
+            type: "note",
+            color: "#111827",
+          },
+        ],
+        15,
+      ),
+    ).toEqual([
+      {
+        id: "workover",
+        label: "Pump workover",
+        description: "Replaced the ESP.",
+        color: "#8b5cf6",
+      },
+      { id: "note", label: "Note", color: "#111827" },
+    ]);
+  });
+
+  it("returns no content outside annotation ranges and escapes consumer text", () => {
+    expect(
+      getChartAnnotationTooltipItems([{ id: "event", tStart: 10, tEnd: 20, type: "other", label: "Event" }], 21),
+    ).toEqual([]);
+    expect(escapeChartTooltipHtml('<script>alert("x")</script>')).toBe(
+      "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;",
+    );
+  });
+});
 
 describe("getChartTooltipPosition", () => {
   it("keeps stacked-chart tooltips inside their owning plot and flips at the viewport edge", () => {

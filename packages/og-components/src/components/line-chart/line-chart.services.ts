@@ -1,13 +1,10 @@
 import type uPlot from "uplot";
 
+import { SERIES_COLORS } from "../../constants/colors";
 import type { TimeSeries } from "../../types";
 import { formatNumber } from "../../utils";
 
-export const DEFAULT_SERIES_COLORS: Readonly<Record<string, string>> = {
-  oil: "#10b981",
-  gas: "#f97066",
-  water: "#38bdf8",
-};
+export const DEFAULT_SERIES_COLORS: Readonly<Record<string, string>> = SERIES_COLORS;
 
 export const DEFAULT_SERIES_LABELS: Readonly<Record<string, string>> = {
   oil: "Oil",

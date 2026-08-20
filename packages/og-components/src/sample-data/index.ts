@@ -1,6 +1,7 @@
 import type { Asset } from "../types";
 import wellsJson from "./wells.json";
 
+export { sampleProducingAsset, sampleShutInAsset } from "./asset-detail-card";
 export {
   generateSampleDeclineCurveProduction,
   sampleDeclineCurveAnnotations,
