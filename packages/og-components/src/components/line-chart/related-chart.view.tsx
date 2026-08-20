@@ -5,7 +5,11 @@ import uPlot from "uplot";
 import { TEXT_FAINT, TEXT_MUTED } from "../../theme";
 import { colorForAnnotation } from "../decline-curve/decline-math";
 import { type ChartYValueFormatter, formatChartYValue, type ResolvedChartTypography } from "./chart-presentation";
-import { getChartTooltipPosition } from "./chart-tooltip.services";
+import {
+  escapeChartTooltipHtml,
+  getChartAnnotationTooltipItems,
+  getChartTooltipPosition,
+} from "./chart-tooltip.services";
 import type { PreparedRelatedChart, RelatedChartDerivationContext } from "./related-chart.services";
 import { resolveRelatedChartColor } from "./related-chart.services";
 
@@ -98,6 +102,7 @@ const relatedBarsPlugin = (
 
 const relatedTooltipPlugin = (
   preparedRef: RefObject<PreparedRelatedChart>,
+  contextRef: RefObject<RelatedChartDerivationContext>,
   formatXRef: RefObject<(value: number) => string>,
   formatYRef: RefObject<ChartYValueFormatter | undefined>,
   typography: ResolvedChartTypography,
@@ -123,6 +128,7 @@ const relatedTooltipPlugin = (
           fontWeight: `${typography.tooltipFontWeight}`,
           color: "#334155",
           lineHeight: "1.5",
+          maxWidth: "300px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         });
         document.body.appendChild(tooltip);
@@ -132,24 +138,47 @@ const relatedTooltipPlugin = (
         const index = chart.cursor.idx;
         const x = index == null || index < 0 ? null : chart.data[0][index];
         const value = index == null || index < 0 ? null : chart.data[1][index];
-        if (x == null || value == null) {
+        if (x == null) {
           tooltip.style.display = "none";
           return;
         }
-        const formattedValue = formatChartYValue(
-          value,
-          {
-            axis: "left",
-            location: "tooltip",
-            chartId: preparedRef.current.id,
-            seriesId: preparedRef.current.id,
-            label: preparedRef.current.label,
-            unit: preparedRef.current.unit,
-          },
-          formatYRef.current,
-          1,
-        );
-        tooltip.innerHTML = `<div style="font-weight:${typography.tooltipHeaderFontWeight};color:#94a3b8">${formatXRef.current(x)}</div><div>${preparedRef.current.label}: <span style="font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight}">${formattedValue}</span></div>`;
+        const cursorTime = chart.cursor.left == null ? x : chart.posToVal(chart.cursor.left, "x");
+        const annotationItems = getChartAnnotationTooltipItems(contextRef.current.annotations, cursorTime);
+        if (value == null && annotationItems.length === 0) {
+          tooltip.style.display = "none";
+          return;
+        }
+        const valueRow =
+          value == null
+            ? ""
+            : `<div style="display:flex;gap:8px;white-space:nowrap"><span>${escapeChartTooltipHtml(preparedRef.current.label)}</span><span style="margin-left:auto;font-size:${typography.tooltipFontSize}px;font-weight:${typography.tooltipFontWeight}">${escapeChartTooltipHtml(
+                formatChartYValue(
+                  value,
+                  {
+                    axis: "left",
+                    location: "tooltip",
+                    chartId: preparedRef.current.id,
+                    seriesId: preparedRef.current.id,
+                    label: preparedRef.current.label,
+                    unit: preparedRef.current.unit,
+                  },
+                  formatYRef.current,
+                  1,
+                ),
+              )}</span></div>`;
+        const annotationRows = annotationItems
+          .map(
+            (annotation) =>
+              `<div style="display:grid;grid-template-columns:8px minmax(0,1fr);gap:6px 8px;padding-top:5px">` +
+              `<span aria-hidden="true" style="width:8px;height:8px;margin-top:3px;border-radius:999px;background:${escapeChartTooltipHtml(annotation.color)}"></span>` +
+              `<div><div style="font-weight:${typography.tooltipHeaderFontWeight};color:#334155">${escapeChartTooltipHtml(annotation.label)}</div>` +
+              `${annotation.description ? `<div style="color:#64748b;line-height:1.4">${escapeChartTooltipHtml(annotation.description)}</div>` : ""}</div></div>`,
+          )
+          .join("");
+        const annotationSection = annotationRows
+          ? `<div style="border-top:1px solid #e2e8f0;margin-top:5px;padding-top:1px">${annotationRows}</div>`
+          : "";
+        tooltip.innerHTML = `<div style="font-weight:${typography.tooltipHeaderFontWeight};color:#94a3b8">${escapeChartTooltipHtml(formatXRef.current(x))}</div>${valueRow}${annotationSection}`;
         tooltip.style.display = "block";
         const rect = chart.over.getBoundingClientRect();
         const cursorX = rect.left + (chart.cursor.left ?? 0);
@@ -200,7 +229,12 @@ const RelatedChartSurface = ({
   formatYRef.current = formatY;
   xRangeRef.current = xRange;
   const surfaceFingerprint = `${prepared.id}:${prepared.kind}:${prepared.height}:${prepared.unit}:${prepared.symmetricY}:${prepared.strokeWidth}:${Object.values(typography).join(":")}`;
-  const redrawToken = `${selectedAnnotationId ?? ""}:${context.annotations.map((annotation) => `${annotation.id}:${annotation.tStart}:${annotation.tEnd}:${annotation.color ?? ""}`).join("|")}`;
+  const redrawToken = `${selectedAnnotationId ?? ""}:${context.annotations
+    .map(
+      (annotation) =>
+        `${annotation.id}:${annotation.tStart}:${annotation.tEnd}:${annotation.type}:${annotation.label ?? ""}:${annotation.description ?? ""}:${annotation.color ?? ""}`,
+    )
+    .join("|")}`;
 
   useLayoutEffect(() => {
     void surfaceFingerprint;
@@ -229,7 +263,7 @@ const RelatedChartSurface = ({
         plugins: [
           annotationBackdropPlugin(preparedRef, contextRef, selectedAnnotationIdRef),
           relatedBarsPlugin(preparedRef, contextRef),
-          relatedTooltipPlugin(preparedRef, formatXRef, formatYRef, typography),
+          relatedTooltipPlugin(preparedRef, contextRef, formatXRef, formatYRef, typography),
         ],
         cursor: { drag: { x: false, y: false }, sync: { key: syncKey, setSeries: false }, points: { show: false } },
         legend: { show: false },

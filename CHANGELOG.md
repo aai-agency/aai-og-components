@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.6.1] - 2026-08-20
+
+### Added
+
+- Annotation labels and descriptions now appear in chart tooltips across forecast, grouped, and related charts, including overlapping events and synchronized panels.
+- Exported realistic producing and shut-in sample assets for `AssetDetailCard` demos and documentation.
+
+### Fixed
+
+- Kept synchronized tooltips inside their owning plot while preserving tooltip visibility across stacked charts.
+- Standardized production-series colors so oil is green, gas is red, and water is blue in chart defaults and sample assets.
+- Updated the shut-in sample to decline naturally before a discrete transition to sustained zero production.
+- Removed product-specific language from the domain-neutral chart examples and architecture guide.
+
 ## [0.6.0] - 2026-08-19
 
 ### Changed — breaking chart API consolidation
@@ -39,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Split the plain `LineChart` into an exported XState visibility machine, pure data-preparation services, a stateless view, and an isolated uPlot DOM adapter.
-- Generalized `TimeSeries` with custom semantic keys, units, labels, colors, per-series axes, and yearly frequency for non-O&G products such as Petry.
+- Generalized `TimeSeries` with custom semantic keys, units, labels, colors, per-series axes, and yearly frequency for domain-neutral products.
 - Added `ChartGroup`, an ID-addressable composition surface where every line or bar panel declares its own source and derived series. Forecasts are ordinary `TimeSeries` entries, `associatedType` is optional metadata, and derived outputs can feed later panels.
 - Chart groups now preserve each series' native timestamps, expose mirrored X and independent per-axis Y sliders on every panel, adapt time ticks to the active window, and drill shared time windows from bar buckets. Cross-resolution derivatives require explicit aggregation policies.
 - Added per-chart control settings with declarative defaults and XState-owned runtime overrides. Each settings menu can hide vertical or horizontal zoom bars, hide zoom buttons, enable an independent presentation treatment with larger typography and spacing, reset to configured defaults, or apply its layout to every chart. Presentation mode temporarily suppresses interaction chrome without overwriting visibility preferences. Zoom tracks and handles now use a quieter light-gray treatment.

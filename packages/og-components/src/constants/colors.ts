@@ -37,3 +37,10 @@ export const WELL_TYPE_COLORS: Record<string, string> = {
   disposal: "#8b5cf6",
   observation: "#6b7280",
 };
+
+// ── Production Series Colors ──
+export const SERIES_COLORS = {
+  oil: "#10b981",
+  gas: "#f97066",
+  water: "#38bdf8",
+} as const;
