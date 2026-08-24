@@ -7,6 +7,7 @@ export {
   sampleDeclineCurveProduction,
   sampleDeclineCurveSegments,
 } from "./decline-curve";
+export { sampleWellEvents } from "./well-events";
 
 /**
  * 50 real production wells from the Bakken and DJ basins.

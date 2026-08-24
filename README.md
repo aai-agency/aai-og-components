@@ -67,17 +67,31 @@ import { Chart } from "@aai-agency/og-components/chart";
 <Chart kind="bar" series={series} height={320} />;
 ```
 
+`EventTimeline` plots a well's lifecycle events on a shared time axis and a history log. Pass the chart's window as `domain` (and match `padding` to its plot inset) to line the lane up beneath the chart:
+
+```tsx
+import { EventTimeline } from "@aai-agency/og-components/event-timeline";
+
+<EventTimeline
+  events={events}
+  domain={["2021-06-01", "2026-09-01"]}
+  padding={{ left: 56, right: 14 }}
+  title="Well history"
+/>;
+```
+
 ## What You Get
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
 - **Chart + ChartGroup** — Render one line or bar chart or compose synchronized panels over an ID-addressable native-resolution registry. Forecasts are ordinary `TimeSeries` entries. Every panel has mirrored X controls, independent Y controls, functional X/Y value formatters, configurable typography sizes and weights, and its own presentation/settings menu; monthly bar clicks can reveal daily, hourly, or secondly detail. Cross-resolution derivations use explicit resampling policies. (`LineChart`, `ProductionChart`, and `DeclineCurve` remain deprecated compatibility entries.)
+- **Event Timeline** — Plot a well's lifecycle events (spud, completion, frac, workover, shut-in, and more) as points and spans on a time axis that aligns beneath the charts, with typed color coding, swim-lanes, hover tooltips, and a chronological history log
 - **Asset Detail Cards** — Click any asset to see its properties, embedded `Chart`, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files
 - **Color Schemes** — Color by status, type, production, water cut, operator, or basin
 - **Data Persistence** — LocalStorage or in-browser SQLite for large datasets
 - **Validation Schemas** — Zod schemas for assets, production records, overlays, and configuration
-- **Sample Data** — Deterministic demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, and a 900-day forecast/annotation dataset for Chart
+- **Sample Data** — Deterministic demos out of the box: 50 wells (Bakken + DJ Basin), KMZ overlays, a 900-day forecast/annotation dataset for Chart, and a full well-history event set for EventTimeline
 
 ## Requirements
 
@@ -96,7 +110,7 @@ pnpm typecheck  # Type check
 pnpm test       # Run behavioral and domain tests
 ```
 
-For smaller bundles, import focused entry points such as `@aai-agency/og-components/chart`, `/map`, `/types`, and `/ui`. The `/line-chart` entry remains available for compatibility.
+For smaller bundles, import focused entry points such as `@aai-agency/og-components/chart`, `/event-timeline`, `/map`, `/types`, and `/ui`. The `/line-chart` entry remains available for compatibility.
 
 ## Documentation
 

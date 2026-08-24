@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added — EventTimeline
+
+- New `EventTimeline` component: a time-aligned events/history lane for O&G assets. Plots point events and spans (spud, drilling, completion, stimulation, first production, workover, shut-in, and more) on a shared time axis, with typed color coding, an adaptive axis, hover tooltips, and a chronological history log.
+- Pass `domain` matching a chart's visible X window and `padding` matching its plot inset to line the lane up directly beneath the chart.
+- Swim-lanes: set a `lane` on events to split the timeline into stacked bands per workstream. Custom event types fall back to a readable label and neutral color.
+- Added the focused `@aai-agency/og-components/event-timeline` export plus pure layout/formatting services (`normalizeEvents`, `computeTimelineDomain`, `layoutTimeline`, `buildTimelineTicks`, `timelineLegend`, `withAlpha`, and more).
+- New `WellEvent` / `WellEventType` domain types, a `WellEventSchema` Zod schema, and a `sampleWellEvents` sample dataset (a full single-well lifecycle history).
+
 ## [0.6.0] - 2026-08-19
 
 ### Changed — breaking chart API consolidation

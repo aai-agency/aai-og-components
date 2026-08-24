@@ -49,6 +49,23 @@ export const AssetSchema = z.object({
 
 export const AssetArraySchema = z.array(AssetSchema);
 
+// ── Well Event Schema ────────────────────────────────────────────────────────
+
+export const WellEventSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  endDate: z.string().optional(),
+  type: z.string().min(1),
+  title: z.string(),
+  description: z.string().optional(),
+  color: z.string().optional(),
+  lane: z.string().optional(),
+  value: z.number().optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const WellEventArraySchema = z.array(WellEventSchema);
+
 // ── Field & Display Config Schemas ───────────────────────────────────────────
 
 export const FieldConfigSchema = z.object({

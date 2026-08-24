@@ -18,6 +18,10 @@ export default defineConfig({
         import.meta.dirname,
         "../../packages/og-components/src/components/decline-curve/index.ts",
       ),
+      "@aai-agency/og-components/event-timeline": path.resolve(
+        import.meta.dirname,
+        "../../packages/og-components/src/components/event-timeline/index.ts",
+      ),
       "@aai-agency/og-components/chart": path.resolve(
         import.meta.dirname,
         "../../packages/og-components/src/components/line-chart/index.ts",

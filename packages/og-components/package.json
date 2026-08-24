@@ -20,6 +20,10 @@
       "types": "./dist/components/decline-curve/index.d.ts",
       "import": "./dist/components/decline-curve/index.js"
     },
+    "./event-timeline": {
+      "types": "./dist/components/event-timeline/index.d.ts",
+      "import": "./dist/components/event-timeline/index.js"
+    },
     "./line-chart": {
       "types": "./dist/components/line-chart/index.d.ts",
       "import": "./dist/components/line-chart/index.js"

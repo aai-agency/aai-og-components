@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ComponentsAssetDetailCardRouteImport } from './routes/components/asset-detail-card'
 import { Route as ComponentsDeclineCurveRouteImport } from './routes/components/decline-curve'
+import { Route as ComponentsEventTimelineRouteImport } from './routes/components/event-timeline'
 import { Route as ComponentsLineChartRouteImport } from './routes/components/line-chart'
 import { Route as ComponentsMapRouteImport } from './routes/components/map'
 import { Route as ComponentsOverlayManagerRouteImport } from './routes/components/overlay-manager'
@@ -33,6 +34,11 @@ const ComponentsAssetDetailCardRoute =
 const ComponentsDeclineCurveRoute = ComponentsDeclineCurveRouteImport.update({
   id: '/components/decline-curve',
   path: '/components/decline-curve',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComponentsEventTimelineRoute = ComponentsEventTimelineRouteImport.update({
+  id: '/components/event-timeline',
+  path: '/components/event-timeline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComponentsLineChartRoute = ComponentsLineChartRouteImport.update({
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
+  '/components/event-timeline': typeof ComponentsEventTimelineRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
+  '/components/event-timeline': typeof ComponentsEventTimelineRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
+  '/components/event-timeline': typeof ComponentsEventTimelineRoute
   '/components/line-chart': typeof ComponentsLineChartRoute
   '/components/map': typeof ComponentsMapRoute
   '/components/overlay-manager': typeof ComponentsOverlayManagerRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
+    | '/components/event-timeline'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
+    | '/components/event-timeline'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
+    | '/components/event-timeline'
     | '/components/line-chart'
     | '/components/map'
     | '/components/overlay-manager'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ComponentsAssetDetailCardRoute: typeof ComponentsAssetDetailCardRoute
   ComponentsDeclineCurveRoute: typeof ComponentsDeclineCurveRoute
+  ComponentsEventTimelineRoute: typeof ComponentsEventTimelineRoute
   ComponentsLineChartRoute: typeof ComponentsLineChartRoute
   ComponentsMapRoute: typeof ComponentsMapRoute
   ComponentsOverlayManagerRoute: typeof ComponentsOverlayManagerRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       path: '/components/decline-curve'
       fullPath: '/components/decline-curve'
       preLoaderRoute: typeof ComponentsDeclineCurveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/components/event-timeline': {
+      id: '/components/event-timeline'
+      path: '/components/event-timeline'
+      fullPath: '/components/event-timeline'
+      preLoaderRoute: typeof ComponentsEventTimelineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/components/line-chart': {
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ComponentsAssetDetailCardRoute: ComponentsAssetDetailCardRoute,
   ComponentsDeclineCurveRoute: ComponentsDeclineCurveRoute,
+  ComponentsEventTimelineRoute: ComponentsEventTimelineRoute,
   ComponentsLineChartRoute: ComponentsLineChartRoute,
   ComponentsMapRoute: ComponentsMapRoute,
   ComponentsOverlayManagerRoute: ComponentsOverlayManagerRoute,
