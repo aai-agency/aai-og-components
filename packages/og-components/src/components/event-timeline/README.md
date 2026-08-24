@@ -27,7 +27,15 @@ interface WellEvent {
   color?: string;       // overrides the type color
   lane?: string;        // horizontal swim-lane key
   value?: number;       // optional magnitude (stage count, cost, downtime)
+  attachments?: WellEventAttachment[]; // files/links shown in the detail dialog
   meta?: Record<string, unknown>;
+}
+
+interface WellEventAttachment {
+  name: string;   // "Frac stage report.pdf"
+  url: string;    // URL or data URI; images are previewed inline
+  type?: string;  // MIME type; drives the preview
+  size?: string;  // "1.2 MB"
 }
 ```
 
@@ -45,8 +53,9 @@ color-coded status dot, the title, a soft type tag (shown only when it adds
 information beyond the title), a duration and date range for spans, and the
 description.
 
-- **Click a row** to expand a tidy property panel — dates, duration, lane, and any
-  custom `meta` key/values, over the full description.
+- **Click a row** to open a detail dialog (an accessible modal) laid out like a
+  filled-out form: name, date, tags, description, a details list, and
+  **attachments with previews** — images render inline; other files show as cards.
 - **Group filter** (`showFilters`, default on): soft toggle chips for the five
   lifecycle groups; select any to filter the list, with the header showing
   "N of M".

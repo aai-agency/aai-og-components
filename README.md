@@ -67,7 +67,7 @@ import { Chart } from "@aai-agency/og-components/chart";
 <Chart kind="bar" series={series} height={320} />;
 ```
 
-`EventTimeline` shows a well's lifecycle events. By default it renders a clean, light **history list** (shadcn/Notion style) grouped by period — a muted date column, a color-coded status dot, the title with a soft type tag, spans with a duration and date range, a group filter, and a click-to-expand property panel.
+`EventTimeline` shows a well's lifecycle events. By default it renders a clean, light **history list** (shadcn/Notion style) grouped by period — a muted date column, a color-coded status dot, the title with a soft type tag, spans with a duration and date range, and a group filter. Clicking a row opens a **detail dialog** (name, date, tags, description, details, and attachments with previews).
 
 ```tsx
 import { EventTimeline } from "@aai-agency/og-components/event-timeline";
@@ -90,7 +90,7 @@ Switch to `orientation="horizontal"` for a compact lane that lines up beneath a 
 
 - **Interactive Asset Map** — Plot wells, meters, pipelines, facilities on a Mapbox map with clustering, drawing tools, and lasso selection
 - **Chart + ChartGroup** — Render one line or bar chart or compose synchronized panels over an ID-addressable native-resolution registry. Forecasts are ordinary `TimeSeries` entries. Every panel has mirrored X controls, independent Y controls, functional X/Y value formatters, configurable typography sizes and weights, and its own presentation/settings menu; monthly bar clicks can reveal daily, hourly, or secondly detail. Cross-resolution derivations use explicit resampling policies. (`LineChart`, `ProductionChart`, and `DeclineCurve` remain deprecated compatibility entries.)
-- **Event Timeline** — A well events / history component. Default vertical **history list** (a clean, light shadcn/Notion-style grouped list) with a group filter and a click-to-expand property panel; or a compact horizontal lane that aligns beneath the charts
+- **Event Timeline** — A well events / history component. Default vertical **history list** (a clean, light shadcn/Notion-style grouped list) with a group filter and a click-to-open detail dialog (name, date, tags, description, and attachments with previews); or a compact horizontal lane that aligns beneath the charts
 - **Asset Detail Cards** — Click any asset to see its properties, embedded `Chart`, and custom fields
 - **Selection Panel** — Multi-asset selection with filter chips and summary stats
 - **Overlay Management** — Drag and drop KMZ, KML, GeoJSON, and Shapefile files

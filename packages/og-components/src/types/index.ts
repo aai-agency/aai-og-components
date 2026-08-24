@@ -138,6 +138,18 @@ export type BuiltInWellEventType =
 /** Well event type — built-in or any custom string. */
 export type WellEventType = BuiltInWellEventType | (string & {});
 
+/** A file or link attached to a well event (report, log, photo, permit, ...). */
+export interface WellEventAttachment {
+  /** Display name, e.g. "Frac stage report.pdf". */
+  name: string;
+  /** URL or data URI. Images are previewed inline; others render as a file card. */
+  url: string;
+  /** MIME type (e.g. "image/png", "application/pdf"); drives the preview. */
+  type?: string;
+  /** Optional human-readable size, e.g. "1.2 MB". */
+  size?: string;
+}
+
 /**
  * A single event in an asset's history. Point events set only `date`; spans
  * (drilling, shut-in periods, workovers) also set `endDate`. Rendered by the
@@ -161,6 +173,8 @@ export interface WellEvent {
   lane?: string;
   /** Optional numeric magnitude (stage count, cost, downtime) for context. */
   value?: number;
+  /** Files or links attached to the event (reports, logs, photos). */
+  attachments?: WellEventAttachment[];
   /** Arbitrary metadata — tags, source system, user-defined fields. */
   meta?: Record<string, unknown>;
 }

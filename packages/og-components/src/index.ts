@@ -196,6 +196,7 @@ export {
   safeParseAssets,
   TimeSeriesSchema,
   WellEventArraySchema,
+  WellEventAttachmentSchema,
   WellEventSchema,
 } from "./schemas";
 export type { SqlJsDatabase } from "./services";
@@ -234,6 +235,7 @@ export type {
   Trajectory,
   Unit,
   WellEvent,
+  WellEventAttachment,
   WellEventType,
   WellProperties,
   WellType,

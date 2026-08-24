@@ -64,8 +64,9 @@ const EventTimelinePage = () => {
     >
       <DemoCard title="History list (default)">
         <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
-          A clean, grouped history. Click a row to expand its details (dates, duration, and any custom <code>meta</code>{" "}
-          fields), and use the chips to filter by workstream.
+          A clean, grouped history. Click a row to open its detail dialog — name, date, tags, description, details, and
+          attachments with previews. Use the chips to filter by workstream. (Try the permit or the frac event for
+          attachments.)
         </p>
         <div style={{ maxWidth: 640 }}>
           <EventTimeline events={sampleWellEvents} title="Well history" />

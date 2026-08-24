@@ -1,5 +1,11 @@
 import type { WellEvent } from "../types";
 
+// Self-contained SVG previews so the sample renders without any network access.
+const PLAT_MAP =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='140'%3E%3Crect width='240' height='140' fill='%23eef2ff'/%3E%3Crect x='36' y='34' width='168' height='74' fill='none' stroke='%236366f1' stroke-dasharray='4 4' stroke-width='1.5'/%3E%3Cpath d='M20 112 L70 52 L120 86 L170 34 L220 70' fill='none' stroke='%2394a3b8' stroke-width='2'/%3E%3Ccircle cx='170' cy='34' r='5' fill='%23ef4444'/%3E%3C/svg%3E";
+const FRAC_CHART =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='140'%3E%3Crect width='240' height='140' fill='%23f8fafc'/%3E%3Cline x1='16' y1='124' x2='224' y2='124' stroke='%23cbd5e1'/%3E%3Cpolyline points='16,120 52,58 88,86 124,40 160,60 196,34 224,50' fill='none' stroke='%23c43d18' stroke-width='3'/%3E%3C/svg%3E";
+
 /**
  * A realistic lifecycle history for a single horizontal well, from permit to
  * present. Mixes point events (spud, first production) and spans (drilling,
@@ -20,6 +26,10 @@ export const sampleWellEvents: WellEvent[] = [
     title: "Drilling permit approved",
     description: "State permit issued for a 2-mile lateral in the Niobrara.",
     meta: { authority: "COGCC", permitNo: "05-123-45678", formation: "Niobrara B" },
+    attachments: [
+      { name: "Form 2 — Drilling permit.pdf", url: "#", type: "application/pdf", size: "142 KB" },
+      { name: "Plat map.svg", url: PLAT_MAP, type: "image/svg+xml", size: "18 KB" },
+    ],
   },
   {
     id: "spud",
@@ -53,6 +63,11 @@ export const sampleWellEvents: WellEvent[] = [
     title: "Hydraulic fracturing",
     description: "11.2M lb proppant, 8.4M gal fluid placed.",
     meta: { proppant: "11.2M lb", fluid: "8.4M gal", stages: 42, avgRate: "82 bpm" },
+    attachments: [
+      { name: "Frac treating chart.svg", url: FRAC_CHART, type: "image/svg+xml", size: "24 KB" },
+      { name: "Stage-by-stage report.pdf", url: "#", type: "application/pdf", size: "1.2 MB" },
+      { name: "Proppant tickets.csv", url: "#", type: "text/csv", size: "36 KB" },
+    ],
   },
   {
     id: "first-production",
@@ -61,6 +76,7 @@ export const sampleWellEvents: WellEvent[] = [
     title: "First production",
     description: "Flowback complete; well online at 1,180 BOE/d.",
     meta: { ip: "1,180 BOE/d", choke: '28/64"', gor: "2,400 scf/bbl" },
+    attachments: [{ name: "First-production test.pdf", url: "#", type: "application/pdf", size: "320 KB" }],
   },
   {
     id: "well-test-1",

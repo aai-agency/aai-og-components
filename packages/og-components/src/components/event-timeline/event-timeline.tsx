@@ -1,7 +1,8 @@
-import { type CSSProperties, Fragment, useMemo, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { type CSSProperties, Fragment, type ReactNode, useMemo, useState } from "react";
 
 import { BORDER, FONT_FAMILY, PANEL_BG, TEXT_FAINT, TEXT_HEADING, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
-import type { WellEvent } from "../../types";
+import type { WellEvent, WellEventAttachment } from "../../types";
 import { TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from "../ui/tooltip";
 import {
   buildTimelineTicks,
@@ -161,40 +162,17 @@ const TypeBadge = ({ label, color }: { label: string; color: string }) => (
   </span>
 );
 
-const HistoryDetail = ({ event, formatDate }: { event: NormalizedEvent; formatDate: (time: number) => string }) => {
-  const rows: [string, string][] = [];
-  if (event.event.meta)
-    for (const [key, value] of Object.entries(event.event.meta))
-      rows.push([humanizeEventType(key), formatMetaValue(value)]);
-  if (event.lane) rows.push(["Lane", event.lane]);
-  if (event.event.value != null) rows.push(["Value", String(event.event.value)]);
-  if (rows.length === 0) {
-    rows.push(["Date", formatDate(event.start)]);
-    rows.push(["Type", event.meta.label]);
-  }
-
-  return (
-    <span
-      style={{
-        display: "block",
-        marginTop: 10,
-        borderRadius: 8,
-        background: ROW_HOVER,
-        border: `1px solid ${DIVIDER}`,
-        padding: "10px 14px",
-      }}
-    >
-      <span style={{ display: "grid", gridTemplateColumns: "minmax(84px, auto) 1fr", columnGap: 16, rowGap: 7 }}>
-        {rows.map(([key, value]) => (
-          <Fragment key={key}>
-            <span style={{ fontSize: 12, color: T_FAINT, whiteSpace: "nowrap" }}>{key}</span>
-            <span style={{ fontSize: 13, color: T_BODY, minWidth: 0, wordBreak: "break-word" }}>{value}</span>
-          </Fragment>
-        ))}
-      </span>
-    </span>
-  );
-};
+const PaperclipIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M21 11.5 12.5 20a5 5 0 0 1-7-7L14 4.5a3.3 3.3 0 0 1 4.7 4.7L10.2 17.7a1.6 1.6 0 0 1-2.3-2.3L15.5 7.8"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 interface HistoryRowProps {
   event: NormalizedEvent;
@@ -209,11 +187,12 @@ interface HistoryRowProps {
 const HistoryRow = ({ event, first, open, active, formatDate, onHover, onSelect }: HistoryRowProps) => {
   const showBadge = shouldShowTypeChip(event.event.title, event.meta.label);
   const duration = formatEventDuration(event);
+  const attachmentCount = event.event.attachments?.length ?? 0;
 
   return (
     <button
       type="button"
-      aria-expanded={open}
+      aria-haspopup="dialog"
       {...rowHandlers(event, onHover, onSelect)}
       style={{
         display: "grid",
@@ -243,6 +222,12 @@ const HistoryRow = ({ event, first, open, active, formatDate, onHover, onSelect 
           </span>
           {showBadge ? <TypeBadge label={event.meta.label} color={event.color} /> : null}
           {duration ? <span style={{ fontSize: 12.5, color: T_FAINT }}>{duration}</span> : null}
+          {attachmentCount > 0 ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, color: T_FAINT }}>
+              <PaperclipIcon />
+              {attachmentCount}
+            </span>
+          ) : null}
         </span>
         {event.isRange ? (
           <span
@@ -257,7 +242,7 @@ const HistoryRow = ({ event, first, open, active, formatDate, onHover, onSelect 
             {`${formatDate(event.start)} – ${formatDate(event.end)}`}
           </span>
         ) : null}
-        {!open && event.event.description ? (
+        {event.event.description ? (
           <span
             style={{
               display: "block",
@@ -274,20 +259,312 @@ const HistoryRow = ({ event, first, open, active, formatDate, onHover, onSelect 
             {event.event.description}
           </span>
         ) : null}
-        {open ? (
-          <>
-            {event.event.description ? (
-              <span style={{ display: "block", marginTop: 6, fontSize: 13, color: T_BODY, lineHeight: 1.6 }}>
-                {event.event.description}
-              </span>
-            ) : null}
-            <HistoryDetail event={event} formatDate={formatDate} />
-          </>
-        ) : null}
       </span>
     </button>
   );
 };
+
+// ── Event detail dialog ──────────────────────────────────────────────────────
+
+const SR_ONLY: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+const DialogField = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div style={{ marginBottom: 18 }}>
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
+        color: T_FAINT,
+        marginBottom: 7,
+      }}
+    >
+      {label}
+    </div>
+    {children}
+  </div>
+);
+
+const NeutralChip = ({ label }: { label: string }) => (
+  <span
+    style={{
+      fontSize: 11.5,
+      fontWeight: 500,
+      lineHeight: 1.5,
+      padding: "1px 8px",
+      borderRadius: 6,
+      background: DIVIDER,
+      color: T_MUTED,
+      whiteSpace: "nowrap",
+    }}
+  >
+    {label}
+  </span>
+);
+
+const isImageAttachment = (attachment: WellEventAttachment): boolean =>
+  (attachment.type?.startsWith("image/") ?? false) || /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(attachment.url);
+
+const attachmentExt = (attachment: WellEventAttachment): string => {
+  const fromName = /\.([a-z0-9]+)(\?|$)/i.exec(attachment.name);
+  if (fromName) return fromName[1].toUpperCase();
+  if (attachment.type) return (attachment.type.split("/")[1] ?? "file").slice(0, 4).toUpperCase();
+  return "FILE";
+};
+
+const AttachmentCard = ({ attachment }: { attachment: WellEventAttachment }) => {
+  const navigable = attachment.url.length > 0 && attachment.url !== "#";
+  const preview = isImageAttachment(attachment) ? (
+    <span
+      style={{
+        display: "block",
+        height: 96,
+        borderRadius: 8,
+        overflow: "hidden",
+        border: `1px solid ${CARD_BORDER}`,
+        background: ROW_HOVER,
+      }}
+    >
+      <img
+        src={attachment.url}
+        alt={attachment.name}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+    </span>
+  ) : (
+    <span
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: 96,
+        borderRadius: 8,
+        border: `1px solid ${CARD_BORDER}`,
+        background: ROW_HOVER,
+      }}
+    >
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 34,
+          height: 42,
+          borderRadius: 5,
+          border: `1px solid ${CARD_BORDER}`,
+          background: CARD_BG,
+          fontSize: 9.5,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          color: T_MUTED,
+        }}
+      >
+        {attachmentExt(attachment)}
+      </span>
+    </span>
+  );
+  const caption = (
+    <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+      <span
+        style={{
+          fontSize: 12.5,
+          color: T_BODY,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          minWidth: 0,
+        }}
+      >
+        {attachment.name}
+      </span>
+      {attachment.size ? (
+        <span style={{ fontSize: 11, color: T_FAINT, flex: "0 0 auto" }}>{attachment.size}</span>
+      ) : null}
+    </span>
+  );
+  return navigable ? (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noreferrer"
+      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+    >
+      {preview}
+      {caption}
+    </a>
+  ) : (
+    <div>
+      {preview}
+      {caption}
+    </div>
+  );
+};
+
+const EventDialogBody = ({ event, formatDate }: { event: NormalizedEvent; formatDate: (time: number) => string }) => {
+  const color = event.color;
+  const duration = formatEventDuration(event);
+  const dateText = event.isRange
+    ? `${formatDate(event.start)} – ${formatDate(event.end)}${duration ? ` · ${duration}` : ""}`
+    : formatDate(event.start);
+  const detailRows: [string, string][] = [];
+  if (event.event.meta)
+    for (const [key, value] of Object.entries(event.event.meta))
+      detailRows.push([humanizeEventType(key), formatMetaValue(value)]);
+  if (event.event.value != null) detailRows.push(["Value", String(event.event.value)]);
+  const attachments = event.event.attachments ?? [];
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "20px 24px 16px",
+          borderBottom: `1px solid ${DIVIDER}`,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span
+              aria-hidden="true"
+              style={{ width: 9, height: 9, borderRadius: "50%", background: color, flex: "0 0 auto" }}
+            />
+            <Dialog.Title
+              style={{ margin: 0, fontSize: 18, fontWeight: 600, color: T_TITLE, letterSpacing: "-0.01em" }}
+            >
+              {event.event.title}
+            </Dialog.Title>
+          </div>
+          <div style={{ marginTop: 4, marginLeft: 18, fontSize: 13, color: T_MUTED }}>{event.meta.group}</div>
+        </div>
+        <Dialog.Close asChild>
+          <button
+            type="button"
+            aria-label="Close"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 30,
+              height: 30,
+              marginTop: -2,
+              borderRadius: 8,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: T_MUTED,
+              flex: "0 0 auto",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </Dialog.Close>
+      </div>
+      <Dialog.Description style={SR_ONLY}>
+        {event.event.description ?? `${event.meta.label} on ${dateText}`}
+      </Dialog.Description>
+      <div style={{ overflowY: "auto", padding: "18px 24px 24px" }}>
+        <DialogField label="Date">
+          <span style={{ fontSize: 14, color: T_BODY, fontVariantNumeric: "tabular-nums" }}>{dateText}</span>
+        </DialogField>
+        <DialogField label="Tags">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <TypeBadge label={event.meta.label} color={color} />
+            <NeutralChip label={event.meta.group} />
+            {event.lane ? <NeutralChip label={event.lane} /> : null}
+          </div>
+        </DialogField>
+        {event.event.description ? (
+          <DialogField label="Description">
+            <span style={{ display: "block", fontSize: 14, color: T_BODY, lineHeight: 1.6 }}>
+              {event.event.description}
+            </span>
+          </DialogField>
+        ) : null}
+        {detailRows.length > 0 ? (
+          <DialogField label="Details">
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(112px, auto) 1fr", columnGap: 16, rowGap: 8 }}>
+              {detailRows.map(([key, value]) => (
+                <Fragment key={key}>
+                  <span style={{ fontSize: 13, color: T_FAINT, whiteSpace: "nowrap" }}>{key}</span>
+                  <span style={{ fontSize: 13.5, color: T_BODY, minWidth: 0, wordBreak: "break-word" }}>{value}</span>
+                </Fragment>
+              ))}
+            </div>
+          </DialogField>
+        ) : null}
+        {attachments.length > 0 ? (
+          <DialogField label={`Attachments · ${attachments.length}`}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+              {attachments.map((attachment, index) => (
+                <AttachmentCard key={`${attachment.name}-${index}`} attachment={attachment} />
+              ))}
+            </div>
+          </DialogField>
+        ) : null}
+      </div>
+    </>
+  );
+};
+
+const EventDialog = ({
+  event,
+  formatDate,
+  onClose,
+}: {
+  event: NormalizedEvent | null;
+  formatDate: (time: number) => string;
+  onClose: () => void;
+}) => (
+  <Dialog.Root
+    open={event != null}
+    onOpenChange={(next) => {
+      if (!next) onClose();
+    }}
+  >
+    <Dialog.Portal>
+      <Dialog.Overlay style={{ position: "fixed", inset: 0, background: "rgba(9, 9, 11, 0.45)", zIndex: 60 }} />
+      <Dialog.Content
+        aria-label="Event details"
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(560px, calc(100vw - 32px))",
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          background: CARD_BG,
+          border: `1px solid ${CARD_BORDER}`,
+          borderRadius: 16,
+          boxShadow: "0 24px 60px rgba(9, 9, 11, 0.2), 0 4px 12px rgba(9, 9, 11, 0.08)",
+          zIndex: 61,
+          fontFamily: FONT_FAMILY,
+          color: T_TITLE,
+        }}
+      >
+        {event ? <EventDialogBody event={event} formatDate={formatDate} /> : null}
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
+);
 
 const HistoryGroupHeader = ({ label }: { label: string }) => (
   <div style={{ padding: "16px 20px 6px", fontSize: 12, fontWeight: 600, letterSpacing: "0.02em", color: T_FAINT }}>
@@ -846,30 +1123,42 @@ export const EventTimeline = ({
     onEventSelect?.(next == null ? null : event.event);
   };
 
+  const selectedEvent = useMemo(
+    () => normalized.find((event) => event.id === selectedId) ?? null,
+    [normalized, selectedId],
+  );
+  const closeDialog = () => {
+    if (!isControlled) setUncontrolledSelected(null);
+    onEventSelect?.(null);
+  };
+
   const groupMode = useMemo(() => resolveGroupMode(normalized, groupBy), [normalized, groupBy]);
 
   // ── Vertical (default): clean history list ──
   if (orientation === "vertical") {
     return (
-      <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
-        {normalized.length === 0 ? (
-          <EmptyTimeline height={120} message={emptyMessage} />
-        ) : (
-          <HistoryFeed
-            events={normalized}
-            groupMode={groupMode}
-            title={title}
-            maxHeight={maxHeight}
-            showHeader
-            showFilters={showFilters}
-            selectedId={selectedId}
-            activeId={hoveredId}
-            formatDate={formatDate}
-            onHover={setHoveredId}
-            onSelect={handleSelect}
-          />
-        )}
-      </div>
+      <>
+        <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
+          {normalized.length === 0 ? (
+            <EmptyTimeline height={120} message={emptyMessage} />
+          ) : (
+            <HistoryFeed
+              events={normalized}
+              groupMode={groupMode}
+              title={title}
+              maxHeight={maxHeight}
+              showHeader
+              showFilters={showFilters}
+              selectedId={selectedId}
+              activeId={hoveredId}
+              formatDate={formatDate}
+              onHover={setHoveredId}
+              onSelect={handleSelect}
+            />
+          )}
+        </div>
+        <EventDialog event={selectedEvent} formatDate={formatDate} onClose={closeDialog} />
+      </>
     );
   }
 
@@ -964,6 +1253,7 @@ export const EventTimeline = ({
             />
           </div>
         ) : null}
+        <EventDialog event={selectedEvent} formatDate={formatDate} onClose={closeDialog} />
       </div>
     </TooltipProvider>
   );
