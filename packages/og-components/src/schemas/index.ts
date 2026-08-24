@@ -64,6 +64,7 @@ export const WellEventSchema = z.object({
   endDate: z.string().optional(),
   type: z.string().min(1),
   title: z.string(),
+  summary: z.string().optional(),
   description: z.string().optional(),
   color: z.string().optional(),
   lane: z.string().optional(),

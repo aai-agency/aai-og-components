@@ -69,7 +69,45 @@ const EventTimelinePage = () => {
           attachments.)
         </p>
         <div style={{ maxWidth: 640 }}>
-          <EventTimeline events={sampleWellEvents} title="Well history" />
+          <EventTimeline
+            events={sampleWellEvents}
+            title="Well history"
+            renderDetail={(event) => {
+              const steps = event.meta?.steps;
+              if (!Array.isArray(steps)) return null;
+              return (
+                <div style={{ marginBottom: 18 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "#a1a1aa",
+                      marginBottom: 7,
+                    }}
+                  >
+                    Operations log
+                  </div>
+                  <ol
+                    style={{
+                      margin: 0,
+                      paddingLeft: 18,
+                      display: "grid",
+                      gap: 5,
+                      fontSize: 13,
+                      color: "#52525b",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {steps.map((step) => (
+                      <li key={String(step)}>{String(step)}</li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            }}
+          />
         </div>
       </DemoCard>
 
@@ -155,6 +193,11 @@ const EventTimelinePage = () => {
             description: "Controlled selection; omit for uncontrolled.",
           },
           { name: "formatDate", type: "(time: number) => string", description: "Overrides date formatting." },
+          {
+            name: "renderDetail",
+            type: "(event: WellEvent) => ReactNode",
+            description: "Inject custom sections into the detail dialog (e.g. an operations log).",
+          },
           {
             name: "domain",
             type: "[DateInput, DateInput]",

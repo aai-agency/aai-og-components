@@ -51,6 +51,12 @@ export interface EventTimelineProps {
   defaultSelectedEventId?: string | null;
   /** Overrides the tooltip/list date formatting. */
   formatDate?: (time: number) => string;
+  /**
+   * Render extra custom content into the detail dialog (a slot after the
+   * built-in sections). Return your own labelled sections — an operations log,
+   * a sub-table, a chart — to extend the dialog per event without forking it.
+   */
+  renderDetail?: (event: WellEvent) => ReactNode;
   /** Message shown when there are no plottable events. */
   emptyMessage?: string;
 
@@ -411,18 +417,30 @@ const AttachmentCard = ({ attachment }: { attachment: WellEventAttachment }) => 
   );
 };
 
-const EventDialogBody = ({ event, formatDate }: { event: NormalizedEvent; formatDate: (time: number) => string }) => {
+const EventDialogBody = ({
+  event,
+  formatDate,
+  renderDetail,
+}: {
+  event: NormalizedEvent;
+  formatDate: (time: number) => string;
+  renderDetail?: (event: WellEvent) => ReactNode;
+}) => {
   const color = event.color;
   const duration = formatEventDuration(event);
   const dateText = event.isRange
     ? `${formatDate(event.start)} – ${formatDate(event.end)}${duration ? ` · ${duration}` : ""}`
     : formatDate(event.start);
+  // Only primitive meta values render in the property list; arrays/objects are
+  // for the consumer to lay out via `renderDetail`.
   const detailRows: [string, string][] = [];
   if (event.event.meta)
     for (const [key, value] of Object.entries(event.event.meta))
-      detailRows.push([humanizeEventType(key), formatMetaValue(value)]);
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+        detailRows.push([humanizeEventType(key), formatMetaValue(value)]);
   if (event.event.value != null) detailRows.push(["Value", String(event.event.value)]);
   const attachments = event.event.attachments ?? [];
+  const extra = renderDetail?.(event.event);
 
   return (
     <>
@@ -479,6 +497,20 @@ const EventDialogBody = ({ event, formatDate }: { event: NormalizedEvent; format
         {event.event.description ?? `${event.meta.label} on ${dateText}`}
       </Dialog.Description>
       <div style={{ overflowY: "auto", padding: "18px 24px 24px" }}>
+        {event.event.summary ? (
+          <div
+            style={{
+              background: ROW_HOVER,
+              border: `1px solid ${DIVIDER}`,
+              borderLeft: `3px solid ${color}`,
+              borderRadius: 8,
+              padding: "12px 14px",
+              marginBottom: 18,
+            }}
+          >
+            <span style={{ fontSize: 14, color: T_BODY, lineHeight: 1.6 }}>{event.event.summary}</span>
+          </div>
+        ) : null}
         <DialogField label="Date">
           <span style={{ fontSize: 14, color: T_BODY, fontVariantNumeric: "tabular-nums" }}>{dateText}</span>
         </DialogField>
@@ -508,6 +540,7 @@ const EventDialogBody = ({ event, formatDate }: { event: NormalizedEvent; format
             </div>
           </DialogField>
         ) : null}
+        {extra != null && extra !== false ? extra : null}
         {attachments.length > 0 ? (
           <DialogField label={`Attachments · ${attachments.length}`}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
@@ -525,10 +558,12 @@ const EventDialogBody = ({ event, formatDate }: { event: NormalizedEvent; format
 const EventDialog = ({
   event,
   formatDate,
+  renderDetail,
   onClose,
 }: {
   event: NormalizedEvent | null;
   formatDate: (time: number) => string;
+  renderDetail?: (event: WellEvent) => ReactNode;
   onClose: () => void;
 }) => (
   <Dialog.Root
@@ -560,7 +595,7 @@ const EventDialog = ({
           color: T_TITLE,
         }}
       >
-        {event ? <EventDialogBody event={event} formatDate={formatDate} /> : null}
+        {event ? <EventDialogBody event={event} formatDate={formatDate} renderDetail={renderDetail} /> : null}
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>
@@ -1099,6 +1134,7 @@ export const EventTimeline = ({
   selectedEventId,
   defaultSelectedEventId = null,
   formatDate = formatEventDate,
+  renderDetail,
   emptyMessage = "No events",
   domain: domainProp,
   height = 76,
@@ -1157,7 +1193,7 @@ export const EventTimeline = ({
             />
           )}
         </div>
-        <EventDialog event={selectedEvent} formatDate={formatDate} onClose={closeDialog} />
+        <EventDialog event={selectedEvent} formatDate={formatDate} renderDetail={renderDetail} onClose={closeDialog} />
       </>
     );
   }
@@ -1253,7 +1289,7 @@ export const EventTimeline = ({
             />
           </div>
         ) : null}
-        <EventDialog event={selectedEvent} formatDate={formatDate} onClose={closeDialog} />
+        <EventDialog event={selectedEvent} formatDate={formatDate} renderDetail={renderDetail} onClose={closeDialog} />
       </div>
     </TooltipProvider>
   );

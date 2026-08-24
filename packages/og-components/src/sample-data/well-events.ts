@@ -95,8 +95,24 @@ export const sampleWellEvents: WellEvent[] = [
     endDate: "2022-09-12",
     type: "workover",
     title: "Rod pump repair",
-    description: "Pulled and replaced worn downhole pump.",
-    meta: { reason: "Pump wear", downtime: "13 days", cost: "$84k" },
+    summary:
+      "13-day rig workover for a parted rod string and worn pump; well returned to production at ~92% of pre-workover rate with no integrity issues.",
+    description:
+      "Rod string parted near 4,200 ft. Rigged up a workover rig, pulled the rod string and tubing, replaced the downhole pump and 18 worn rods, ran a new pump, and returned the well to production. Tubing and casing passed inspection with no integrity concerns.",
+    meta: {
+      reason: "Parted rod string",
+      downtime: "13 days",
+      cost: "$84k",
+      contractor: "Basin Well Services",
+      steps: [
+        "Rigged up workover rig; killed well",
+        "Pulled rod string — parted at 4,210 ft",
+        "Pulled tubing; inspected — no leaks",
+        "Ran new insert pump + 18 replacement rods",
+        "Returned to production at 705 BOE/d",
+      ],
+    },
+    attachments: [{ name: "Workover daily report.pdf", url: "#", type: "application/pdf", size: "680 KB" }],
   },
   {
     id: "esp-install",

@@ -23,6 +23,7 @@ interface WellEvent {
   endDate?: string;    // ISO end; when present the event renders as a span
   type: WellEventType; // drives color, label, and grouping
   title: string;
+  summary?: string;     // short overview shown as a callout at the top of the dialog
   description?: string; // shown in the row
   color?: string;       // overrides the type color
   lane?: string;        // horizontal swim-lane key
@@ -54,8 +55,22 @@ information beyond the title), a duration and date range for spans, and the
 description.
 
 - **Click a row** to open a detail dialog (an accessible modal) laid out like a
-  filled-out form: name, date, tags, description, a details list, and
-  **attachments with previews** — images render inline; other files show as cards.
+  filled-out form: an optional **Summary** callout, then name, date, tags,
+  description, a details list, and **attachments with previews** — images render
+  inline; other files show as cards. The body scrolls, so long records fit.
+- **Extend the dialog** with `renderDetail(event)` — return your own JSX (an
+  operations log, a sub-table, a chart) and it drops in as a section. Only
+  primitive `meta` values show in the built-in Details list; arrays/objects are
+  yours to lay out via `renderDetail`.
+
+```tsx
+<EventTimeline
+  events={events}
+  renderDetail={(event) =>
+    Array.isArray(event.meta?.steps) ? <OperationsLog steps={event.meta.steps} /> : null
+  }
+/>
+```
 - **Group filter** (`showFilters`, default on): soft toggle chips for the five
   lifecycle groups; select any to filter the list, with the header showing
   "N of M".
@@ -97,6 +112,7 @@ events to split the lane into stacked swim-lanes per workstream.
 | `onEventSelect` | `(event: WellEvent \| null) => void` | — | Fires on row or marker click. |
 | `selectedEventId` | `string \| null` | — | Controlled selection; omit for uncontrolled. |
 | `formatDate` | `(time: number) => string` | — | Overrides date formatting. |
+| `renderDetail` | `(event: WellEvent) => ReactNode` | — | Custom section(s) injected into the detail dialog. |
 | `domain` | `[DateInput, DateInput]` | fit to events | Horizontal: visible time window. |
 | `padding` | `{ left?: number; right?: number }` | `{ left: 58, right: 8 }` | Horizontal: plot-area insets. |
 | `height` | `number` | `76` | Horizontal: lane height in pixels. |
