@@ -10,11 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added — EventTimeline
 
 - New `EventTimeline` component: a well events/history component for O&G assets.
-- **Vertical well ledger (default)**: a warm-paper "drilling day-report" of the well's lifecycle, grouped by period, with a ruled spine, operation codes, dimension-line span brackets, folio numbers, and row selection. Point events and spans (spud, drilling, completion, stimulation, first production, workover, shut-in, and more). Rendered with Spectral + IBM Plex Mono (Georgia/system-mono fallbacks; load the two Google fonts for the intended look).
-- **Click a row to expand its detail record** inline: an operation stamp plus a dot-leader table of dates, duration, lane, and any custom `meta` fields, over the full description.
-- **"SHOW" group filter** (`showFilters`, default on): a swatch legend of the five lifecycle groups; toggle to filter the ledger by workstream. Folio numbers and the record total stay stable while filtering.
+- **Vertical history list (default)**: a clean, light, grouped list (shadcn/Notion style) — a muted date column, a color-coded status dot, the event title with a soft type tag (shown only when it adds information), spans with a duration and date range, and the description. Grouped by period on subtle dividers. Point events and spans (spud, drilling, completion, stimulation, first production, workover, shut-in, and more).
+- **Click a row to expand** a tidy property panel with dates, duration, lane, and any custom `meta` fields, over the full description.
+- **Group filter** (`showFilters`, default on): soft toggle chips for the five lifecycle groups; select any to filter the list, with the header showing "N of M".
 - **Horizontal lane** (`orientation="horizontal"`): a compact time-aligned lane. Pass `domain` matching a chart's visible X window and `padding` matching its plot inset to line the lane up directly beneath the chart. Swim-lanes: set a `lane` on events to split the lane into stacked bands per workstream.
-- Muted print-ink type palette tuned for the paper ledger, with a short operation code (`DRLG`, `FRAC`, ...) per type; custom types fall back to a readable label, neutral color, and derived code. Color distinctness is guarded by a test.
+- Colors for concepts shared with chart annotations (stimulation/frac, workover, shut-in, note, other) mirror `ANNOTATION_TYPE_META` so the well reads consistently across the chart's annotation bands and this history; the remaining lifecycle types use distinct hues. A short operation code (`DRLG`, `FRAC`, ...) is available per type. Alignment and distinctness are guarded by tests.
 - Added the focused `@aai-agency/og-components/event-timeline` export plus pure layout/formatting services (`normalizeEvents`, `computeTimelineDomain`, `layoutTimeline`, `buildTimelineTicks`, `timelineLegend`, `withAlpha`, and more).
 - New `WellEvent` / `WellEventType` domain types, a `WellEventSchema` Zod schema, and a `sampleWellEvents` sample dataset (a full single-well lifecycle history).
 

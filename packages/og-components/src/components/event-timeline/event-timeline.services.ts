@@ -31,37 +31,39 @@ export const EVENT_TYPE_GROUPS = [
 export type WellEventGroup = (typeof EVENT_TYPE_GROUPS)[number];
 
 /**
- * Built-in type metadata. Uses a muted print-ink palette tuned for the warm-paper
- * "well ledger" (drilling day-report) treatment, with a short operation code per
- * type shown in the ledger gutter. Colors are distinct so the ledger stays
- * scannable (guarded by a test).
+ * Built-in type metadata. Colors for the concepts shared with chart annotations
+ * (stimulation, workover, shut-in, note, other) mirror `ANNOTATION_TYPE_META`
+ * so a well reads consistently across the chart's annotation bands and this
+ * history; the remaining lifecycle types use distinct, well-separated hues.
+ * The alignment and distinctness are guarded by a test. Each type also carries a
+ * short operation code for compact/technical treatments.
  */
 export const EVENT_TYPE_META: Record<string, WellEventTypeMeta> = {
   // Regulatory
-  permit: { label: "Permit", color: "#5e4a8c", group: "Regulatory", code: "PRMT" },
-  ownership: { label: "Ownership change", color: "#93397e", group: "Regulatory", code: "XFER" },
+  permit: { label: "Permit", color: "#a855f7", group: "Regulatory", code: "PRMT" },
+  ownership: { label: "Ownership change", color: "#d946ef", group: "Regulatory", code: "XFER" },
   // Drilling & completion
-  spud: { label: "Spud", color: "#8a3a1c", group: "Drilling & Completion", code: "SPUD" },
-  drilling: { label: "Drilling", color: "#a84e1b", group: "Drilling & Completion", code: "DRLG" },
-  completion: { label: "Completion", color: "#a87b10", group: "Drilling & Completion", code: "CMPL" },
-  stimulation: { label: "Stimulation", color: "#c43d18", group: "Drilling & Completion", code: "FRAC" },
+  spud: { label: "Spud", color: "#f97316", group: "Drilling & Completion", code: "SPUD" },
+  drilling: { label: "Drilling", color: "#ea580c", group: "Drilling & Completion", code: "DRLG" },
+  completion: { label: "Completion", color: "#3b82f6", group: "Drilling & Completion", code: "CMPL" },
+  stimulation: { label: "Stimulation", color: "#6366f1", group: "Drilling & Completion", code: "FRAC" }, // = annotation fracJob
   // Production
-  "first-production": { label: "First production", color: "#1f7a44", group: "Production", code: "PROD" },
-  test: { label: "Well test", color: "#1c6e62", group: "Production", code: "TEST" },
-  "shut-in": { label: "Shut-in", color: "#7e2138", group: "Production", code: "SI" },
-  "return-to-production": { label: "Return to production", color: "#4f7d24", group: "Production", code: "RTP" },
+  "first-production": { label: "First production", color: "#22c55e", group: "Production", code: "PROD" },
+  test: { label: "Well test", color: "#0ea5e9", group: "Production", code: "TEST" },
+  "shut-in": { label: "Shut-in", color: "#06b6d4", group: "Production", code: "SI" }, // = annotation shutInOffset
+  "return-to-production": { label: "Return to production", color: "#10b981", group: "Production", code: "RTP" },
   // Intervention
-  workover: { label: "Workover", color: "#275d8c", group: "Intervention", code: "WKVR" },
-  recompletion: { label: "Recompletion", color: "#4757a6", group: "Intervention", code: "RCMP" },
-  "artificial-lift": { label: "Artificial lift", color: "#167084", group: "Intervention", code: "ALS" },
-  inspection: { label: "Inspection", color: "#5c6b52", group: "Intervention", code: "INSP" },
+  workover: { label: "Workover", color: "#8b5cf6", group: "Intervention", code: "WKVR" }, // = annotation workover
+  recompletion: { label: "Recompletion", color: "#14b8a6", group: "Intervention", code: "RCMP" },
+  "artificial-lift": { label: "Artificial lift", color: "#f59e0b", group: "Intervention", code: "ALS" },
+  inspection: { label: "Inspection", color: "#eab308", group: "Intervention", code: "INSP" },
   // Other
-  incident: { label: "Incident", color: "#c0281e", group: "Other", code: "HSE" },
-  note: { label: "Note", color: "#857c68", group: "Other", code: "NOTE" },
-  other: { label: "Event", color: "#6e6858", group: "Other", code: "MISC" },
+  incident: { label: "Incident", color: "#f43f5e", group: "Other", code: "HSE" },
+  note: { label: "Note", color: "#64748b", group: "Other", code: "NOTE" }, // = annotation note
+  other: { label: "Event", color: "#94a3b8", group: "Other", code: "MISC" }, // = annotation other
 };
 
-const FALLBACK_COLOR = "#6e6858";
+const FALLBACK_COLOR = "#64748b";
 const FALLBACK_GROUP: WellEventGroup = "Other";
 
 /** A short uppercase operation code for a custom type. */

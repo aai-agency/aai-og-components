@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WellEvent } from "../../../types";
+import { ANNOTATION_TYPE_META } from "../../decline-curve/decline-math";
 import {
   buildTimelineTicks,
   colorForEvent,
@@ -220,7 +221,18 @@ describe("lanes", () => {
 });
 
 describe("type palette & codes", () => {
-  it("keeps every event color distinct so the ledger stays readable", () => {
+  it.each([
+    ["stimulation", "fracJob"],
+    ["workover", "workover"],
+    ["shut-in", "shutInOffset"],
+    ["note", "note"],
+    ["other", "other"],
+  ])("event %s color matches annotation %s", (eventType, annotationType) => {
+    const annotation = ANNOTATION_TYPE_META[annotationType as keyof typeof ANNOTATION_TYPE_META];
+    expect(EVENT_TYPE_META[eventType].color).toBe(annotation.color);
+  });
+
+  it("keeps every event color distinct so the list stays readable", () => {
     const colors = Object.values(EVENT_TYPE_META).map((meta) => meta.color);
     expect(new Set(colors).size).toBe(colors.length);
   });

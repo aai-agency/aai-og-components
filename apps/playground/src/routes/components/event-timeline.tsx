@@ -60,12 +60,12 @@ const EventTimelinePage = () => {
   return (
     <PageWrapper
       title="EventTimeline"
-      description="A well events and history component. The default is a well ledger — a drilling day-report of the well's lifecycle, grouped by period, with a group filter and click-to-expand detail. A compact horizontal lane aligns beneath the charts."
+      description="A well events and history component. The default is a clean, grouped history list (shadcn/Notion style) with a group filter and click-to-expand detail. A compact horizontal lane aligns beneath the charts."
     >
-      <DemoCard title="Well ledger — drilling day-report (default)">
+      <DemoCard title="History list (default)">
         <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
-          Click a row to expand its detail record (dates, duration, and any custom <code>meta</code> fields). Use the
-          <strong> SHOW</strong> legend to filter the ledger by workstream.
+          A clean, grouped history. Click a row to expand its details (dates, duration, and any custom <code>meta</code>{" "}
+          fields), and use the chips to filter by workstream.
         </p>
         <div style={{ maxWidth: 640 }}>
           <EventTimeline events={sampleWellEvents} title="Well history" />
@@ -123,25 +123,25 @@ const EventTimelinePage = () => {
             name: "orientation",
             type: '"vertical" | "horizontal"',
             default: '"vertical"',
-            description: "Vertical git-history feed, or a compact lane that aligns beneath a chart.",
+            description: "Clean grouped history list, or a compact lane that aligns beneath a chart.",
           },
           { name: "title", type: "string", description: "Heading shown above the timeline." },
           {
             name: "maxHeight",
             type: "number",
             default: "460",
-            description: "Max height of the scrollable vertical feed.",
+            description: "Max height of the scrollable vertical list.",
           },
           {
             name: "groupBy",
             type: '"year" | "month" | "none"',
-            description: "Section granularity for the vertical feed; defaults to the span.",
+            description: "Section granularity for the vertical list; defaults to the span.",
           },
           {
             name: "showFilters",
             type: "boolean",
             default: "true",
-            description: "Type filter bar (chips with counts) above the vertical feed.",
+            description: "Group filter chips above the vertical list.",
           },
           {
             name: "onEventSelect",
