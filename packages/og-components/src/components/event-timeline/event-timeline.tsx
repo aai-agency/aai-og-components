@@ -1,4 +1,4 @@
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
 
 import { BORDER, FONT_FAMILY, PANEL_BG, TEXT_FAINT, TEXT_HEADING, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
 import type { WellEvent } from "../../types";
@@ -11,6 +11,7 @@ import {
   formatEventDuration,
   formatEventRange,
   groupEventsByPeriod,
+  humanizeEventType,
   layoutTimeline,
   type NormalizedEvent,
   normalizeEvents,
@@ -18,7 +19,6 @@ import {
   resolveGroupMode,
   shouldShowTypeChip,
   type TimelineDomain,
-  type TimelineGroup,
   type TimelineGroupMode,
   timelineLanes,
   timelineLegend,
@@ -37,6 +37,8 @@ export interface EventTimelineProps {
   maxHeight?: number;
   /** Section granularity for the vertical feed. Defaults to the span. */
   groupBy?: TimelineGroupMode;
+  /** Show the type filter bar above the vertical feed. Default `true`. */
+  showFilters?: boolean;
   /** Optional heading shown above the timeline. */
   title?: string;
   /** Fires when the selection changes (row or marker click). */
@@ -153,28 +155,130 @@ const railStyle = (first: boolean, last: boolean): CSSProperties => ({
   background: RAIL_STROKE,
 });
 
+const formatMetaValue = (value: unknown): string => {
+  if (value == null) return "—";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const DetailRow = ({ label, children }: { label: string; children: ReactNode }) => (
+  <>
+    <dt
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
+        color: TEXT_FAINT,
+        paddingTop: 1,
+      }}
+    >
+      {label}
+    </dt>
+    <dd
+      style={{
+        margin: 0,
+        fontSize: 12.5,
+        fontWeight: 500,
+        color: TEXT_SECONDARY,
+        minWidth: 0,
+        wordBreak: "break-word",
+      }}
+    >
+      {children}
+    </dd>
+  </>
+);
+
+const EventDetailCard = ({
+  event,
+  formatDate,
+  onClose,
+}: {
+  event: NormalizedEvent;
+  formatDate: (time: number) => string;
+  onClose: () => void;
+}) => {
+  const duration = formatEventDuration(event);
+  const when = event.isRange ? `${formatDate(event.start)} – ${formatDate(event.end)}` : formatDate(event.start);
+  const metaEntries = event.event.meta ? Object.entries(event.event.meta) : [];
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        marginTop: 8,
+        marginBottom: 4,
+        borderRadius: 10,
+        background: withAlpha(event.color, 0.06),
+        border: `1px solid ${withAlpha(event.color, 0.2)}`,
+        borderLeft: `3px solid ${event.color}`,
+        padding: "12px 14px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close details"
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          width: 22,
+          height: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          background: "none",
+          borderRadius: 6,
+          cursor: "pointer",
+          color: TEXT_MUTED,
+          fontSize: 16,
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
+      <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", margin: 0, paddingRight: 18 }}>
+        <DetailRow label="Type">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <TypeChip label={event.meta.label} color={event.color} />
+            <span style={{ fontSize: 11, color: TEXT_MUTED }}>{event.meta.group}</span>
+          </span>
+        </DetailRow>
+        <DetailRow label="When">
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{when}</span>
+          {duration ? <span style={{ color: TEXT_MUTED }}>{`  ·  ${duration}`}</span> : null}
+        </DetailRow>
+        {event.lane ? <DetailRow label="Lane">{event.lane}</DetailRow> : null}
+        {event.event.value != null ? <DetailRow label="Value">{event.event.value}</DetailRow> : null}
+        {metaEntries.map(([key, value]) => (
+          <DetailRow key={key} label={humanizeEventType(key)}>
+            {formatMetaValue(value)}
+          </DetailRow>
+        ))}
+      </dl>
+      {event.event.description ? (
+        <p style={{ margin: "10px 0 0", fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
+          {event.event.description}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
 const VerticalItem = ({ event, first, last, active, selected, formatDate, onHover, onSelect }: VerticalItemProps) => {
   const duration = formatEventDuration(event);
   const showChip = shouldShowTypeChip(event.event.title, event.meta.label);
   const meta = event.isRange ? `${formatDate(event.start)} – ${formatDate(event.end)}` : formatDate(event.start);
 
   return (
-    <button
-      type="button"
-      {...rowHandlers(event, onHover, onSelect)}
-      style={{
-        position: "relative",
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        padding: "12px 16px 12px 56px",
-        border: "none",
-        cursor: "pointer",
-        fontFamily: FONT_FAMILY,
-        background: selected ? withAlpha(event.color, 0.08) : active ? ROW_HOVER_BG : "transparent",
-        transition: "background 140ms ease",
-      }}
-    >
+    <div style={{ position: "relative" }}>
       <span aria-hidden="true" style={railStyle(first, last)} />
       <span
         aria-hidden="true"
@@ -191,38 +295,82 @@ const VerticalItem = ({ event, first, last, active, selected, formatDate, onHove
             active || selected
               ? `0 0 0 3px ${withAlpha(event.color, 0.18)}, 0 1px 2px rgba(15,23,42,0.2)`
               : "0 0 0 1px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.18)",
-          transform: active ? "scale(1.14)" : "scale(1)",
+          transform: active || selected ? "scale(1.14)" : "scale(1)",
           transformOrigin: "center",
           transition: "transform 140ms ease, box-shadow 140ms ease",
+          zIndex: 1,
         }}
       />
-      <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING, letterSpacing: "-0.006em" }}>
-          {event.event.title}
-        </span>
-        {showChip ? <TypeChip label={event.meta.label} color={event.color} /> : null}
-        {duration ? <span style={{ fontSize: 11, fontWeight: 500, color: TEXT_FAINT }}>{duration}</span> : null}
-      </span>
-      <span
+      <button
+        type="button"
+        aria-expanded={selected}
+        {...rowHandlers(event, onHover, onSelect)}
         style={{
+          position: "relative",
           display: "block",
-          fontSize: 12,
-          fontWeight: 500,
-          color: TEXT_MUTED,
-          marginTop: 3,
-          fontVariantNumeric: "tabular-nums",
+          width: "100%",
+          textAlign: "left",
+          padding: "12px 16px 12px 56px",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: FONT_FAMILY,
+          background: selected ? withAlpha(event.color, 0.08) : active ? ROW_HOVER_BG : "transparent",
+          transition: "background 140ms ease",
         }}
       >
-        {meta}
-      </span>
-      {event.event.description ? (
-        <span
-          style={{ display: "block", fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 4, maxWidth: 460 }}
-        >
-          {event.event.description}
+        <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING, letterSpacing: "-0.006em" }}>
+            {event.event.title}
+          </span>
+          {showChip ? <TypeChip label={event.meta.label} color={event.color} /> : null}
+          {duration ? <span style={{ fontSize: 11, fontWeight: 500, color: TEXT_FAINT }}>{duration}</span> : null}
         </span>
-      ) : null}
-    </button>
+        <span
+          style={{
+            display: "block",
+            fontSize: 12,
+            fontWeight: 500,
+            color: TEXT_MUTED,
+            marginTop: 3,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {meta}
+        </span>
+        {!selected && event.event.description ? (
+          <span
+            style={{
+              display: "block",
+              fontSize: 12.5,
+              color: TEXT_MUTED,
+              lineHeight: 1.5,
+              marginTop: 4,
+              maxWidth: 460,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {event.event.description}
+          </span>
+        ) : null}
+      </button>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: selected ? "1fr" : "0fr",
+          transition: "grid-template-rows 200ms ease",
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div style={{ padding: "0 16px 8px 56px" }}>
+            {selected ? (
+              <EventDetailCard event={event} formatDate={formatDate} onClose={() => onSelect(event)} />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -256,12 +404,98 @@ const VerticalGroupHeader = ({ label, first, last }: { label: string; first: boo
   </div>
 );
 
+interface FilterEntry {
+  type: string;
+  label: string;
+  color: string;
+  count: number;
+}
+
+const FilterBar = ({
+  entries,
+  active,
+  onToggle,
+  onClear,
+}: {
+  entries: FilterEntry[];
+  active: ReadonlySet<string>;
+  onToggle: (type: string) => void;
+  onClear: () => void;
+}) => {
+  const anyActive = active.size > 0;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 6,
+        alignItems: "center",
+        padding: "10px 14px",
+        borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
+      }}
+    >
+      {entries.map((entry) => {
+        const on = active.has(entry.type);
+        return (
+          <button
+            key={entry.type}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onToggle(entry.type)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "3px 9px",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: FONT_FAMILY,
+              fontSize: 11,
+              fontWeight: 600,
+              border: on ? `1px solid ${withAlpha(entry.color, 0.55)}` : "1px solid rgba(148, 163, 184, 0.28)",
+              background: on ? withAlpha(entry.color, 0.12) : PANEL_BG,
+              color: on ? entry.color : TEXT_MUTED,
+              opacity: anyActive && !on ? 0.7 : 1,
+              transition: "background 120ms ease, border-color 120ms ease, opacity 120ms ease",
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: entry.color }} />
+            {entry.label}
+            <span style={{ fontWeight: 500, color: on ? entry.color : TEXT_FAINT }}>{entry.count}</span>
+          </button>
+        );
+      })}
+      {anyActive ? (
+        <button
+          type="button"
+          onClick={onClear}
+          style={{
+            marginLeft: 2,
+            padding: "3px 8px",
+            borderRadius: 999,
+            border: "none",
+            background: "none",
+            cursor: "pointer",
+            fontFamily: FONT_FAMILY,
+            fontSize: 11,
+            fontWeight: 600,
+            color: TEXT_MUTED,
+          }}
+        >
+          Clear
+        </button>
+      ) : null}
+    </div>
+  );
+};
+
 interface VerticalFeedProps {
-  groups: TimelineGroup[];
+  events: NormalizedEvent[];
+  groupMode: TimelineGroupMode;
   title?: string;
-  subtitle?: string;
   maxHeight: number;
   showHeader: boolean;
+  showFilters: boolean;
   activeId: string | null;
   selectedId: string | null;
   formatDate: (time: number) => string;
@@ -272,23 +506,58 @@ interface VerticalFeedProps {
 type RailRow = { kind: "group"; label: string } | { kind: "event"; event: NormalizedEvent };
 
 const VerticalFeed = ({
-  groups,
+  events,
+  groupMode,
   title,
-  subtitle,
   maxHeight,
   showHeader,
+  showFilters,
   activeId,
   selectedId,
   formatDate,
   onHover,
   onSelect,
 }: VerticalFeedProps) => {
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set());
+
+  const filterEntries = useMemo<FilterEntry[]>(() => {
+    const counts = new Map<string, number>();
+    for (const event of events) counts.set(event.event.type, (counts.get(event.event.type) ?? 0) + 1);
+    return timelineLegend(events).map((entry) => ({
+      type: entry.type,
+      label: entry.label,
+      color: entry.color,
+      count: counts.get(entry.type) ?? 0,
+    }));
+  }, [events]);
+
+  const filtered = useMemo(
+    () => (activeTypes.size === 0 ? events : events.filter((event) => activeTypes.has(event.event.type))),
+    [events, activeTypes],
+  );
+  const groups = useMemo(() => groupEventsByPeriod(filtered, groupMode), [filtered, groupMode]);
+
+  const toggleType = (type: string) =>
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+
   const rows: RailRow[] = [];
   for (const group of groups) {
     if (group.label) rows.push({ kind: "group", label: group.label });
     for (const event of group.events) rows.push({ kind: "event", event });
   }
   const total = rows.length;
+
+  const spanMs = events.length > 0 ? events[events.length - 1].end - events[0].start : 0;
+  const spanLabel = formatSpanLabel(spanMs);
+  const subtitle =
+    activeTypes.size > 0
+      ? `${filtered.length} of ${events.length} events`
+      : `${events.length} event${events.length === 1 ? "" : "s"}${spanLabel ? ` · ${spanLabel}` : ""}`;
 
   return (
     <div
@@ -300,7 +569,7 @@ const VerticalFeed = ({
         boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.05)",
       }}
     >
-      {showHeader && (title || subtitle) ? (
+      {showHeader ? (
         <div
           style={{
             display: "flex",
@@ -311,32 +580,48 @@ const VerticalFeed = ({
             borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
           }}
         >
-          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_HEADING, letterSpacing: "-0.01em" }}>{title}</span>
-          {subtitle ? <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_FAINT }}>{subtitle}</span> : null}
+          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_HEADING, letterSpacing: "-0.01em" }}>
+            {title ?? "History"}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_FAINT }}>{subtitle}</span>
         </div>
       ) : null}
+      {showFilters && filterEntries.length > 1 ? (
+        <FilterBar
+          entries={filterEntries}
+          active={activeTypes}
+          onToggle={toggleType}
+          onClear={() => setActiveTypes(new Set())}
+        />
+      ) : null}
       <div style={{ maxHeight, overflowY: "auto", padding: "6px 0 10px" }}>
-        {rows.map((row, index) =>
-          row.kind === "group" ? (
-            <VerticalGroupHeader
-              key={`g-${row.label}`}
-              label={row.label}
-              first={index === 0}
-              last={index === total - 1}
-            />
-          ) : (
-            <VerticalItem
-              key={row.event.id}
-              event={row.event}
-              first={index === 0}
-              last={index === total - 1}
-              active={row.event.id === activeId}
-              selected={row.event.id === selectedId}
-              formatDate={formatDate}
-              onHover={onHover}
-              onSelect={onSelect}
-            />
-          ),
+        {total === 0 ? (
+          <div style={{ padding: "22px 16px", textAlign: "center", fontSize: 12, color: TEXT_FAINT }}>
+            No events match
+          </div>
+        ) : (
+          rows.map((row, index) =>
+            row.kind === "group" ? (
+              <VerticalGroupHeader
+                key={`g-${row.label}`}
+                label={row.label}
+                first={index === 0}
+                last={index === total - 1}
+              />
+            ) : (
+              <VerticalItem
+                key={row.event.id}
+                event={row.event}
+                first={index === 0}
+                last={index === total - 1}
+                active={row.event.id === activeId}
+                selected={row.event.id === selectedId}
+                formatDate={formatDate}
+                onHover={onHover}
+                onSelect={onSelect}
+              />
+            ),
+          )
         )}
       </div>
     </div>
@@ -698,6 +983,7 @@ export const EventTimeline = ({
   orientation = "vertical",
   maxHeight = 460,
   groupBy,
+  showFilters = true,
   title,
   onEventSelect,
   selectedEventId,
@@ -727,10 +1013,7 @@ export const EventTimeline = ({
     onEventSelect?.(next == null ? null : event.event);
   };
 
-  const groups = useMemo(
-    () => groupEventsByPeriod(normalized, resolveGroupMode(normalized, groupBy)),
-    [normalized, groupBy],
-  );
+  const groupMode = useMemo(() => resolveGroupMode(normalized, groupBy), [normalized, groupBy]);
 
   // ── Vertical (default) ──
   if (orientation === "vertical") {
@@ -741,17 +1024,15 @@ export const EventTimeline = ({
         </div>
       );
     }
-    const spanMs = normalized[normalized.length - 1].end - normalized[0].start;
-    const spanLabel = formatSpanLabel(spanMs);
-    const subtitle = `${normalized.length} event${normalized.length === 1 ? "" : "s"}${spanLabel ? ` · ${spanLabel}` : ""}`;
     return (
       <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
         <VerticalFeed
-          groups={groups}
+          events={normalized}
+          groupMode={groupMode}
           title={title ?? "History"}
-          subtitle={subtitle}
           maxHeight={maxHeight}
           showHeader
+          showFilters={showFilters}
           activeId={hoveredId}
           selectedId={selectedId}
           formatDate={formatDate}
@@ -840,9 +1121,11 @@ export const EventTimeline = ({
         {showLog ? (
           <div style={{ marginTop: 12 }}>
             <VerticalFeed
-              groups={groups}
+              events={normalized}
+              groupMode={groupMode}
               maxHeight={Math.min(maxHeight, 320)}
               showHeader={false}
+              showFilters={false}
               activeId={hoveredId}
               selectedId={selectedId}
               formatDate={formatDate}

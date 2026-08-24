@@ -19,6 +19,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "permit",
     title: "Drilling permit approved",
     description: "State permit issued for a 2-mile lateral in the Niobrara.",
+    meta: { authority: "COGCC", permitNo: "05-123-45678", formation: "Niobrara B" },
   },
   {
     id: "spud",
@@ -51,6 +52,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "stimulation",
     title: "Hydraulic fracturing",
     description: "11.2M lb proppant, 8.4M gal fluid placed.",
+    meta: { proppant: "11.2M lb", fluid: "8.4M gal", stages: 42, avgRate: "82 bpm" },
   },
   {
     id: "first-production",
@@ -58,6 +60,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "first-production",
     title: "First production",
     description: "Flowback complete; well online at 1,180 BOE/d.",
+    meta: { ip: "1,180 BOE/d", choke: '28/64"', gor: "2,400 scf/bbl" },
   },
   {
     id: "well-test-1",
@@ -123,6 +126,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "ownership",
     title: "Working interest sale",
     description: "Operated interest transferred to a new operator.",
+    meta: { from: "Coastal Energy", to: "Front Range Resources", workingInterest: "62.5%" },
   },
   {
     id: "note-1",

@@ -41,7 +41,11 @@ neutral color.
 The vertical feed groups events into period sections (year or month, chosen from
 the span), draws a rail with color-coded nodes, renders spans as capsules with a
 duration badge, and suppresses the type chip when the title already states it.
-Rows are selectable.
+
+- **Click a row** to expand a detail card in place — type, dates, duration, lane,
+  any custom `meta` key/values, and the full description, with a close control.
+- **Type filters** (`showFilters`, default on): a chip per event type with counts;
+  toggle chips to filter the feed (multi-select), with a Clear.
 
 ```tsx
 <EventTimeline events={events} title="Well history" maxHeight={460} />
@@ -76,6 +80,7 @@ events to split the lane into stacked swim-lanes per workstream.
 | `title` | `string` | — | Heading above the timeline. |
 | `maxHeight` | `number` | `460` | Max height of the scrollable vertical feed. |
 | `groupBy` | `"year" \| "month" \| "none"` | span-based | Section granularity for the feed. |
+| `showFilters` | `boolean` | `true` | Type filter bar above the vertical feed. |
 | `onEventSelect` | `(event: WellEvent \| null) => void` | — | Fires on row or marker click. |
 | `selectedEventId` | `string \| null` | — | Controlled selection; omit for uncontrolled. |
 | `formatDate` | `(time: number) => string` | — | Overrides date formatting. |

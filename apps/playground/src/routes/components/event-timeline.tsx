@@ -63,12 +63,16 @@ const EventTimelinePage = () => {
       description="A well events and history component. The vertical feed is the default — a scrollable, git-history style timeline grouped by period. A compact horizontal lane aligns beneath the charts."
     >
       <DemoCard title="Vertical feed — git / commit-history style (default)">
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
+          Click a row to expand a detail card in place (type, dates, duration, and any custom <code>meta</code> fields).
+          Use the chips at the top to filter the feed by type.
+        </p>
         <div style={{ maxWidth: 620 }}>
           <EventTimeline events={sampleWellEvents} title="Well history" />
         </div>
       </DemoCard>
 
-      <DemoCard title="Selection — click a row">
+      <DemoCard title="Selection callback — onEventSelect">
         <div style={{ maxWidth: 620 }}>
           <EventTimeline
             events={sampleWellEvents}
@@ -132,6 +136,12 @@ const EventTimelinePage = () => {
             name: "groupBy",
             type: '"year" | "month" | "none"',
             description: "Section granularity for the vertical feed; defaults to the span.",
+          },
+          {
+            name: "showFilters",
+            type: "boolean",
+            default: "true",
+            description: "Type filter bar (chips with counts) above the vertical feed.",
           },
           {
             name: "onEventSelect",
