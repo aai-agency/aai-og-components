@@ -10,10 +10,13 @@ import {
   formatEventDuration,
   formatTimelineTick,
   fractionForTime,
+  groupEventsByPeriod,
   hasLanes,
   humanizeEventType,
   layoutTimeline,
   normalizeEvents,
+  resolveGroupMode,
+  shouldShowTypeChip,
   timelineLanes,
   timelineLegend,
   toEpochMs,
@@ -213,6 +216,61 @@ describe("lanes", () => {
 
   it("reports no lanes when none are set", () => {
     expect(hasLanes(normalizeEvents(events))).toBe(false);
+  });
+});
+
+describe("resolveGroupMode", () => {
+  it("groups by year for multi-year spans", () => {
+    const multiYear = normalizeEvents([
+      { id: "a", date: "2021-06-15", type: "permit", title: "Permit" },
+      { id: "b", date: "2024-01-01", type: "note", title: "Note" },
+    ]);
+    expect(resolveGroupMode(multiYear)).toBe("year");
+  });
+
+  it("groups by month for sub-year spans", () => {
+    const nearby = normalizeEvents([
+      { id: "a", date: "2022-01-05", type: "note", title: "A" },
+      { id: "b", date: "2022-05-20", type: "note", title: "B" },
+    ]);
+    expect(resolveGroupMode(nearby)).toBe("month");
+  });
+
+  it("returns none for a single event and honors an explicit mode", () => {
+    expect(resolveGroupMode(normalizeEvents([{ id: "a", date: "2022-01-01", type: "note", title: "A" }]))).toBe("none");
+    expect(resolveGroupMode(normalizeEvents(events), "month")).toBe("month");
+  });
+});
+
+describe("groupEventsByPeriod", () => {
+  it("buckets events into year sections in order", () => {
+    const groups = groupEventsByPeriod(normalizeEvents(events), "year");
+    expect(groups.map((group) => group.label)).toEqual(["2021", "2022"]);
+    expect(groups[0].events.map((event) => event.id)).toEqual(["a", "span"]);
+    expect(groups[1].events.map((event) => event.id)).toEqual(["b"]);
+  });
+
+  it("returns a single unlabeled group for mode none", () => {
+    const groups = groupEventsByPeriod(normalizeEvents(events), "none");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe("");
+    expect(groups[0].events).toHaveLength(3);
+  });
+
+  it("returns nothing for no events", () => {
+    expect(groupEventsByPeriod([], "year")).toEqual([]);
+  });
+});
+
+describe("shouldShowTypeChip", () => {
+  it("hides the chip when the title already states the type", () => {
+    expect(shouldShowTypeChip("Drilling", "Drilling")).toBe(false);
+    expect(shouldShowTypeChip("Completion", "Completion")).toBe(false);
+  });
+
+  it("shows the chip when it adds information", () => {
+    expect(shouldShowTypeChip("Hydraulic fracturing", "Stimulation")).toBe(true);
+    expect(shouldShowTypeChip("ESP installed", "Artificial lift")).toBe(true);
   });
 });
 

@@ -10,11 +10,16 @@ import {
   formatEventDate,
   formatEventDuration,
   formatEventRange,
+  groupEventsByPeriod,
   layoutTimeline,
   type NormalizedEvent,
   normalizeEvents,
   type PositionedEvent,
+  resolveGroupMode,
+  shouldShowTypeChip,
   type TimelineDomain,
+  type TimelineGroup,
+  type TimelineGroupMode,
   timelineLanes,
   timelineLegend,
   withAlpha,
@@ -24,58 +29,61 @@ export interface EventTimelineProps {
   /** Events to plot. Point events set `date`; spans also set `endDate`. */
   events: WellEvent[];
   /**
-   * Visible time window as `[start, end]` (ISO string, epoch ms, or Date).
-   * Pass the chart's visible X window to align the lane beneath it; when
-   * omitted the domain fits the events with a small margin.
+   * `"vertical"` (default) renders a scrollable git-history style feed.
+   * `"horizontal"` renders a compact lane that aligns beneath a chart.
    */
-  domain?: [DateInput, DateInput];
-  /** Height of the timeline lane area in pixels. */
-  height?: number;
-  /**
-   * Horizontal insets that match the chart's plot area so the lane lines up
-   * under it. Default `{ left: 58, right: 8 }` matches a single left Y axis.
-   */
-  padding?: { left?: number; right?: number };
-  /** Optional heading shown above the lane. */
+  orientation?: "vertical" | "horizontal";
+  /** Max height of the scrollable vertical feed in pixels. Default `460`. */
+  maxHeight?: number;
+  /** Section granularity for the vertical feed. Defaults to the span. */
+  groupBy?: TimelineGroupMode;
+  /** Optional heading shown above the timeline. */
   title?: string;
-  /** Show the legend of event types present. Default `true`. */
-  showLegend?: boolean;
-  /** Show the time axis beneath the lane. Default `true`. */
-  showAxis?: boolean;
-  /** Show the chronological history log beneath the lane. Default `true`. */
-  showLog?: boolean;
-  /** Max height of the scrollable history log in pixels. Default `260`. */
-  logMaxHeight?: number;
-  /** Number of axis ticks. Default `6`. */
-  tickCount?: number;
+  /** Fires when the selection changes (row or marker click). */
+  onEventSelect?: (event: WellEvent | null) => void;
   /** Controlled selected event id. */
   selectedEventId?: string | null;
   /** Initial selected event id when uncontrolled. */
   defaultSelectedEventId?: string | null;
-  /** Fires when the selection changes (marker or log row click). */
-  onEventSelect?: (event: WellEvent | null) => void;
   /** Overrides the tooltip/log date formatting. */
   formatDate?: (time: number) => string;
   /** Message shown when there are no plottable events. */
   emptyMessage?: string;
+
+  // ── Horizontal-only ──
+  /**
+   * Visible time window as `[start, end]` (ISO string, epoch ms, or Date).
+   * Pass the chart's visible X window to align the lane beneath it.
+   */
+  domain?: [DateInput, DateInput];
+  /** Lane height in pixels (horizontal). Default `76`. */
+  height?: number;
+  /** Plot-area insets matching the chart (horizontal). Default `{ left: 58, right: 8 }`. */
+  padding?: { left?: number; right?: number };
+  /** Legend of event types present (horizontal). Default `true`. */
+  showLegend?: boolean;
+  /** Time axis beneath the lane (horizontal). Default `true`. */
+  showAxis?: boolean;
+  /** Show the feed of events beneath the lane (horizontal). Default `true`. */
+  showLog?: boolean;
+  /** Number of axis ticks (horizontal). Default `6`. */
+  tickCount?: number;
+
   className?: string;
   style?: CSSProperties;
 }
 
 const LABEL_ROW_HEIGHT = 18;
 const MAX_LABEL_ROWS = 2;
-// Labels are far wider than a marker, so keep well-separated titles only and
-// let dense clusters fall back to markers, tooltips, and the history log.
 const LABEL_MIN_GAP = 0.16;
 const LABEL_MAX_WIDTH = 132;
 const MIN_LANE_HEIGHT = 40;
 const BASELINE_STROKE = "rgba(148, 163, 184, 0.35)";
-
-interface Band {
-  key: string;
-  label?: string;
-  events: PositionedEvent[];
-}
+const RAIL_STROKE = "rgba(148, 163, 184, 0.28)";
+const NODE_CENTER = 22;
+const ROW_HOVER_BG = "rgba(148, 163, 184, 0.07)";
+const MS_PER_YEAR = 365.25 * 86_400_000;
+const MS_PER_MONTH = 30.436_875 * 86_400_000;
 
 const insetStyle = (padLeft: number, padRight: number) => {
   const inset = padLeft + padRight;
@@ -91,7 +99,257 @@ const labelAlignment = (anchor: number): Pick<CSSProperties, "transform" | "text
   return { transform: "translateX(-50%)", textAlign: "center" };
 };
 
-// ── Tooltip body ─────────────────────────────────────────────────────────────
+// ── Shared bits ──────────────────────────────────────────────────────────────
+
+const TypeChip = ({ label, color }: { label: string; color: string }) => (
+  <span
+    style={{
+      fontSize: 10,
+      fontWeight: 600,
+      lineHeight: 1.7,
+      padding: "0 7px",
+      borderRadius: 999,
+      color,
+      background: withAlpha(color, 0.12),
+      whiteSpace: "nowrap",
+      flex: "0 0 auto",
+    }}
+  >
+    {label}
+  </span>
+);
+
+const rowHandlers = (
+  event: NormalizedEvent,
+  onHover: (id: string | null) => void,
+  onSelect: (event: NormalizedEvent) => void,
+) => ({
+  onMouseEnter: () => onHover(event.id),
+  onMouseLeave: () => onHover(null),
+  onFocus: () => onHover(event.id),
+  onBlur: () => onHover(null),
+  onClick: () => onSelect(event),
+});
+
+// ── Vertical feed (git / PR history style) ───────────────────────────────────
+
+interface VerticalItemProps {
+  event: NormalizedEvent;
+  first: boolean;
+  last: boolean;
+  active: boolean;
+  selected: boolean;
+  formatDate: (time: number) => string;
+  onHover: (id: string | null) => void;
+  onSelect: (event: NormalizedEvent) => void;
+}
+
+const railStyle = (first: boolean, last: boolean): CSSProperties => ({
+  position: "absolute",
+  left: 26,
+  width: 2,
+  top: first ? NODE_CENTER : 0,
+  bottom: last ? `calc(100% - ${NODE_CENTER}px)` : 0,
+  background: RAIL_STROKE,
+});
+
+const VerticalItem = ({ event, first, last, active, selected, formatDate, onHover, onSelect }: VerticalItemProps) => {
+  const duration = formatEventDuration(event);
+  const showChip = shouldShowTypeChip(event.event.title, event.meta.label);
+  const meta = event.isRange ? `${formatDate(event.start)} – ${formatDate(event.end)}` : formatDate(event.start);
+
+  return (
+    <button
+      type="button"
+      {...rowHandlers(event, onHover, onSelect)}
+      style={{
+        position: "relative",
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "12px 16px 12px 56px",
+        border: "none",
+        cursor: "pointer",
+        fontFamily: FONT_FAMILY,
+        background: selected ? withAlpha(event.color, 0.08) : active ? ROW_HOVER_BG : "transparent",
+        transition: "background 140ms ease",
+      }}
+    >
+      <span aria-hidden="true" style={railStyle(first, last)} />
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: event.isRange ? 21 : 20,
+          top: event.isRange ? 12 : 15,
+          width: event.isRange ? 12 : 14,
+          height: event.isRange ? 24 : 14,
+          borderRadius: event.isRange ? 6 : "50%",
+          background: event.color,
+          border: "2px solid #ffffff",
+          boxShadow:
+            active || selected
+              ? `0 0 0 3px ${withAlpha(event.color, 0.18)}, 0 1px 2px rgba(15,23,42,0.2)`
+              : "0 0 0 1px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.18)",
+          transform: active ? "scale(1.14)" : "scale(1)",
+          transformOrigin: "center",
+          transition: "transform 140ms ease, box-shadow 140ms ease",
+        }}
+      />
+      <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING, letterSpacing: "-0.006em" }}>
+          {event.event.title}
+        </span>
+        {showChip ? <TypeChip label={event.meta.label} color={event.color} /> : null}
+        {duration ? <span style={{ fontSize: 11, fontWeight: 500, color: TEXT_FAINT }}>{duration}</span> : null}
+      </span>
+      <span
+        style={{
+          display: "block",
+          fontSize: 12,
+          fontWeight: 500,
+          color: TEXT_MUTED,
+          marginTop: 3,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {meta}
+      </span>
+      {event.event.description ? (
+        <span
+          style={{ display: "block", fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 4, maxWidth: 460 }}
+        >
+          {event.event.description}
+        </span>
+      ) : null}
+    </button>
+  );
+};
+
+const VerticalGroupHeader = ({ label, first, last }: { label: string; first: boolean; last: boolean }) => (
+  <div style={{ position: "relative", padding: "16px 16px 6px 56px" }}>
+    <span aria-hidden="true" style={railStyle(first, last)} />
+    <span
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        left: 21,
+        top: 16,
+        width: 12,
+        height: 12,
+        borderRadius: "50%",
+        background: PANEL_BG,
+        border: `2px solid ${withAlpha("#94a3b8", 0.55)}`,
+      }}
+    />
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: TEXT_MUTED,
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+      }}
+    >
+      {label}
+    </span>
+  </div>
+);
+
+interface VerticalFeedProps {
+  groups: TimelineGroup[];
+  title?: string;
+  subtitle?: string;
+  maxHeight: number;
+  showHeader: boolean;
+  activeId: string | null;
+  selectedId: string | null;
+  formatDate: (time: number) => string;
+  onHover: (id: string | null) => void;
+  onSelect: (event: NormalizedEvent) => void;
+}
+
+type RailRow = { kind: "group"; label: string } | { kind: "event"; event: NormalizedEvent };
+
+const VerticalFeed = ({
+  groups,
+  title,
+  subtitle,
+  maxHeight,
+  showHeader,
+  activeId,
+  selectedId,
+  formatDate,
+  onHover,
+  onSelect,
+}: VerticalFeedProps) => {
+  const rows: RailRow[] = [];
+  for (const group of groups) {
+    if (group.label) rows.push({ kind: "group", label: group.label });
+    for (const event of group.events) rows.push({ kind: "event", event });
+  }
+  const total = rows.length;
+
+  return (
+    <div
+      style={{
+        border: BORDER,
+        borderRadius: 12,
+        background: PANEL_BG,
+        overflow: "hidden",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.05)",
+      }}
+    >
+      {showHeader && (title || subtitle) ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "14px 18px",
+            borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
+          }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_HEADING, letterSpacing: "-0.01em" }}>{title}</span>
+          {subtitle ? <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_FAINT }}>{subtitle}</span> : null}
+        </div>
+      ) : null}
+      <div style={{ maxHeight, overflowY: "auto", padding: "6px 0 10px" }}>
+        {rows.map((row, index) =>
+          row.kind === "group" ? (
+            <VerticalGroupHeader
+              key={`g-${row.label}`}
+              label={row.label}
+              first={index === 0}
+              last={index === total - 1}
+            />
+          ) : (
+            <VerticalItem
+              key={row.event.id}
+              event={row.event}
+              first={index === 0}
+              last={index === total - 1}
+              active={row.event.id === activeId}
+              selected={row.event.id === selectedId}
+              formatDate={formatDate}
+              onHover={onHover}
+              onSelect={onSelect}
+            />
+          ),
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Horizontal lane ──────────────────────────────────────────────────────────
+
+interface Band {
+  key: string;
+  label?: string;
+  events: PositionedEvent[];
+}
 
 const EventTooltipBody = ({ event, formatDate }: { event: NormalizedEvent; formatDate: (time: number) => string }) => {
   const duration = formatEventDuration(event);
@@ -118,8 +376,6 @@ const EventTooltipBody = ({ event, formatDate }: { event: NormalizedEvent; forma
   );
 };
 
-// ── Marker ───────────────────────────────────────────────────────────────────
-
 interface MarkerProps {
   event: PositionedEvent;
   baselineY: number;
@@ -131,20 +387,8 @@ interface MarkerProps {
   onSelect: (event: NormalizedEvent) => void;
 }
 
-const markerHandlers = (
-  event: PositionedEvent,
-  onHover: MarkerProps["onHover"],
-  onSelect: MarkerProps["onSelect"],
-) => ({
-  onMouseEnter: () => onHover(event.id),
-  onMouseLeave: () => onHover(null),
-  onFocus: () => onHover(event.id),
-  onBlur: () => onHover(null),
-  onClick: () => onSelect(event),
-});
-
 const EventMarker = ({ event, baselineY, x, active, dimmed, formatDate, onHover, onSelect }: MarkerProps) => {
-  const handlers = markerHandlers(event, onHover, onSelect);
+  const handlers = rowHandlers(event, onHover, onSelect);
   const ariaLabel = `${event.meta.label}: ${event.event.title}, ${formatEventRange(event)}`;
   const opacity = dimmed ? 0.4 : 1;
 
@@ -219,8 +463,6 @@ const EventMarker = ({ event, baselineY, x, active, dimmed, formatDate, onHover,
   );
 };
 
-// ── Lane ─────────────────────────────────────────────────────────────────────
-
 interface LaneProps {
   bands: Band[];
   height: number;
@@ -257,8 +499,6 @@ const TimelineLane = ({
     >
       {bands.map((band, bandIndex) => {
         const bandTop = bandIndex * bandHeight;
-        // With titles: baseline near the bottom, labels stack above it.
-        // Without titles: baseline centered in the band.
         const baselineY = showTitles ? bandTop + bandHeight - 22 : bandTop + bandHeight / 2;
         return (
           <div key={band.key}>
@@ -372,8 +612,6 @@ const TimelineLane = ({
   );
 };
 
-// ── Axis ─────────────────────────────────────────────────────────────────────
-
 const TimelineAxis = ({
   domain,
   padLeft,
@@ -410,8 +648,6 @@ const TimelineAxis = ({
   );
 };
 
-// ── Legend & log ─────────────────────────────────────────────────────────────
-
 const Legend = ({ entries }: { entries: ReturnType<typeof timelineLegend> }) => (
   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", alignItems: "center" }}>
     {entries.map((entry) => (
@@ -421,123 +657,6 @@ const Legend = ({ entries }: { entries: ReturnType<typeof timelineLegend> }) => 
       </span>
     ))}
   </div>
-);
-
-const TypeChip = ({ label, color }: { label: string; color: string }) => (
-  <span
-    style={{
-      fontSize: 10,
-      fontWeight: 600,
-      lineHeight: 1.6,
-      padding: "0 6px",
-      borderRadius: 999,
-      color,
-      background: withAlpha(color, 0.12),
-      whiteSpace: "nowrap",
-      flex: "0 0 auto",
-    }}
-  >
-    {label}
-  </span>
-);
-
-interface LogProps {
-  events: NormalizedEvent[];
-  activeId: string | null;
-  selectedId: string | null;
-  maxHeight: number;
-  formatDate: (time: number) => string;
-  onHover: (id: string | null) => void;
-  onSelect: (event: NormalizedEvent) => void;
-}
-
-const EventLog = ({ events, activeId, selectedId, maxHeight, formatDate, onHover, onSelect }: LogProps) => (
-  <ol
-    aria-label="Event history"
-    style={{
-      listStyle: "none",
-      margin: 0,
-      padding: 0,
-      maxHeight,
-      overflowY: "auto",
-      border: BORDER,
-      borderRadius: 8,
-      background: PANEL_BG,
-    }}
-  >
-    {events.map((event, index) => {
-      const active = event.id === activeId;
-      const selected = event.id === selectedId;
-      const duration = formatEventDuration(event);
-      return (
-        <li key={event.id}>
-          <button
-            type="button"
-            onMouseEnter={() => onHover(event.id)}
-            onMouseLeave={() => onHover(null)}
-            onFocus={() => onHover(event.id)}
-            onBlur={() => onHover(null)}
-            onClick={() => onSelect(event)}
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: 10,
-              width: "100%",
-              textAlign: "left",
-              padding: "8px 12px",
-              cursor: "pointer",
-              border: "none",
-              borderTop: index === 0 ? "none" : "1px solid rgba(148, 163, 184, 0.14)",
-              borderLeft: `2px solid ${selected ? event.color : "transparent"}`,
-              background: selected
-                ? withAlpha(event.color, 0.08)
-                : active
-                  ? "rgba(148, 163, 184, 0.08)"
-                  : "transparent",
-              transition: "background 120ms ease",
-              fontFamily: FONT_FAMILY,
-            }}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                width: 8,
-                height: 8,
-                marginTop: 5,
-                borderRadius: "50%",
-                background: event.color,
-                flex: "0 0 auto",
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                color: TEXT_MUTED,
-                flex: "0 0 auto",
-                minWidth: 84,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {formatDate(event.start)}
-            </span>
-            <TypeChip label={event.meta.label} color={event.color} />
-            <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_HEADING, lineHeight: 1.3 }}>
-                {event.event.title}
-                {duration ? (
-                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: TEXT_FAINT }}>{duration}</span>
-                ) : null}
-              </span>
-              {event.event.description ? (
-                <span style={{ fontSize: 12, color: TEXT_MUTED, lineHeight: 1.45 }}>{event.event.description}</span>
-              ) : null}
-            </span>
-          </button>
-        </li>
-      );
-    })}
-  </ol>
 );
 
 const EmptyTimeline = ({ height, message }: { height: number; message: string }) => (
@@ -562,64 +681,40 @@ const EmptyTimeline = ({ height, message }: { height: number; message: string })
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+const formatSpanLabel = (ms: number): string | null => {
+  if (ms >= MS_PER_YEAR) return `${Math.round(ms / MS_PER_YEAR)} yr`;
+  if (ms >= 2 * MS_PER_MONTH) return `${Math.round(ms / MS_PER_MONTH)} mo`;
+  return null;
+};
+
 /**
- * A time-aligned events / history component for O&G assets. Renders a compact
- * timeline lane of well events (points and spans) plus a chronological history
- * log. Pass `domain` matching a chart's visible X window — and `padding`
- * matching its plot inset — to line the lane up directly beneath the chart.
- * Set a `lane` on events to split the timeline into stacked swim-lanes.
+ * A well events / history component for O&G assets. `orientation="vertical"`
+ * (default) renders a scrollable git-history style feed of lifecycle events,
+ * grouped by period. `orientation="horizontal"` renders a compact time-aligned
+ * lane that lines up beneath a chart when given a matching `domain` and `padding`.
  */
 export const EventTimeline = ({
   events,
+  orientation = "vertical",
+  maxHeight = 460,
+  groupBy,
+  title,
+  onEventSelect,
+  selectedEventId,
+  defaultSelectedEventId = null,
+  formatDate = formatEventDate,
+  emptyMessage = "No events",
   domain: domainProp,
   height = 76,
   padding,
-  title,
   showLegend = true,
   showAxis = true,
   showLog = true,
-  logMaxHeight = 260,
   tickCount = 6,
-  selectedEventId,
-  defaultSelectedEventId = null,
-  onEventSelect,
-  formatDate = formatEventDate,
-  emptyMessage = "No events",
   className,
   style,
 }: EventTimelineProps) => {
-  const padLeft = padding?.left ?? 58;
-  const padRight = padding?.right ?? 8;
-
   const normalized = useMemo(() => normalizeEvents(events), [events]);
-  const domain = useMemo(() => computeTimelineDomain(normalized, domainProp), [normalized, domainProp]);
-  const lanes = useMemo(() => timelineLanes(normalized), [normalized]);
-  const legend = useMemo(() => timelineLegend(normalized), [normalized]);
-
-  const bands = useMemo<Band[]>(() => {
-    if (!domain) return [];
-    const options = { minLabelGap: LABEL_MIN_GAP, maxLabelRows: MAX_LABEL_ROWS };
-    if (lanes.length === 0) {
-      return [{ key: "__all", events: layoutTimeline(normalized, domain, options) }];
-    }
-    const result: Band[] = lanes.map((lane) => ({
-      key: lane,
-      label: lane,
-      events: layoutTimeline(
-        normalized.filter((event) => event.lane === lane),
-        domain,
-        options,
-      ),
-    }));
-    const unlaned = normalized.filter((event) => event.lane == null);
-    if (unlaned.length > 0) {
-      result.push({ key: "__other", label: "Other", events: layoutTimeline(unlaned, domain, options) });
-    }
-    return result;
-  }, [normalized, domain, lanes]);
-
-  const multiLane = lanes.length > 0;
-  const laneHeight = multiLane ? Math.max(height, bands.length * MIN_LANE_HEIGHT) : height;
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [uncontrolledSelected, setUncontrolledSelected] = useState<string | null>(defaultSelectedEventId);
@@ -631,6 +726,71 @@ export const EventTimeline = ({
     if (!isControlled) setUncontrolledSelected(next);
     onEventSelect?.(next == null ? null : event.event);
   };
+
+  const groups = useMemo(
+    () => groupEventsByPeriod(normalized, resolveGroupMode(normalized, groupBy)),
+    [normalized, groupBy],
+  );
+
+  // ── Vertical (default) ──
+  if (orientation === "vertical") {
+    if (normalized.length === 0) {
+      return (
+        <div className={className} style={{ fontFamily: FONT_FAMILY, ...style }}>
+          <EmptyTimeline height={120} message={emptyMessage} />
+        </div>
+      );
+    }
+    const spanMs = normalized[normalized.length - 1].end - normalized[0].start;
+    const spanLabel = formatSpanLabel(spanMs);
+    const subtitle = `${normalized.length} event${normalized.length === 1 ? "" : "s"}${spanLabel ? ` · ${spanLabel}` : ""}`;
+    return (
+      <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
+        <VerticalFeed
+          groups={groups}
+          title={title ?? "History"}
+          subtitle={subtitle}
+          maxHeight={maxHeight}
+          showHeader
+          activeId={hoveredId}
+          selectedId={selectedId}
+          formatDate={formatDate}
+          onHover={setHoveredId}
+          onSelect={handleSelect}
+        />
+      </div>
+    );
+  }
+
+  // ── Horizontal lane ──
+  const padLeft = padding?.left ?? 58;
+  const padRight = padding?.right ?? 8;
+  const domain = computeTimelineDomain(normalized, domainProp);
+  const lanes = timelineLanes(normalized);
+  const legend = timelineLegend(normalized);
+  const multiLane = lanes.length > 0;
+
+  const bands: Band[] = domain
+    ? (() => {
+        const options = { minLabelGap: LABEL_MIN_GAP, maxLabelRows: MAX_LABEL_ROWS };
+        if (!multiLane) return [{ key: "__all", events: layoutTimeline(normalized, domain, options) }];
+        const result: Band[] = lanes.map((lane) => ({
+          key: lane,
+          label: lane,
+          events: layoutTimeline(
+            normalized.filter((event) => event.lane === lane),
+            domain,
+            options,
+          ),
+        }));
+        const unlaned = normalized.filter((event) => event.lane == null);
+        if (unlaned.length > 0) {
+          result.push({ key: "__other", label: "Other", events: layoutTimeline(unlaned, domain, options) });
+        }
+        return result;
+      })()
+    : [];
+  const laneHeight = multiLane ? Math.max(height, bands.length * MIN_LANE_HEIGHT) : height;
 
   if (!domain || normalized.length === 0) {
     return (
@@ -679,11 +839,12 @@ export const EventTimeline = ({
 
         {showLog ? (
           <div style={{ marginTop: 12 }}>
-            <EventLog
-              events={normalized}
+            <VerticalFeed
+              groups={groups}
+              maxHeight={Math.min(maxHeight, 320)}
+              showHeader={false}
               activeId={hoveredId}
               selectedId={selectedId}
-              maxHeight={logMaxHeight}
               formatDate={formatDate}
               onHover={setHoveredId}
               onSelect={handleSelect}

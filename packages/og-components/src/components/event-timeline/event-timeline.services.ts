@@ -296,6 +296,61 @@ export const timelineLegend = (events: readonly NormalizedEvent[]): TimelineLege
 /** True when any event declares a swim-lane. */
 export const hasLanes = (events: readonly NormalizedEvent[]): boolean => events.some((event) => event.lane != null);
 
+// ── Vertical grouping ────────────────────────────────────────────────────────
+
+/** How the vertical timeline buckets events into period sections. */
+export type TimelineGroupMode = "year" | "month" | "none";
+
+export interface TimelineGroup {
+  key: string;
+  /** Section label (empty when `mode === "none"`). */
+  label: string;
+  events: NormalizedEvent[];
+}
+
+/** Picks a sensible section granularity from the events' overall span. */
+export const resolveGroupMode = (
+  events: readonly NormalizedEvent[],
+  explicit?: TimelineGroupMode,
+): TimelineGroupMode => {
+  if (explicit) return explicit;
+  if (events.length < 2) return "none";
+  const span = events[events.length - 1].start - events[0].start;
+  if (span >= 1.5 * MS_PER_YEAR) return "year";
+  if (span >= 45 * MS_PER_DAY) return "month";
+  return "none";
+};
+
+/** Buckets chronologically-sorted events into period sections for the feed. */
+export const groupEventsByPeriod = (events: readonly NormalizedEvent[], mode: TimelineGroupMode): TimelineGroup[] => {
+  if (mode === "none") return events.length > 0 ? [{ key: "all", label: "", events: [...events] }] : [];
+  const format =
+    mode === "year"
+      ? new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: "UTC" })
+      : new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const keyOf = (time: number): string => {
+    const date = new Date(time);
+    return mode === "year" ? `${date.getUTCFullYear()}` : `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+  };
+  const groups: TimelineGroup[] = [];
+  const index = new Map<string, TimelineGroup>();
+  for (const event of events) {
+    const key = keyOf(event.start);
+    let group = index.get(key);
+    if (!group) {
+      group = { key, label: format.format(new Date(event.start)), events: [] };
+      index.set(key, group);
+      groups.push(group);
+    }
+    group.events.push(event);
+  }
+  return groups;
+};
+
+/** Whether a type chip adds information the title doesn't already state. */
+export const shouldShowTypeChip = (title: string, label: string): boolean =>
+  !title.toLowerCase().includes(label.toLowerCase());
+
 /** Distinct lane keys in first-seen order. */
 export const timelineLanes = (events: readonly NormalizedEvent[]): string[] => {
   const lanes: string[] = [];

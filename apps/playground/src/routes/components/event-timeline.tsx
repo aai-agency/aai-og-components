@@ -13,8 +13,7 @@ const monthAt = (start: string, offset: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-// Production spans the full event history so the chart and timeline share an axis.
-// Values stay at zero until first production in month 5 (Nov 2021).
+// Production spans the full event history so the lane and chart share an axis.
 const HISTORY_START = "2021-06-01";
 const HISTORY_END = "2026-09-01";
 const MONTHS = 64;
@@ -55,42 +54,38 @@ const productionSeries: TimeSeries[] = [
   },
 ];
 
-const swimlaneEvents: WellEvent[] = [
-  { id: "s-permit", date: "2021-06-15", type: "permit", title: "Permit", lane: "Regulatory" },
-  { id: "s-spud", date: "2021-09-02", type: "spud", title: "Spud", lane: "Wellwork" },
-  { id: "s-drill", date: "2021-09-02", endDate: "2021-10-01", type: "drilling", title: "Drilling", lane: "Wellwork" },
-  { id: "s-firstprod", date: "2021-11-05", type: "first-production", title: "First production", lane: "Production" },
-  {
-    id: "s-workover",
-    date: "2022-08-30",
-    endDate: "2022-09-12",
-    type: "workover",
-    title: "Rod pump repair",
-    lane: "Wellwork",
-  },
-  {
-    id: "s-shutin",
-    date: "2023-07-01",
-    endDate: "2023-07-20",
-    type: "shut-in",
-    title: "Offset frac shut-in",
-    lane: "Production",
-  },
-  { id: "s-owner", date: "2023-10-01", type: "ownership", title: "WI sale", lane: "Regulatory" },
-];
-
 const EventTimelinePage = () => {
   const [selected, setSelected] = useState<WellEvent | null>(null);
 
   return (
     <PageWrapper
       title="EventTimeline"
-      description="A time-aligned events and history component. Plots point events and spans on a shared time axis beneath the production charts, with a chronological history log."
+      description="A well events and history component. The vertical feed is the default — a scrollable, git-history style timeline grouped by period. A compact horizontal lane aligns beneath the charts."
     >
-      <DemoCard title="Aligned beneath a production chart">
+      <DemoCard title="Vertical feed — git / commit-history style (default)">
+        <div style={{ maxWidth: 620 }}>
+          <EventTimeline events={sampleWellEvents} title="Well history" />
+        </div>
+      </DemoCard>
+
+      <DemoCard title="Selection — click a row">
+        <div style={{ maxWidth: 620 }}>
+          <EventTimeline
+            events={sampleWellEvents}
+            title="Interactive history"
+            onEventSelect={setSelected}
+            maxHeight={360}
+          />
+          <p style={{ marginTop: 12, fontSize: 13, color: "#334155" }}>
+            Selected: <strong>{selected ? `${selected.title} (${selected.type})` : "none"}</strong>
+          </p>
+        </div>
+      </DemoCard>
+
+      <DemoCard title="Horizontal lane — aligned beneath a production chart">
         <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
-          Pass the chart&apos;s visible X window as <code>domain</code> and match <code>padding</code> to its plot
-          inset, and the lane lines up directly under the curve. Hover a marker for details.
+          Set <code>orientation=&quot;horizontal&quot;</code>, pass the chart&apos;s visible X window as{" "}
+          <code>domain</code>, and match <code>padding</code> to its plot inset so the lane lines up under the curve.
         </p>
         <Chart
           id="oil-production"
@@ -103,6 +98,7 @@ const EventTimelinePage = () => {
         <div style={{ marginTop: 4 }}>
           <EventTimeline
             events={sampleWellEvents}
+            orientation="horizontal"
             domain={[HISTORY_START, HISTORY_END]}
             padding={{ left: 56, right: 14 }}
             height={84}
@@ -110,30 +106,6 @@ const EventTimelinePage = () => {
             showLegend={false}
           />
         </div>
-      </DemoCard>
-
-      <DemoCard title="Standalone — lane, axis, legend, and history log">
-        <EventTimeline events={sampleWellEvents} title="Well history" />
-      </DemoCard>
-
-      <DemoCard title="Selection — click a marker or a log row">
-        <EventTimeline
-          events={sampleWellEvents}
-          title="Interactive history"
-          onEventSelect={setSelected}
-          logMaxHeight={200}
-        />
-        <p style={{ marginTop: 12, fontSize: 13, color: "#334155" }}>
-          Selected: <strong>{selected ? `${selected.title} (${selected.type})` : "none"}</strong>
-        </p>
-      </DemoCard>
-
-      <DemoCard title="Swim-lanes — group events by workstream">
-        <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
-          Set a <code>lane</code> on each event to separate regulatory, wellwork, and production activity. Custom event
-          types fall back to a readable label and neutral color.
-        </p>
-        <EventTimeline events={swimlaneEvents} title="Activity by workstream" showLog={false} height={128} />
       </DemoCard>
 
       <PropTable
@@ -144,48 +116,46 @@ const EventTimelinePage = () => {
             description: "Events to plot. Point events set date; spans also set endDate.",
           },
           {
+            name: "orientation",
+            type: '"vertical" | "horizontal"',
+            default: '"vertical"',
+            description: "Vertical git-history feed, or a compact lane that aligns beneath a chart.",
+          },
+          { name: "title", type: "string", description: "Heading shown above the timeline." },
+          {
+            name: "maxHeight",
+            type: "number",
+            default: "460",
+            description: "Max height of the scrollable vertical feed.",
+          },
+          {
+            name: "groupBy",
+            type: '"year" | "month" | "none"',
+            description: "Section granularity for the vertical feed; defaults to the span.",
+          },
+          {
+            name: "onEventSelect",
+            type: "(event: WellEvent | null) => void",
+            description: "Fires on row or marker click.",
+          },
+          {
+            name: "selectedEventId",
+            type: "string | null",
+            description: "Controlled selection; omit for uncontrolled.",
+          },
+          { name: "formatDate", type: "(time: number) => string", description: "Overrides date formatting." },
+          {
             name: "domain",
             type: "[DateInput, DateInput]",
-            description:
-              "Visible time window. Pass the chart's X window to align the lane; defaults to fit the events.",
+            description: "Horizontal: the visible time window; pass the chart's X window to align.",
           },
           {
             name: "padding",
             type: "{ left?: number; right?: number }",
             default: "{ left: 58, right: 8 }",
-            description: "Horizontal insets matching the chart's plot area so the lane lines up beneath it.",
+            description: "Horizontal: plot-area insets matching the chart.",
           },
-          { name: "height", type: "number", default: "76", description: "Timeline lane height in pixels." },
-          { name: "title", type: "string", description: "Optional heading shown above the lane." },
-          {
-            name: "showLegend",
-            type: "boolean",
-            default: "true",
-            description: "Show the legend of event types present.",
-          },
-          {
-            name: "showAxis",
-            type: "boolean",
-            default: "true",
-            description: "Show the adaptive time axis beneath the lane.",
-          },
-          { name: "showLog", type: "boolean", default: "true", description: "Show the chronological history log." },
-          { name: "logMaxHeight", type: "number", default: "260", description: "Max height of the scrollable log." },
-          {
-            name: "selectedEventId",
-            type: "string | null",
-            description: "Controlled selection; pair with onEventSelect. Omit for uncontrolled.",
-          },
-          {
-            name: "onEventSelect",
-            type: "(event: WellEvent | null) => void",
-            description: "Fires on marker or log-row click.",
-          },
-          {
-            name: "formatDate",
-            type: "(time: number) => string",
-            description: "Overrides tooltip and log date formatting.",
-          },
+          { name: "height", type: "number", default: "76", description: "Horizontal: lane height in pixels." },
         ]}
       />
     </PageWrapper>
