@@ -1,5 +1,5 @@
-export type { EventTimelineProps } from "./event-timeline";
-export { EventTimeline } from "./event-timeline";
+export type { EventActivityLogEntry, EventActivityLogProps, EventTimelineProps } from "./event-timeline";
+export { EventActivityLog, EventTimeline } from "./event-timeline";
 export type {
   DateInput,
   LayoutOptions,

@@ -1,5 +1,5 @@
 import { Chart } from "@aai-agency/og-components/chart";
-import { EventTimeline } from "@aai-agency/og-components/event-timeline";
+import { EventActivityLog, type EventActivityLogEntry, EventTimeline } from "@aai-agency/og-components/event-timeline";
 import { sampleWellEvents } from "@aai-agency/og-components/sample-data";
 import type { TimeSeries, WellEvent } from "@aai-agency/og-components/types";
 import { createFileRoute } from "@tanstack/react-router";
@@ -76,35 +76,7 @@ const EventTimelinePage = () => {
               const steps = event.meta?.steps;
               if (!Array.isArray(steps)) return null;
               return (
-                <div style={{ marginBottom: 18 }}>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#a1a1aa",
-                      marginBottom: 7,
-                    }}
-                  >
-                    Operations log
-                  </div>
-                  <ol
-                    style={{
-                      margin: 0,
-                      paddingLeft: 18,
-                      display: "grid",
-                      gap: 5,
-                      fontSize: 13,
-                      color: "#52525b",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {steps.map((step) => (
-                      <li key={String(step)}>{String(step)}</li>
-                    ))}
-                  </ol>
-                </div>
+                <EventActivityLog title="Operations log" maxHeight={168} entries={steps as EventActivityLogEntry[]} />
               );
             }}
           />

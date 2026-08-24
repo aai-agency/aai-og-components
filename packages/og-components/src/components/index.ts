@@ -42,6 +42,8 @@ export {
 } from "./decline-curve";
 export type {
   DateInput,
+  EventActivityLogEntry,
+  EventActivityLogProps,
   EventTimelineProps,
   LayoutOptions,
   NormalizedEvent,
@@ -60,6 +62,7 @@ export {
   computeTimelineDomain,
   EVENT_TYPE_GROUPS,
   EVENT_TYPE_META,
+  EventActivityLog,
   EventTimeline,
   eventTypeMeta,
   formatEventDate,

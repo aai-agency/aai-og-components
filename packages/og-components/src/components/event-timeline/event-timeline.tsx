@@ -601,6 +601,95 @@ const EventDialog = ({
   </Dialog.Root>
 );
 
+export interface EventActivityLogEntry {
+  /** Optional timestamp label (e.g. "08:15", "Aug 30", "Day 2"). */
+  time?: string;
+  /** The activity or sub-event. */
+  label: string;
+  /** Optional detail line under the activity. */
+  description?: string;
+  /** Optional accent color for the node. */
+  color?: string;
+}
+
+export interface EventActivityLogProps {
+  entries: EventActivityLogEntry[];
+  /** Max height before the log scrolls internally. Default `200`. */
+  maxHeight?: number;
+  /** Optional section heading. */
+  title?: string;
+  className?: string;
+  style?: CSSProperties;
+}
+
+/**
+ * A compact, time-based, scrollable activity log — timestamped sub-events on a
+ * mini rail inside a bounded scroll area. Drop it into `renderDetail` (or use it
+ * anywhere) to show an operations log, run history, or audit trail.
+ */
+export const EventActivityLog = ({ entries, maxHeight = 200, title, className, style }: EventActivityLogProps) => {
+  if (entries.length === 0) return null;
+  return (
+    <div className={className} style={{ marginBottom: 18, fontFamily: FONT_FAMILY, ...style }}>
+      {title ? (
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: T_FAINT,
+            marginBottom: 7,
+          }}
+        >
+          {title}
+        </div>
+      ) : null}
+      <div
+        style={{ maxHeight, overflowY: "auto", border: `1px solid ${DIVIDER}`, borderRadius: 8, background: CARD_BG }}
+      >
+        <div style={{ position: "relative", padding: "6px 12px 6px 0" }}>
+          <span
+            aria-hidden="true"
+            style={{ position: "absolute", left: 16, top: 16, bottom: 16, width: 1, background: DIVIDER }}
+          />
+          {entries.map((entry, index) => (
+            <div key={`${entry.label}-${index}`} style={{ position: "relative", padding: "6px 4px 6px 34px" }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: 13,
+                  top: 9,
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: entry.color ?? "#a1a1aa",
+                  border: `2px solid ${CARD_BG}`,
+                  boxShadow: `0 0 0 1px ${DIVIDER}`,
+                }}
+              />
+              <span style={{ display: "block", fontSize: 13, color: T_TITLE, lineHeight: 1.45 }}>
+                {entry.time ? (
+                  <span style={{ color: T_MUTED, marginRight: 8, fontVariantNumeric: "tabular-nums" }}>
+                    {entry.time}
+                  </span>
+                ) : null}
+                {entry.label}
+              </span>
+              {entry.description ? (
+                <span style={{ display: "block", marginTop: 2, fontSize: 12.5, color: T_BODY, lineHeight: 1.5 }}>
+                  {entry.description}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const HistoryGroupHeader = ({ label }: { label: string }) => (
   <div style={{ padding: "16px 20px 6px", fontSize: 12, fontWeight: 600, letterSpacing: "0.02em", color: T_FAINT }}>
     {label}

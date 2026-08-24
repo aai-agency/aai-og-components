@@ -64,13 +64,21 @@ description.
   yours to lay out via `renderDetail`.
 
 ```tsx
+import { EventActivityLog } from "@aai-agency/og-components/event-timeline";
+
 <EventTimeline
   events={events}
   renderDetail={(event) =>
-    Array.isArray(event.meta?.steps) ? <OperationsLog steps={event.meta.steps} /> : null
+    Array.isArray(event.meta?.steps) ? (
+      <EventActivityLog title="Operations log" maxHeight={168} entries={event.meta.steps} />
+    ) : null
   }
-/>
+/>;
 ```
+
+`EventActivityLog` is a reusable primitive — a compact, **time-based, internally
+scrollable** log (`{ time?, label, description?, color? }[]`) for operations
+logs, run histories, or audit trails. Use it in `renderDetail` or on its own.
 - **Group filter** (`showFilters`, default on): soft toggle chips for the five
   lifecycle groups; select any to filter the list, with the header showing
   "N of M".
