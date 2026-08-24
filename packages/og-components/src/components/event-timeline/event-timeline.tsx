@@ -498,18 +498,7 @@ const EventDialogBody = ({
       </Dialog.Description>
       <div style={{ overflowY: "auto", padding: "18px 24px 24px" }}>
         {event.event.summary ? (
-          <div
-            style={{
-              background: ROW_HOVER,
-              border: `1px solid ${DIVIDER}`,
-              borderLeft: `3px solid ${color}`,
-              borderRadius: 8,
-              padding: "12px 14px",
-              marginBottom: 18,
-            }}
-          >
-            <span style={{ fontSize: 14, color: T_BODY, lineHeight: 1.6 }}>{event.event.summary}</span>
-          </div>
+          <p style={{ margin: "0 0 18px", fontSize: 15, color: T_BODY, lineHeight: 1.6 }}>{event.event.summary}</p>
         ) : null}
         <DialogField label="Date">
           <span style={{ fontSize: 14, color: T_BODY, fontVariantNumeric: "tabular-nums" }}>{dateText}</span>
