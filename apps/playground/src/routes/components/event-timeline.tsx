@@ -60,14 +60,14 @@ const EventTimelinePage = () => {
   return (
     <PageWrapper
       title="EventTimeline"
-      description="A well events and history component. The vertical feed is the default — a scrollable, git-history style timeline grouped by period. A compact horizontal lane aligns beneath the charts."
+      description="A well events and history component. The default is a well ledger — a drilling day-report of the well's lifecycle, grouped by period, with a group filter and click-to-expand detail. A compact horizontal lane aligns beneath the charts."
     >
-      <DemoCard title="Vertical feed — git / commit-history style (default)">
+      <DemoCard title="Well ledger — drilling day-report (default)">
         <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
-          Click a row to expand a detail card in place (type, dates, duration, and any custom <code>meta</code> fields).
-          Use the chips at the top to filter the feed by type.
+          Click a row to expand its detail record (dates, duration, and any custom <code>meta</code> fields). Use the
+          <strong> SHOW</strong> legend to filter the ledger by workstream.
         </p>
-        <div style={{ maxWidth: 620 }}>
+        <div style={{ maxWidth: 640 }}>
           <EventTimeline events={sampleWellEvents} title="Well history" />
         </div>
       </DemoCard>

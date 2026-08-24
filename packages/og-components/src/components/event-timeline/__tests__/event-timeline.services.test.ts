@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { WellEvent } from "../../../types";
-import { ANNOTATION_TYPE_META } from "../../decline-curve/decline-math";
 import {
   buildTimelineTicks,
   colorForEvent,
@@ -220,23 +219,21 @@ describe("lanes", () => {
   });
 });
 
-describe("annotation color alignment", () => {
-  // Concepts shared with chart annotations must render the same color in both
-  // places, so a well reads consistently across annotation bands and this timeline.
-  it.each([
-    ["stimulation", "fracJob"],
-    ["workover", "workover"],
-    ["shut-in", "shutInOffset"],
-    ["note", "note"],
-    ["other", "other"],
-  ])("event %s matches annotation %s", (eventType, annotationType) => {
-    const annotation = ANNOTATION_TYPE_META[annotationType as keyof typeof ANNOTATION_TYPE_META];
-    expect(EVENT_TYPE_META[eventType].color).toBe(annotation.color);
-  });
-
-  it("keeps every event color distinct so the rail stays readable", () => {
+describe("type palette & codes", () => {
+  it("keeps every event color distinct so the ledger stays readable", () => {
     const colors = Object.values(EVENT_TYPE_META).map((meta) => meta.color);
     expect(new Set(colors).size).toBe(colors.length);
+  });
+
+  it("gives every built-in type a short operation code", () => {
+    for (const meta of Object.values(EVENT_TYPE_META)) {
+      expect(meta.code).toMatch(/^[A-Z0-9]{1,4}$/);
+    }
+  });
+
+  it("synthesizes a code for custom types", () => {
+    expect(eventTypeMeta("casing-inspection").code).toBe("CASI");
+    expect(eventTypeMeta("perf").code).toBe("PERF");
   });
 });
 

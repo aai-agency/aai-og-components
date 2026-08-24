@@ -1,8 +1,12 @@
 # EventTimeline
 
 A well events / history component for oil & gas assets. By default it renders a
-**vertical, git/commit-history style feed** of a well's lifecycle events, grouped
-by period. Switch to a **horizontal lane** to line events up beneath a chart.
+**vertical well ledger** — a warm-paper drilling day-report of a well's lifecycle,
+grouped by period. Switch to a **horizontal lane** to line events up beneath a
+chart.
+
+> The ledger uses Spectral + IBM Plex Mono. Load those two Google fonts for the
+> intended look; it falls back to Georgia / a system monospace otherwise.
 
 ```tsx
 import { EventTimeline } from "@aai-agency/og-components/event-timeline";
@@ -36,16 +40,20 @@ Built-in `type` values: `permit`, `spud`, `drilling`, `completion`, `stimulation
 `other`. Any custom string works too — it falls back to a humanized label and a
 neutral color.
 
-## Vertical feed (default)
+## Well ledger (default)
 
-The vertical feed groups events into period sections (year or month, chosen from
-the span), draws a rail with color-coded nodes, renders spans as capsules with a
-duration badge, and suppresses the type chip when the title already states it.
+The ledger groups events into ruled period sections (year or month, chosen from
+the span), runs a continuous spine down a date column, and prints each event as a
+ledger entry: a mono date + operation code in the gutter, a serif title with the
+type classification and folio number on the right. Spans render as engineering
+dimension-line brackets (start date top, end date bottom) with a duration.
 
-- **Click a row** to expand a detail card in place — type, dates, duration, lane,
-  any custom `meta` key/values, and the full description, with a close control.
-- **Type filters** (`showFilters`, default on): a chip per event type with counts;
-  toggle chips to filter the feed (multi-select), with a Clear.
+- **Click a row** to expand its detail record — an operation stamp plus a
+  dot-leader table of dates, duration, lane, and any custom `meta` key/values,
+  over the full description.
+- **"SHOW" group filter** (`showFilters`, default on): a swatch legend of the five
+  lifecycle groups; toggle to filter the ledger by workstream. Folio numbers and
+  the record total stay stable while filtering.
 
 ```tsx
 <EventTimeline events={events} title="Well history" maxHeight={460} />

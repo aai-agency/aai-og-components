@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 
 import { BORDER, FONT_FAMILY, PANEL_BG, TEXT_FAINT, TEXT_HEADING, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
 import type { WellEvent } from "../../types";
@@ -17,11 +17,11 @@ import {
   normalizeEvents,
   type PositionedEvent,
   resolveGroupMode,
-  shouldShowTypeChip,
   type TimelineDomain,
   type TimelineGroupMode,
   timelineLanes,
   timelineLegend,
+  type WellEventGroup,
   withAlpha,
 } from "./event-timeline.services";
 
@@ -29,17 +29,17 @@ export interface EventTimelineProps {
   /** Events to plot. Point events set `date`; spans also set `endDate`. */
   events: WellEvent[];
   /**
-   * `"vertical"` (default) renders a scrollable git-history style feed.
-   * `"horizontal"` renders a compact lane that aligns beneath a chart.
+   * `"vertical"` (default) renders a scrollable well-ledger (drilling day-report)
+   * feed. `"horizontal"` renders a compact lane that aligns beneath a chart.
    */
   orientation?: "vertical" | "horizontal";
-  /** Max height of the scrollable vertical feed in pixels. Default `460`. */
+  /** Max height of the scrollable vertical ledger in pixels. Default `460`. */
   maxHeight?: number;
-  /** Section granularity for the vertical feed. Defaults to the span. */
+  /** Section granularity for the vertical ledger. Defaults to the span. */
   groupBy?: TimelineGroupMode;
-  /** Show the type filter bar above the vertical feed. Default `true`. */
+  /** Show the "SHOW" group filter above the vertical ledger. Default `true`. */
   showFilters?: boolean;
-  /** Optional heading shown above the timeline. */
+  /** Optional heading shown in the ledger title block. */
   title?: string;
   /** Fires when the selection changes (row or marker click). */
   onEventSelect?: (event: WellEvent | null) => void;
@@ -81,11 +81,16 @@ const LABEL_MIN_GAP = 0.16;
 const LABEL_MAX_WIDTH = 132;
 const MIN_LANE_HEIGHT = 40;
 const BASELINE_STROKE = "rgba(148, 163, 184, 0.35)";
-const RAIL_STROKE = "rgba(148, 163, 184, 0.28)";
-const NODE_CENTER = 22;
-const ROW_HOVER_BG = "rgba(148, 163, 184, 0.07)";
-const MS_PER_YEAR = 365.25 * 86_400_000;
-const MS_PER_MONTH = 30.436_875 * 86_400_000;
+
+// ── Ledger design tokens (warm-paper drilling day-report) ────────────────────
+const PAPER = "#f6f1e4";
+const PAPER_DEEP = "#ece4cd";
+const INK = "#262218";
+const ink = (alpha: number) => `rgba(38, 34, 24, ${alpha})`;
+const SERIF = "'Spectral', 'Iowan Old Style', Georgia, serif";
+const MONO = "'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace";
+const PAPER_GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.13 0 0 0 0 0.09 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
 const insetStyle = (padLeft: number, padRight: number) => {
   const inset = padLeft + padRight;
@@ -101,26 +106,6 @@ const labelAlignment = (anchor: number): Pick<CSSProperties, "transform" | "text
   return { transform: "translateX(-50%)", textAlign: "center" };
 };
 
-// ── Shared bits ──────────────────────────────────────────────────────────────
-
-const TypeChip = ({ label, color }: { label: string; color: string }) => (
-  <span
-    style={{
-      fontSize: 10,
-      fontWeight: 600,
-      lineHeight: 1.7,
-      padding: "0 7px",
-      borderRadius: 999,
-      color,
-      background: withAlpha(color, 0.12),
-      whiteSpace: "nowrap",
-      flex: "0 0 auto",
-    }}
-  >
-    {label}
-  </span>
-);
-
 const rowHandlers = (
   event: NormalizedEvent,
   onHover: (id: string | null) => void,
@@ -133,27 +118,18 @@ const rowHandlers = (
   onClick: () => onSelect(event),
 });
 
-// ── Vertical feed (git / PR history style) ───────────────────────────────────
+// ── Vertical feed: the well ledger (drilling day-report) ─────────────────────
 
-interface VerticalItemProps {
-  event: NormalizedEvent;
-  first: boolean;
-  last: boolean;
-  active: boolean;
-  selected: boolean;
-  formatDate: (time: number) => string;
-  onHover: (id: string | null) => void;
-  onSelect: (event: NormalizedEvent) => void;
-}
-
-const railStyle = (first: boolean, last: boolean): CSSProperties => ({
-  position: "absolute",
-  left: 26,
-  width: 2,
-  top: first ? NODE_CENTER : 0,
-  bottom: last ? `calc(100% - ${NODE_CENTER}px)` : 0,
-  background: RAIL_STROKE,
-});
+const LEDGER_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const ledgerDate = (ms: number): string => {
+  const date = new Date(ms);
+  return `${String(date.getUTCDate()).padStart(2, "0")} ${LEDGER_MONTHS[date.getUTCMonth()]}`;
+};
+const durationCode = (event: NormalizedEvent): string | null => {
+  const value = formatEventDuration(event);
+  return value ? value.toUpperCase() : null;
+};
+const folioLabel = (n: number): string => `Nº ${String(n).padStart(2, "0")}`;
 
 const formatMetaValue = (value: unknown): string => {
   if (value == null) return "—";
@@ -165,464 +141,619 @@ const formatMetaValue = (value: unknown): string => {
   }
 };
 
-const DetailRow = ({ label, children }: { label: string; children: ReactNode }) => (
-  <>
-    <dt
-      style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.05em",
-        textTransform: "uppercase",
-        color: TEXT_FAINT,
-        paddingTop: 1,
-      }}
-    >
-      {label}
-    </dt>
-    <dd
-      style={{
-        margin: 0,
-        fontSize: 12.5,
-        fontWeight: 500,
-        color: TEXT_SECONDARY,
-        minWidth: 0,
-        wordBreak: "break-word",
-      }}
-    >
-      {children}
-    </dd>
-  </>
-);
+/** Five lifecycle groups for the "SHOW" filter, in ledger order. */
+const GROUP_LEGEND: { group: WellEventGroup; label: string; color: string }[] = [
+  { group: "Drilling & Completion", label: "Drill & Compl", color: "#a84e1b" },
+  { group: "Production", label: "Production", color: "#1f7a44" },
+  { group: "Intervention", label: "Intervention", color: "#275d8c" },
+  { group: "Regulatory", label: "Regulatory", color: "#5e4a8c" },
+  { group: "Other", label: "Other", color: "#6e6858" },
+];
 
-const EventDetailCard = ({
-  event,
-  formatDate,
-  onClose,
-}: {
-  event: NormalizedEvent;
-  formatDate: (time: number) => string;
-  onClose: () => void;
-}) => {
-  const duration = formatEventDuration(event);
-  const when = event.isRange ? `${formatDate(event.start)} – ${formatDate(event.end)}` : formatDate(event.start);
-  const metaEntries = event.event.meta ? Object.entries(event.event.meta) : [];
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        marginTop: 8,
-        marginBottom: 4,
-        borderRadius: 10,
-        background: withAlpha(event.color, 0.06),
-        border: `1px solid ${withAlpha(event.color, 0.2)}`,
-        borderLeft: `3px solid ${event.color}`,
-        padding: "12px 14px",
-      }}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close details"
-        style={{
-          position: "absolute",
-          top: 6,
-          right: 6,
-          width: 22,
-          height: 22,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "none",
-          background: "none",
-          borderRadius: 6,
-          cursor: "pointer",
-          color: TEXT_MUTED,
-          fontSize: 16,
-          lineHeight: 1,
-        }}
-      >
-        ×
-      </button>
-      <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", margin: 0, paddingRight: 18 }}>
-        <DetailRow label="Type">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <TypeChip label={event.meta.label} color={event.color} />
-            <span style={{ fontSize: 11, color: TEXT_MUTED }}>{event.meta.group}</span>
-          </span>
-        </DetailRow>
-        <DetailRow label="When">
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{when}</span>
-          {duration ? <span style={{ color: TEXT_MUTED }}>{`  ·  ${duration}`}</span> : null}
-        </DetailRow>
-        {event.lane ? <DetailRow label="Lane">{event.lane}</DetailRow> : null}
-        {event.event.value != null ? <DetailRow label="Value">{event.event.value}</DetailRow> : null}
-        {metaEntries.map(([key, value]) => (
-          <DetailRow key={key} label={humanizeEventType(key)}>
-            {formatMetaValue(value)}
-          </DetailRow>
-        ))}
-      </dl>
-      {event.event.description ? (
-        <p style={{ margin: "10px 0 0", fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
-          {event.event.description}
-        </p>
-      ) : null}
-    </div>
-  );
+const microStyle: CSSProperties = {
+  fontFamily: MONO,
+  fontSize: 8,
+  fontWeight: 600,
+  letterSpacing: "0.22em",
+  textTransform: "uppercase",
+  color: ink(0.55),
 };
 
-const VerticalItem = ({ event, first, last, active, selected, formatDate, onHover, onSelect }: VerticalItemProps) => {
-  const duration = formatEventDuration(event);
-  const showChip = shouldShowTypeChip(event.event.title, event.meta.label);
-  const meta = event.isRange ? `${formatDate(event.start)} – ${formatDate(event.end)}` : formatDate(event.start);
-
+const LedgerTitleBlock = ({ title, entries, period }: { title: string; entries: number; period: string }) => {
+  const words = title.trim().split(/\s+/);
+  const head = words.length > 1 ? words.slice(0, -1).join(" ") : "";
+  const emphasis = words[words.length - 1] ?? title;
   return (
-    <div style={{ position: "relative" }}>
-      <span aria-hidden="true" style={railStyle(first, last)} />
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          left: event.isRange ? 21 : 20,
-          top: event.isRange ? 12 : 15,
-          width: event.isRange ? 12 : 14,
-          height: event.isRange ? 24 : 14,
-          borderRadius: event.isRange ? 6 : "50%",
-          background: event.color,
-          border: "2px solid #ffffff",
-          boxShadow:
-            active || selected
-              ? `0 0 0 3px ${withAlpha(event.color, 0.18)}, 0 1px 2px rgba(15,23,42,0.2)`
-              : "0 0 0 1px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.18)",
-          transform: active || selected ? "scale(1.14)" : "scale(1)",
-          transformOrigin: "center",
-          transition: "transform 140ms ease, box-shadow 140ms ease",
-          zIndex: 1,
-        }}
-      />
-      <button
-        type="button"
-        aria-expanded={selected}
-        {...rowHandlers(event, onHover, onSelect)}
-        style={{
-          position: "relative",
-          display: "block",
-          width: "100%",
-          textAlign: "left",
-          padding: "12px 16px 12px 56px",
-          border: "none",
-          cursor: "pointer",
-          fontFamily: FONT_FAMILY,
-          background: selected ? withAlpha(event.color, 0.08) : active ? ROW_HOVER_BG : "transparent",
-          transition: "background 140ms ease",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_HEADING, letterSpacing: "-0.006em" }}>
-            {event.event.title}
-          </span>
-          {showChip ? <TypeChip label={event.meta.label} color={event.color} /> : null}
-          {duration ? <span style={{ fontSize: 11, fontWeight: 500, color: TEXT_FAINT }}>{duration}</span> : null}
-        </span>
-        <span
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", borderBottom: `1px solid ${ink(0.85)}` }}>
+      <div style={{ padding: "14px 18px 12px" }}>
+        <div style={{ ...microStyle, marginBottom: 5 }}>Record of Operations</div>
+        <div
           style={{
-            display: "block",
-            fontSize: 12,
+            fontFamily: SERIF,
             fontWeight: 500,
-            color: TEXT_MUTED,
-            marginTop: 3,
-            fontVariantNumeric: "tabular-nums",
+            fontSize: 25,
+            letterSpacing: "-0.005em",
+            lineHeight: 1,
+            color: INK,
           }}
         >
-          {meta}
-        </span>
-        {!selected && event.event.description ? (
-          <span
-            style={{
-              display: "block",
-              fontSize: 12.5,
-              color: TEXT_MUTED,
-              lineHeight: 1.5,
-              marginTop: 4,
-              maxWidth: 460,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {event.event.description}
-          </span>
-        ) : null}
-      </button>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateRows: selected ? "1fr" : "0fr",
-          transition: "grid-template-rows 200ms ease",
-        }}
-      >
-        <div style={{ overflow: "hidden" }}>
-          <div style={{ padding: "0 16px 8px 56px" }}>
-            {selected ? (
-              <EventDetailCard event={event} formatDate={formatDate} onClose={() => onSelect(event)} />
-            ) : null}
-          </div>
+          {head ? `${head} ` : null}
+          <em style={{ fontStyle: "italic", fontWeight: 400 }}>{emphasis}</em>
+        </div>
+      </div>
+      <div style={{ padding: "14px 18px 12px", borderLeft: `1px solid ${ink(0.35)}` }}>
+        <div style={{ ...microStyle, marginBottom: 5 }}>Entries</div>
+        <div
+          style={{
+            fontFamily: MONO,
+            fontSize: 17,
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+            lineHeight: "25px",
+            fontVariantNumeric: "tabular-nums",
+            color: INK,
+          }}
+        >
+          {String(entries).padStart(2, "0")}
+        </div>
+      </div>
+      <div style={{ padding: "14px 18px 12px", borderLeft: `1px solid ${ink(0.35)}` }}>
+        <div style={{ ...microStyle, marginBottom: 5 }}>Period</div>
+        <div
+          style={{
+            fontFamily: MONO,
+            fontSize: 17,
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+            lineHeight: "25px",
+            fontVariantNumeric: "tabular-nums",
+            color: INK,
+          }}
+        >
+          {period}
         </div>
       </div>
     </div>
   );
 };
 
-const VerticalGroupHeader = ({ label, first, last }: { label: string; first: boolean; last: boolean }) => (
-  <div style={{ position: "relative", padding: "16px 16px 6px 56px" }}>
-    <span aria-hidden="true" style={railStyle(first, last)} />
-    <span
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        left: 21,
-        top: 16,
-        width: 12,
-        height: 12,
-        borderRadius: "50%",
-        background: PANEL_BG,
-        border: `2px solid ${withAlpha("#94a3b8", 0.55)}`,
-      }}
-    />
-    <span
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: TEXT_MUTED,
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-      }}
-    >
-      {label}
-    </span>
+const ShowLegend = ({
+  entries,
+  hidden,
+  onToggle,
+}: {
+  entries: typeof GROUP_LEGEND;
+  hidden: ReadonlySet<WellEventGroup>;
+  onToggle: (group: WellEventGroup) => void;
+}) => (
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: 18,
+      padding: "9px 18px",
+      borderBottom: `1px solid ${ink(0.85)}`,
+    }}
+  >
+    <span style={microStyle}>Show</span>
+    {entries.map((entry) => {
+      const on = !hidden.has(entry.group);
+      return (
+        <button
+          key={entry.group}
+          type="button"
+          aria-pressed={on}
+          onClick={() => onToggle(entry.group)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontFamily: MONO,
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            padding: "2px 0",
+            border: 0,
+            background: "none",
+            color: on ? entry.color : ink(0.35),
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 8,
+              height: 8,
+              background: on ? "currentColor" : "transparent",
+              boxShadow: on ? "none" : "inset 0 0 0 1px currentColor",
+            }}
+          />
+          {entry.label}
+        </button>
+      );
+    })}
   </div>
 );
 
-interface FilterEntry {
-  type: string;
-  label: string;
-  color: string;
-  count: number;
-}
-
-const FilterBar = ({
-  entries,
-  active,
-  onToggle,
-  onClear,
+const LedgerDetail = ({
+  event,
+  folio,
+  formatDate,
 }: {
-  entries: FilterEntry[];
-  active: ReadonlySet<string>;
-  onToggle: (type: string) => void;
-  onClear: () => void;
+  event: NormalizedEvent;
+  folio: number;
+  formatDate: (time: number) => string;
 }) => {
-  const anyActive = active.size > 0;
+  const color = event.color;
+  const rows: [string, string][] = [];
+  if (event.event.meta)
+    for (const [key, value] of Object.entries(event.event.meta))
+      rows.push([humanizeEventType(key), formatMetaValue(value)]);
+  if (event.lane) rows.push(["Lane", event.lane]);
+  if (event.event.value != null) rows.push(["Value", String(event.event.value)]);
+  if (rows.length === 0) {
+    rows.push(["Recorded", formatDate(event.start)]);
+    rows.push(["Class", event.meta.label]);
+  }
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 6,
-        alignItems: "center",
-        padding: "10px 14px",
-        borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
-      }}
-    >
-      {entries.map((entry) => {
-        const on = active.has(entry.type);
-        return (
-          <button
-            key={entry.type}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onToggle(entry.type)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "3px 9px",
-              borderRadius: 999,
-              cursor: "pointer",
-              fontFamily: FONT_FAMILY,
-              fontSize: 11,
-              fontWeight: 600,
-              border: on ? `1px solid ${withAlpha(entry.color, 0.55)}` : "1px solid rgba(148, 163, 184, 0.28)",
-              background: on ? withAlpha(entry.color, 0.12) : PANEL_BG,
-              color: on ? entry.color : TEXT_MUTED,
-              opacity: anyActive && !on ? 0.7 : 1,
-              transition: "background 120ms ease, border-color 120ms ease, opacity 120ms ease",
-            }}
-          >
-            <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: entry.color }} />
-            {entry.label}
-            <span style={{ fontWeight: 500, color: on ? entry.color : TEXT_FAINT }}>{entry.count}</span>
-          </button>
-        );
-      })}
-      {anyActive ? (
-        <button
-          type="button"
-          onClick={onClear}
+    <span style={{ display: "block", marginTop: 12, borderTop: `1px solid ${ink(0.35)}`, paddingTop: 9 }}>
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+        <span style={microStyle}>Detail record</span>
+        <span
           style={{
-            marginLeft: 2,
-            padding: "3px 8px",
-            borderRadius: 999,
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            fontFamily: FONT_FAMILY,
-            fontSize: 11,
+            fontFamily: MONO,
+            fontSize: 8,
             fontWeight: 600,
-            color: TEXT_MUTED,
+            letterSpacing: "0.14em",
+            padding: "3px 7px 2px",
+            border: `1px solid ${color}`,
+            color,
           }}
         >
-          Clear
-        </button>
-      ) : null}
-    </div>
+          {event.meta.code} · {String(folio).padStart(2, "0")}
+        </span>
+      </span>
+      <span style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 34, rowGap: 5 }}>
+        {rows.map(([key, value], index) => (
+          <span key={`${key}-${index}`} style={{ display: "flex", alignItems: "baseline" }}>
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: 8.5,
+                fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: ink(0.55),
+                whiteSpace: "nowrap",
+              }}
+            >
+              {key}
+            </span>
+            <span
+              aria-hidden="true"
+              style={{ flex: 1, borderBottom: `1px dotted ${ink(0.35)}`, margin: "0 7px 3px", minWidth: 12 }}
+            />
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: 11,
+                fontWeight: 500,
+                color: INK,
+                whiteSpace: "nowrap",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {value}
+            </span>
+          </span>
+        ))}
+      </span>
+    </span>
   );
 };
 
-interface VerticalFeedProps {
+interface LedgerRowProps {
+  event: NormalizedEvent;
+  folio: number;
+  open: boolean;
+  prevOpen: boolean;
+  active: boolean;
+  formatDate: (time: number) => string;
+  onHover: (id: string | null) => void;
+  onSelect: (event: NormalizedEvent) => void;
+}
+
+const LedgerRow = ({ event, folio, open, prevOpen, active, formatDate, onHover, onSelect }: LedgerRowProps) => {
+  const color = event.color;
+  const isSpan = event.isRange;
+  const topRule = open || prevOpen ? ink(0.85) : ink(0.14);
+  const span = durationCode(event);
+
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      {...rowHandlers(event, onHover, onSelect)}
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: "92px 1fr 118px",
+        width: "100%",
+        textAlign: "left",
+        padding: 0,
+        border: "none",
+        borderTop: `1px solid ${topRule}`,
+        cursor: "pointer",
+        fontFamily: SERIF,
+        color: INK,
+        background: open ? PAPER_DEEP : active ? ink(0.04) : "transparent",
+        transition: "background 160ms ease-out",
+      }}
+    >
+      {isSpan ? (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 92,
+            top: 20,
+            bottom: 17,
+            width: 2,
+            transform: "translateX(-50%)",
+            background: color,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              width: 9,
+              height: 2,
+              transform: "translateX(-50%)",
+              background: color,
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: 0,
+              width: 9,
+              height: 2,
+              transform: "translateX(-50%)",
+              background: color,
+            }}
+          />
+        </span>
+      ) : (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 92,
+            top: 20,
+            width: 13,
+            height: 3.5,
+            transform: "translate(-50%, 0)",
+            background: color,
+          }}
+        />
+      )}
+
+      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", padding: "13px 14px 13px 0" }}>
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 11.5,
+            fontWeight: 500,
+            letterSpacing: "0.04em",
+            color: ink(0.85),
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 1.2,
+          }}
+        >
+          {ledgerDate(event.start)}
+        </span>
+        <span
+          style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 600, letterSpacing: "0.16em", marginTop: 3, color }}
+        >
+          {event.meta.code}
+        </span>
+        {isSpan ? (
+          <span
+            style={{
+              fontFamily: MONO,
+              fontSize: 11.5,
+              fontWeight: 500,
+              letterSpacing: "0.04em",
+              marginTop: "auto",
+              color: ink(0.55),
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1.2,
+            }}
+          >
+            {ledgerDate(event.end)}
+          </span>
+        ) : null}
+      </span>
+
+      <span style={{ display: "block", padding: "12px 12px 14px 20px", minWidth: 0 }}>
+        <span
+          style={{
+            display: "block",
+            fontFamily: SERIF,
+            fontSize: 15.5,
+            fontWeight: 600,
+            letterSpacing: "0.002em",
+            lineHeight: 1.3,
+            color: INK,
+          }}
+        >
+          {event.event.title}
+        </span>
+        {isSpan && span ? (
+          <span
+            style={{
+              display: "block",
+              marginTop: 3,
+              fontFamily: MONO,
+              fontSize: 9.5,
+              fontWeight: 500,
+              letterSpacing: "0.08em",
+              color: ink(0.55),
+            }}
+          >
+            {span} ON OPERATION
+          </span>
+        ) : null}
+        {event.event.description ? (
+          <span
+            style={{ display: "block", marginTop: 5, fontSize: 13, lineHeight: 1.5, color: ink(0.7), maxWidth: 400 }}
+          >
+            {event.event.description}
+          </span>
+        ) : null}
+        {open ? <LedgerDetail event={event} folio={folio} formatDate={formatDate} /> : null}
+      </span>
+
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          padding: "15px 16px 13px 0",
+          textAlign: "right",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 8,
+            fontWeight: 600,
+            letterSpacing: "0.14em",
+            lineHeight: 1.5,
+            textTransform: "uppercase",
+            maxWidth: 100,
+            color,
+          }}
+        >
+          {event.meta.label}
+        </span>
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 9,
+            color: ink(0.35),
+            marginTop: "auto",
+            paddingTop: 8,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {folioLabel(folio)}
+        </span>
+      </span>
+    </button>
+  );
+};
+
+interface LedgerFeedProps {
   events: NormalizedEvent[];
   groupMode: TimelineGroupMode;
   title?: string;
   maxHeight: number;
   showHeader: boolean;
   showFilters: boolean;
-  activeId: string | null;
   selectedId: string | null;
+  activeId: string | null;
   formatDate: (time: number) => string;
   onHover: (id: string | null) => void;
   onSelect: (event: NormalizedEvent) => void;
 }
 
-type RailRow = { kind: "group"; label: string } | { kind: "event"; event: NormalizedEvent };
+type RailRow = { kind: "band"; label: string; range: string } | { kind: "row"; event: NormalizedEvent };
 
-const VerticalFeed = ({
+const LedgerFeed = ({
   events,
   groupMode,
   title,
   maxHeight,
   showHeader,
   showFilters,
-  activeId,
   selectedId,
+  activeId,
   formatDate,
   onHover,
   onSelect,
-}: VerticalFeedProps) => {
-  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set());
+}: LedgerFeedProps) => {
+  const [hidden, setHidden] = useState<Set<WellEventGroup>>(() => new Set());
 
-  const filterEntries = useMemo<FilterEntry[]>(() => {
-    const counts = new Map<string, number>();
-    for (const event of events) counts.set(event.event.type, (counts.get(event.event.type) ?? 0) + 1);
-    return timelineLegend(events).map((entry) => ({
-      type: entry.type,
-      label: entry.label,
-      color: entry.color,
-      count: counts.get(entry.type) ?? 0,
-    }));
+  const presentGroups = useMemo(() => {
+    const present = new Set(events.map((event) => event.meta.group));
+    return GROUP_LEGEND.filter((entry) => present.has(entry.group));
   }, [events]);
 
-  const filtered = useMemo(
-    () => (activeTypes.size === 0 ? events : events.filter((event) => activeTypes.has(event.event.type))),
-    [events, activeTypes],
-  );
-  const groups = useMemo(() => groupEventsByPeriod(filtered, groupMode), [filtered, groupMode]);
+  const folioOf = useMemo(() => {
+    const map = new Map<string, number>();
+    let folio = 0;
+    for (const event of events) {
+      folio += 1;
+      map.set(event.id, folio);
+    }
+    return map;
+  }, [events]);
 
-  const toggleType = (type: string) =>
-    setActiveTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
+  const filtered = useMemo(() => events.filter((event) => !hidden.has(event.meta.group)), [events, hidden]);
+  const groups = useMemo(() => groupEventsByPeriod(filtered, groupMode), [filtered, groupMode]);
 
   const rows: RailRow[] = [];
   for (const group of groups) {
-    if (group.label) rows.push({ kind: "group", label: group.label });
-    for (const event of group.events) rows.push({ kind: "event", event });
+    if (group.label && group.events.length > 0) {
+      const first = folioOf.get(group.events[0].id) ?? 0;
+      const last = folioOf.get(group.events[group.events.length - 1].id) ?? 0;
+      const range =
+        first === last
+          ? `ENTRY ${String(first).padStart(2, "0")}`
+          : `ENTRIES ${String(first).padStart(2, "0")}–${String(last).padStart(2, "0")}`;
+      rows.push({ kind: "band", label: group.label, range });
+    }
+    for (const event of group.events) rows.push({ kind: "row", event });
   }
-  const total = rows.length;
 
-  const spanMs = events.length > 0 ? events[events.length - 1].end - events[0].start : 0;
-  const spanLabel = formatSpanLabel(spanMs);
-  const subtitle =
-    activeTypes.size > 0
-      ? `${filtered.length} of ${events.length} events`
-      : `${events.length} event${events.length === 1 ? "" : "s"}${spanLabel ? ` · ${spanLabel}` : ""}`;
+  const toggleGroup = (group: WellEventGroup) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+
+  const period = (() => {
+    if (events.length === 0) return "—";
+    const first = new Date(events[0].start).getUTCFullYear();
+    const last = new Date(events[events.length - 1].end).getUTCFullYear();
+    return first === last ? `${first}` : `${first}–${String(last).slice(2)}`;
+  })();
 
   return (
     <div
       style={{
-        border: BORDER,
-        borderRadius: 12,
-        background: PANEL_BG,
-        overflow: "hidden",
-        boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.05)",
+        position: "relative",
+        background: PAPER,
+        backgroundImage: PAPER_GRAIN,
+        border: `1.5px solid ${ink(0.85)}`,
+        outline: `1px solid ${ink(0.35)}`,
+        outlineOffset: 3,
+        color: INK,
+        fontFamily: SERIF,
       }}
     >
-      {showHeader ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 18px",
-            borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
-          }}
-        >
-          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_HEADING, letterSpacing: "-0.01em" }}>
-            {title ?? "History"}
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: TEXT_FAINT }}>{subtitle}</span>
+      {showHeader ? <LedgerTitleBlock title={title ?? "History"} entries={events.length} period={period} /> : null}
+      {showFilters && presentGroups.length > 1 ? (
+        <ShowLegend entries={presentGroups} hidden={hidden} onToggle={toggleGroup} />
+      ) : null}
+      <div style={{ maxHeight, overflowY: "auto" }}>
+        <div style={{ position: "relative" }}>
+          <span
+            aria-hidden="true"
+            style={{ position: "absolute", left: 92, top: 0, bottom: 0, width: 1, background: ink(0.35) }}
+          />
+          {rows.length === 0 ? (
+            <div
+              style={{
+                padding: "26px 18px",
+                fontFamily: MONO,
+                fontSize: 9,
+                fontWeight: 600,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: ink(0.35),
+              }}
+            >
+              No entries shown
+            </div>
+          ) : (
+            rows.map((row, index) => {
+              if (row.kind === "band") {
+                return (
+                  <div
+                    key={`band-${row.label}`}
+                    style={{
+                      position: "relative",
+                      borderTop: index === 0 ? "none" : `2px solid ${ink(0.85)}`,
+                      padding: "9px 16px 7px 0",
+                      display: "flex",
+                      alignItems: "baseline",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: MONO,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        letterSpacing: "0.14em",
+                        color: INK,
+                        width: 92,
+                        textAlign: "right",
+                        paddingRight: 14,
+                        flex: "none",
+                      }}
+                    >
+                      {row.label}
+                    </span>
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontFamily: MONO,
+                        fontSize: 8,
+                        fontWeight: 500,
+                        letterSpacing: "0.2em",
+                        color: ink(0.35),
+                      }}
+                    >
+                      {row.range}
+                    </span>
+                  </div>
+                );
+              }
+              const prev = rows[index - 1];
+              const prevOpen = prev?.kind === "row" ? prev.event.id === selectedId : false;
+              return (
+                <LedgerRow
+                  key={row.event.id}
+                  event={row.event}
+                  folio={folioOf.get(row.event.id) ?? 0}
+                  open={row.event.id === selectedId}
+                  prevOpen={prevOpen}
+                  active={row.event.id === activeId}
+                  formatDate={formatDate}
+                  onHover={onHover}
+                  onSelect={onSelect}
+                />
+              );
+            })
+          )}
         </div>
-      ) : null}
-      {showFilters && filterEntries.length > 1 ? (
-        <FilterBar
-          entries={filterEntries}
-          active={activeTypes}
-          onToggle={toggleType}
-          onClear={() => setActiveTypes(new Set())}
-        />
-      ) : null}
-      <div style={{ maxHeight, overflowY: "auto", padding: "6px 0 10px" }}>
-        {total === 0 ? (
-          <div style={{ padding: "22px 16px", textAlign: "center", fontSize: 12, color: TEXT_FAINT }}>
-            No events match
-          </div>
-        ) : (
-          rows.map((row, index) =>
-            row.kind === "group" ? (
-              <VerticalGroupHeader
-                key={`g-${row.label}`}
-                label={row.label}
-                first={index === 0}
-                last={index === total - 1}
-              />
-            ) : (
-              <VerticalItem
-                key={row.event.id}
-                event={row.event}
-                first={index === 0}
-                last={index === total - 1}
-                active={row.event.id === activeId}
-                selected={row.event.id === selectedId}
-                formatDate={formatDate}
-                onHover={onHover}
-                onSelect={onSelect}
-              />
-            ),
-          )
-        )}
+      </div>
+      <div
+        style={{
+          borderTop: `2px solid ${ink(0.85)}`,
+          padding: "8px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          fontFamily: MONO,
+          fontSize: 8,
+          fontWeight: 600,
+          letterSpacing: "0.22em",
+          color: ink(0.55),
+          textTransform: "uppercase",
+        }}
+      >
+        <span>End of record</span>
+        <span>{`Carried forward · ${events.length} entries`}</span>
       </div>
     </div>
   );
@@ -966,17 +1097,12 @@ const EmptyTimeline = ({ height, message }: { height: number; message: string })
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-const formatSpanLabel = (ms: number): string | null => {
-  if (ms >= MS_PER_YEAR) return `${Math.round(ms / MS_PER_YEAR)} yr`;
-  if (ms >= 2 * MS_PER_MONTH) return `${Math.round(ms / MS_PER_MONTH)} mo`;
-  return null;
-};
-
 /**
  * A well events / history component for O&G assets. `orientation="vertical"`
- * (default) renders a scrollable git-history style feed of lifecycle events,
- * grouped by period. `orientation="horizontal"` renders a compact time-aligned
- * lane that lines up beneath a chart when given a matching `domain` and `padding`.
+ * (default) renders a scrollable well-ledger — a drilling day-report of the
+ * well's lifecycle, grouped by period, with a filter and click-to-expand detail.
+ * `orientation="horizontal"` renders a compact time-aligned lane that lines up
+ * beneath a chart when given a matching `domain` and `padding`.
  */
 export const EventTimeline = ({
   events,
@@ -1015,30 +1141,27 @@ export const EventTimeline = ({
 
   const groupMode = useMemo(() => resolveGroupMode(normalized, groupBy), [normalized, groupBy]);
 
-  // ── Vertical (default) ──
+  // ── Vertical (default): the well ledger ──
   if (orientation === "vertical") {
-    if (normalized.length === 0) {
-      return (
-        <div className={className} style={{ fontFamily: FONT_FAMILY, ...style }}>
-          <EmptyTimeline height={120} message={emptyMessage} />
-        </div>
-      );
-    }
     return (
-      <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
-        <VerticalFeed
-          events={normalized}
-          groupMode={groupMode}
-          title={title ?? "History"}
-          maxHeight={maxHeight}
-          showHeader
-          showFilters={showFilters}
-          activeId={hoveredId}
-          selectedId={selectedId}
-          formatDate={formatDate}
-          onHover={setHoveredId}
-          onSelect={handleSelect}
-        />
+      <div className={className} style={{ fontFamily: SERIF, width: "100%", ...style }}>
+        {normalized.length === 0 ? (
+          <EmptyTimeline height={120} message={emptyMessage} />
+        ) : (
+          <LedgerFeed
+            events={normalized}
+            groupMode={groupMode}
+            title={title}
+            maxHeight={maxHeight}
+            showHeader
+            showFilters={showFilters}
+            selectedId={selectedId}
+            activeId={hoveredId}
+            formatDate={formatDate}
+            onHover={setHoveredId}
+            onSelect={handleSelect}
+          />
+        )}
       </div>
     );
   }
@@ -1120,14 +1243,14 @@ export const EventTimeline = ({
 
         {showLog ? (
           <div style={{ marginTop: 12 }}>
-            <VerticalFeed
+            <LedgerFeed
               events={normalized}
               groupMode={groupMode}
               maxHeight={Math.min(maxHeight, 320)}
               showHeader={false}
               showFilters={false}
-              activeId={hoveredId}
               selectedId={selectedId}
+              activeId={hoveredId}
               formatDate={formatDate}
               onHover={setHoveredId}
               onSelect={handleSelect}
