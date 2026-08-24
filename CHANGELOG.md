@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `EventTimeline` component: a well events/history component for O&G assets.
 - **Vertical feed (default)**: a scrollable, git/commit-history style timeline grouped by period, with a rail, typed color-coded nodes, span capsules with durations, and row selection. Point events and spans (spud, drilling, completion, stimulation, first production, workover, shut-in, and more).
 - **Horizontal lane** (`orientation="horizontal"`): a compact time-aligned lane. Pass `domain` matching a chart's visible X window and `padding` matching its plot inset to line the lane up directly beneath the chart. Swim-lanes: set a `lane` on events to split the lane into stacked bands per workstream.
+- Colors for concepts shared with chart annotations (stimulation/frac, workover, shut-in, note, other) mirror `ANNOTATION_TYPE_META`, so a well reads consistently across the chart's annotation bands and this timeline; the remaining lifecycle types use distinct hues (guarded by a test).
 - Custom event types fall back to a readable label and neutral color.
 - Added the focused `@aai-agency/og-components/event-timeline` export plus pure layout/formatting services (`normalizeEvents`, `computeTimelineDomain`, `layoutTimeline`, `buildTimelineTicks`, `timelineLegend`, `withAlpha`, and more).
 - New `WellEvent` / `WellEventType` domain types, a `WellEventSchema` Zod schema, and a `sampleWellEvents` sample dataset (a full single-well lifecycle history).

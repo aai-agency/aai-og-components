@@ -28,25 +28,36 @@ export const EVENT_TYPE_GROUPS = [
 
 export type WellEventGroup = (typeof EVENT_TYPE_GROUPS)[number];
 
-/** Built-in type metadata. Colors track the shared status/type palette. */
+/**
+ * Built-in type metadata. Colors for the concepts shared with chart annotations
+ * (stimulation, workover, shut-in, note, other) mirror `ANNOTATION_TYPE_META`
+ * so a well reads consistently across the chart's annotation bands and this
+ * timeline; the remaining lifecycle-only types use distinct, well-separated hues.
+ * The alignment is guarded by a test — keep the marked colors in sync.
+ */
 export const EVENT_TYPE_META: Record<string, WellEventTypeMeta> = {
-  permit: { label: "Permit", color: "#8b5cf6", group: "Regulatory" },
-  spud: { label: "Spud", color: "#6366f1", group: "Drilling & Completion" },
-  drilling: { label: "Drilling", color: "#6366f1", group: "Drilling & Completion" },
+  // Regulatory
+  permit: { label: "Permit", color: "#a855f7", group: "Regulatory" },
+  ownership: { label: "Ownership change", color: "#d946ef", group: "Regulatory" },
+  // Drilling & completion
+  spud: { label: "Spud", color: "#f97316", group: "Drilling & Completion" },
+  drilling: { label: "Drilling", color: "#ea580c", group: "Drilling & Completion" },
   completion: { label: "Completion", color: "#3b82f6", group: "Drilling & Completion" },
-  stimulation: { label: "Stimulation", color: "#f97316", group: "Drilling & Completion" },
+  stimulation: { label: "Stimulation", color: "#6366f1", group: "Drilling & Completion" }, // = annotation fracJob
+  // Production
   "first-production": { label: "First production", color: "#22c55e", group: "Production" },
-  workover: { label: "Workover", color: "#f59e0b", group: "Intervention" },
-  recompletion: { label: "Recompletion", color: "#14b8a6", group: "Intervention" },
-  "artificial-lift": { label: "Artificial lift", color: "#06b6d4", group: "Intervention" },
   test: { label: "Well test", color: "#0ea5e9", group: "Production" },
-  "shut-in": { label: "Shut-in", color: "#ef4444", group: "Production" },
+  "shut-in": { label: "Shut-in", color: "#06b6d4", group: "Production" }, // = annotation shutInOffset
   "return-to-production": { label: "Return to production", color: "#10b981", group: "Production" },
-  inspection: { label: "Inspection", color: "#64748b", group: "Intervention" },
+  // Intervention
+  workover: { label: "Workover", color: "#8b5cf6", group: "Intervention" }, // = annotation workover
+  recompletion: { label: "Recompletion", color: "#14b8a6", group: "Intervention" },
+  "artificial-lift": { label: "Artificial lift", color: "#f59e0b", group: "Intervention" },
+  inspection: { label: "Inspection", color: "#eab308", group: "Intervention" },
+  // Other
   incident: { label: "Incident", color: "#f43f5e", group: "Other" },
-  ownership: { label: "Ownership change", color: "#a855f7", group: "Regulatory" },
-  note: { label: "Note", color: "#94a3b8", group: "Other" },
-  other: { label: "Event", color: "#64748b", group: "Other" },
+  note: { label: "Note", color: "#64748b", group: "Other" }, // = annotation note
+  other: { label: "Event", color: "#94a3b8", group: "Other" }, // = annotation other
 };
 
 const FALLBACK_COLOR = "#64748b";
