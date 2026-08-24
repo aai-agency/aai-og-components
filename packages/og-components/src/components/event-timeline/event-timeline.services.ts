@@ -78,10 +78,12 @@ const groupIndex = (group: WellEventGroup): number => {
   return index === -1 ? EVENT_TYPE_GROUPS.length : index;
 };
 
-/** Title-cases an unknown type string for a readable fallback label. */
+/** Title-cases an unknown type or key string (splitting camelCase) for a readable label. */
 export const humanizeEventType = (type: string): string =>
   type
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (character) => character.toUpperCase()) || "Event";
 

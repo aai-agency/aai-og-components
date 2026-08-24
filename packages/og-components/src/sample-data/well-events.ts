@@ -37,6 +37,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "spud",
     title: "Spud",
     description: "Surface hole spudded; rig on location.",
+    meta: { rig: "Patterson-UTI 291", surfaceHole: '13-3/8"', spudTime: "06:42" },
   },
   {
     id: "drilling",
@@ -46,6 +47,7 @@ export const sampleWellEvents: WellEvent[] = [
     title: "Drilling",
     description: "Drilled to TD of 18,240 ft MD across 29 days.",
     value: 29,
+    meta: { td: "18,240 ft MD", mudWeight: "9.8 ppg", rop: "62 ft/hr", days: 29 },
   },
   {
     id: "completion",
@@ -55,6 +57,7 @@ export const sampleWellEvents: WellEvent[] = [
     title: "Completion",
     description: "42-stage plug-and-perf completion.",
     value: 42,
+    meta: { method: "Plug-and-perf", stages: 42, clustersPerStage: 6, perfInterval: "9,600–18,050 ft" },
   },
   {
     id: "stimulation",
@@ -75,7 +78,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "first-production",
     title: "First production",
     description: "Flowback complete; well online at 1,180 BOE/d.",
-    meta: { ip: "1,180 BOE/d", choke: '28/64"', gor: "2,400 scf/bbl" },
+    meta: { IP: "1,180 BOE/d", choke: '28/64"', GOR: "2,400 scf/bbl" },
     attachments: [{ name: "First-production test.pdf", url: "#", type: "application/pdf", size: "320 KB" }],
   },
   {
@@ -84,6 +87,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "test",
     title: "90-day rate test",
     description: "IP90 of 940 BOE/d confirmed.",
+    meta: { IP90: "940 BOE/d", oilRate: "612 bbl/d", waterCut: "38%", GOR: "2,510 scf/bbl" },
   },
   {
     id: "workover-1",
@@ -92,6 +96,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "workover",
     title: "Rod pump repair",
     description: "Pulled and replaced worn downhole pump.",
+    meta: { reason: "Pump wear", downtime: "13 days", cost: "$84k" },
   },
   {
     id: "esp-install",
@@ -99,6 +104,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "artificial-lift",
     title: "ESP installed",
     description: "Converted to electric submersible pump as reservoir pressure declined.",
+    meta: { liftType: "ESP", settingDepth: "9,850 ft MD", designRate: "620 bfpd", motor: "120 hp" },
   },
   {
     id: "shut-in-1",
@@ -107,6 +113,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "shut-in",
     title: "Offset frac shut-in",
     description: "Shut in to protect against an offset completion.",
+    meta: { reason: "Offset frac protection", offsetWell: "14-29-2H", downtime: "19 days" },
   },
   {
     id: "return-1",
@@ -114,6 +121,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "return-to-production",
     title: "Returned to production",
     description: "Brought back online with no measurable interference.",
+    meta: { rate: "705 BOE/d", interference: "None", choke: '32/64"' },
   },
   {
     id: "recompletion",
@@ -121,6 +129,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "recompletion",
     title: "Recompletion",
     description: "Added perforations in an uphole bench.",
+    meta: { bench: "Niobrara A", addedPerfs: "8,900–9,150 ft", addedStages: 4 },
   },
   {
     id: "inspection-1",
@@ -128,6 +137,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "inspection",
     title: "Mechanical integrity test",
     description: "Annual MIT passed.",
+    meta: { testType: "Mechanical integrity (MIT)", result: "Pass", testPressure: "1,500 psi" },
   },
   {
     id: "incident-1",
@@ -135,6 +145,7 @@ export const sampleWellEvents: WellEvent[] = [
     type: "incident",
     title: "Surface line leak",
     description: "Minor flowline leak; contained and repaired same day.",
+    meta: { severity: "Minor", volumeReleased: "3 bbl", contained: "Yes", reported: "COGCC Form 19" },
   },
   {
     id: "ownership-1",

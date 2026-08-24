@@ -193,6 +193,8 @@ describe("type metadata", () => {
 
   it("humanizes type strings", () => {
     expect(humanizeEventType("return-to-production")).toBe("Return To Production");
+    expect(humanizeEventType("oilRate")).toBe("Oil Rate");
+    expect(humanizeEventType("IP90")).toBe("IP90");
   });
 });
 
