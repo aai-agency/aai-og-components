@@ -165,7 +165,7 @@ export interface WellEvent {
   type: WellEventType;
   /** Short human-readable title. */
   title: string;
-  /** Optional short overview shown as a lead paragraph at the top of the detail dialog. */
+  /** Optional short overview (typically AI-generated) shown in its own "Summary" section, marked with an AI tag, at the top of the detail dialog. */
   summary?: string;
   /** Optional longer detail shown in the tooltip and history log. */
   description?: string;

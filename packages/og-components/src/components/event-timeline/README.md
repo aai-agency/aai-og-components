@@ -23,7 +23,7 @@ interface WellEvent {
   endDate?: string;    // ISO end; when present the event renders as a span
   type: WellEventType; // drives color, label, and grouping
   title: string;
-  summary?: string;     // short overview shown as a lead paragraph atop the dialog
+  summary?: string;     // short AI-generated overview shown in its own "Summary" section atop the dialog
   description?: string; // shown in the row
   color?: string;       // overrides the type color
   lane?: string;        // horizontal swim-lane key
@@ -55,7 +55,7 @@ information beyond the title), a duration and date range for spans, and the
 description.
 
 - **Click a row** to open a detail dialog (an accessible modal) laid out like a
-  filled-out form: an optional summary lead, then name, date, tags,
+  filled-out form: an AI-generated Summary section (marked with an AI tag), then name, date, tags,
   description, a details list, and **attachments with previews** — images render
   inline; other files show as cards. The body scrolls, so long records fit.
 - **Extend the dialog** with `renderDetail(event)` — return your own JSX (an

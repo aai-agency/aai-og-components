@@ -180,6 +180,33 @@ const PaperclipIcon = () => (
   </svg>
 );
 
+const SparkleIcon = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 2c.7 5.6 3.7 8.6 9.3 9.3-5.6.7-8.6 3.7-9.3 9.3-.7-5.6-3.7-8.6-9.3-9.3C8.3 10.6 11.3 7.6 12 2z" />
+  </svg>
+);
+
+/** A subtle marker for AI-generated content, e.g. the summary. */
+const AiTag = () => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 3,
+      fontSize: 9.5,
+      fontWeight: 600,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      color: T_MUTED,
+      background: DIVIDER,
+      padding: "1px 6px 1px 5px",
+      borderRadius: 999,
+    }}
+  >
+    <SparkleIcon /> AI
+  </span>
+);
+
 interface HistoryRowProps {
   event: NormalizedEvent;
   first: boolean;
@@ -498,7 +525,25 @@ const EventDialogBody = ({
       </Dialog.Description>
       <div style={{ overflowY: "auto", padding: "18px 24px 24px" }}>
         {event.event.summary ? (
-          <p style={{ margin: "0 0 18px", fontSize: 15, color: T_BODY, lineHeight: 1.6 }}>{event.event.summary}</p>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  color: T_FAINT,
+                }}
+              >
+                Summary
+              </span>
+              <AiTag />
+            </div>
+            <span style={{ display: "block", fontSize: 14, color: T_BODY, lineHeight: 1.6 }}>
+              {event.event.summary}
+            </span>
+          </div>
         ) : null}
         <DialogField label="Date">
           <span style={{ fontSize: 14, color: T_BODY, fontVariantNumeric: "tabular-nums" }}>{dateText}</span>
