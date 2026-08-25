@@ -45,6 +45,8 @@ A custom Y formatter returns the complete display string. The chart appends unit
 
 The advanced forecast editor predates the plain-path separation and still contains local interaction state. Its public behavior is covered by the decline-math suite and executable playground. Further internal extraction should move workflows into small XState actors without changing the unified `Chart` contract.
 
-## Extension for Petry-style insights
+## Extension for domain-neutral insights
 
-Petry can model profile metrics as ordinary series (`associatedType: "insight-score"`, `"session-count"`, or another optional semantic key), attach knowledge ranges through `annotations`, and use `ChartGroup` for rolling insight velocity, model-to-model deltas, confidence, or forecast attainment without putting persistence or knowledge-graph calls into visual components.
+Insight products can model profile metrics as ordinary series (`associatedType: "insight-score"`, `"session-count"`, or another optional semantic key), attach knowledge ranges through `annotations`, and use `ChartGroup` for rolling activity, deltas, confidence, or attainment without putting persistence calls into visual components.
+
+Annotation labels and descriptions are presentation metadata. Chart tooltips resolve every annotation beneath the shared cursor, so overlapping events retain their text across synchronized panels without adding annotation state to the visual component.

@@ -13,7 +13,7 @@ describe("public schemas", () => {
   it("accepts domain-neutral time series metadata", () => {
     expect(
       TimeSeriesSchema.parse({
-        id: "petry-insights",
+        id: "domain-insights",
         fluidType: "insight-score",
         curveType: "actual",
         unit: "score/session",

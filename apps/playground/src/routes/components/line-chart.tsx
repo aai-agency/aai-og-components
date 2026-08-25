@@ -134,7 +134,7 @@ const difference =
 const composedCharts: ChartConfig[] = [
   {
     id: "production",
-    label: "Production — actuals and forecasts",
+    label: "Production: actuals and forecasts",
     kind: "line",
     height: 280,
     series: [
@@ -198,7 +198,7 @@ const composedAnnotations: Annotation[] = [
   },
 ];
 
-const petrySeries: TimeSeries[] = [
+const domainNeutralInsights: TimeSeries[] = [
   {
     id: "captured-insights",
     associatedType: "captured-insights",
@@ -242,27 +242,6 @@ const forecastSeries: TimeSeries = {
   })),
 };
 
-const sessionAnnotations: Annotation[] = [
-  {
-    id: "session-model-shift",
-    tStart: 9,
-    tEnd: 14,
-    type: "note",
-    label: "Model shift",
-    description: "A new framing produced a cluster of linked insights.",
-    color: "#7c3aed",
-  },
-  {
-    id: "session-research-sprint",
-    tStart: 28,
-    tEnd: 34,
-    type: "other",
-    label: "Research sprint",
-    description: "Focused exploration across several related sessions.",
-    color: "#0891b2",
-  },
-];
-
 const forecastRelatedCharts: RelatedChartConfig[] = [
   createVarianceRelatedChart({ height: 180, mode: "combined" }),
   {
@@ -285,18 +264,7 @@ const ChartPage = () => (
     title="Chart"
     description="One canonical chart for line or bar rendering, ordinary forecast series, derived panels, interactive forecasting, and annotations."
   >
-    <DemoCard title="Domain-neutral signals — Petry profile concept">
-      <Chart
-        id="petry-profile"
-        label="Session insights"
-        kind="line"
-        series={petrySeries}
-        height={320}
-        xAxisLabel="Session date"
-      />
-    </DemoCard>
-
-    <DemoCard title="Production history — legend toggles and dual axes">
+    <DemoCard title="Production history: legend toggles and dual axes">
       <Chart
         id="production-history"
         label="Production history"
@@ -311,7 +279,7 @@ const ChartPage = () => (
       <Chart id="production-bars" label="Monthly production" kind="bar" series={production} height={340} />
     </DemoCard>
 
-    <DemoCard title="Composable chart group — ID-based forecasts and derivatives">
+    <DemoCard title="Composable chart group: ID-based forecasts and derivatives">
       <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
         Click a monthly variance bar to drill every panel into that month. Each panel mirrors the shared X window, while
         its vertical slider controls only that panel. Use each panel&apos;s settings menu to hide individual controls,
@@ -328,7 +296,7 @@ const ChartPage = () => (
       />
     </DemoCard>
 
-    <DemoCard title="Grouped charts — forecast + synchronized derivatives">
+    <DemoCard title="Grouped charts: forecast + synchronized derivatives">
       <div style={{ minHeight: 920 }}>
         <Chart
           id="interactive-forecast"
@@ -350,18 +318,15 @@ const ChartPage = () => (
       </div>
     </DemoCard>
 
-    <DemoCard title="Annotation-only profile timeline">
-      <div style={{ minHeight: 420 }}>
-        <Chart
-          id="annotated-profile"
-          label="Annotated profile"
-          kind="line"
-          series={[petrySeries[0]]}
-          height={340}
-          showForecast={false}
-          annotations={sessionAnnotations}
-        />
-      </div>
+    <DemoCard title="Domain-neutral insights">
+      <Chart
+        id="insight-activity"
+        label="Insight activity"
+        kind="line"
+        series={domainNeutralInsights}
+        height={320}
+        xAxisLabel="Date"
+      />
     </DemoCard>
 
     <PropTable
@@ -433,7 +398,8 @@ const ChartPage = () => (
         {
           name: "annotations",
           type: "Annotation[]",
-          description: "Opt-in range annotations; an empty array still enables tools.",
+          description:
+            "Opt-in range annotations whose labels and descriptions appear on hover; an empty array still enables tools.",
         },
         {
           name: "showForecast",
