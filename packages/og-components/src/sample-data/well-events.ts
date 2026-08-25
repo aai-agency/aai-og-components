@@ -69,7 +69,12 @@ export const sampleWellEvents: WellEvent[] = [
     attachments: [
       { name: "Frac treating chart.svg", url: FRAC_CHART, type: "image/svg+xml", size: "24 KB" },
       { name: "Stage-by-stage report.pdf", url: "#", type: "application/pdf", size: "1.2 MB" },
-      { name: "Proppant tickets.csv", url: "#", type: "text/csv", size: "36 KB" },
+      {
+        name: "Proppant tickets.csv",
+        url: "data:text/csv;charset=utf-8,Stage,Proppant%20(lb),Fluid%20(gal),Avg%20rate%20(bpm)%0A1,268000,201000,80%0A2,271000,206000,83%0A3,269500,204000,82",
+        type: "text/csv",
+        size: "36 KB",
+      },
     ],
   },
   {

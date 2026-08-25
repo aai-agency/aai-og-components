@@ -56,8 +56,9 @@ description.
 
 - **Click a row** to open a detail dialog (an accessible modal) laid out like a
   filled-out form: an AI-generated Summary section (marked with an AI tag), then name, date, tags,
-  description, a details list, and **attachments with previews** — images render
-  inline; other files show as cards. The body scrolls, so long records fit.
+  description, a details list, and **attachments** — images preview inline, other
+  files show as cards. Click a card to view (opens in a new tab) or download it.
+  The body scrolls, so long records fit.
 - **Extend the dialog** with `renderDetail(event)` — return your own JSX (an
   operations log, a sub-table, a chart) and it drops in as a section. Only
   primitive `meta` values show in the built-in Details list; arrays/objects are

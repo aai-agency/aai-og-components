@@ -356,6 +356,18 @@ const attachmentExt = (attachment: WellEventAttachment): string => {
   return "FILE";
 };
 
+const DownloadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const AttachmentCard = ({ attachment }: { attachment: WellEventAttachment }) => {
   const navigable = attachment.url.length > 0 && attachment.url !== "#";
   const preview = isImageAttachment(attachment) ? (
@@ -407,39 +419,53 @@ const AttachmentCard = ({ attachment }: { attachment: WellEventAttachment }) => 
       </span>
     </span>
   );
-  const caption = (
-    <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
-      <span
-        style={{
-          fontSize: 12.5,
-          color: T_BODY,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          minWidth: 0,
-        }}
-      >
-        {attachment.name}
-      </span>
-      {attachment.size ? (
-        <span style={{ fontSize: 11, color: T_FAINT, flex: "0 0 auto" }}>{attachment.size}</span>
-      ) : null}
-    </span>
-  );
-  return navigable ? (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noreferrer"
-      style={{ display: "block", textDecoration: "none", color: "inherit" }}
-    >
-      {preview}
-      {caption}
-    </a>
-  ) : (
+  const nameStyle: CSSProperties = {
+    fontSize: 12.5,
+    color: T_BODY,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  };
+
+  return (
     <div>
-      {preview}
-      {caption}
+      {navigable ? (
+        <a
+          href={attachment.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`View ${attachment.name}`}
+          style={{ display: "block", textDecoration: "none", color: "inherit" }}
+        >
+          {preview}
+        </a>
+      ) : (
+        preview
+      )}
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+        {navigable ? (
+          <a href={attachment.url} target="_blank" rel="noreferrer" style={{ ...nameStyle, textDecoration: "none" }}>
+            {attachment.name}
+          </a>
+        ) : (
+          <span style={nameStyle}>{attachment.name}</span>
+        )}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+          {attachment.size ? <span style={{ fontSize: 11, color: T_FAINT }}>{attachment.size}</span> : null}
+          {navigable ? (
+            <a
+              href={attachment.url}
+              download={attachment.name}
+              aria-label={`Download ${attachment.name}`}
+              title="Download"
+              style={{ display: "inline-flex", alignItems: "center", color: T_MUTED, textDecoration: "none" }}
+            >
+              <DownloadIcon />
+            </a>
+          ) : null}
+        </span>
+      </span>
     </div>
   );
 };
