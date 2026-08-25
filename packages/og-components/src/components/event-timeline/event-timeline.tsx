@@ -661,6 +661,33 @@ const EventDialog = ({
   </Dialog.Root>
 );
 
+export interface EventDetailDialogProps {
+  /** The event to display; pass `null` to close the dialog. */
+  event: WellEvent | null;
+  /** Called when the dialog is dismissed (close button, overlay, or Escape). */
+  onClose: () => void;
+  /** Overrides the date formatting. */
+  formatDate?: (time: number) => string;
+  /** Render extra custom sections into the dialog (see `EventTimeline.renderDetail`). */
+  renderDetail?: (event: WellEvent) => ReactNode;
+}
+
+/**
+ * The standalone event detail dialog — the same accessible modal `EventTimeline`
+ * opens on click, usable on its own. Lays out one event like a filled-out form:
+ * an AI-tagged summary, date, tags, description, a details list, and attachments
+ * (view + download). Extend it with `renderDetail`.
+ */
+export const EventDetailDialog = ({
+  event,
+  onClose,
+  formatDate = formatEventDate,
+  renderDetail,
+}: EventDetailDialogProps) => {
+  const normalized = useMemo(() => (event ? (normalizeEvents([event])[0] ?? null) : null), [event]);
+  return <EventDialog event={normalized} formatDate={formatDate} renderDetail={renderDetail} onClose={onClose} />;
+};
+
 export interface EventActivityLogEntry {
   /** Optional timestamp label (e.g. "08:15", "Aug 30", "Day 2"). */
   time?: string;

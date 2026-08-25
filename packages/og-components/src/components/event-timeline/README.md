@@ -80,6 +80,12 @@ import { EventActivityLog } from "@aai-agency/og-components/event-timeline";
 `EventActivityLog` is a reusable primitive — a compact, **time-based, internally
 scrollable** log (`{ time?, label, description?, color? }[]`) for operations
 logs, run histories, or audit trails. Use it in `renderDetail` or on its own.
+
+## Components
+
+- **`EventTimeline`** — the history (default list, or `orientation="horizontal"` lane).
+- **`EventDetailDialog`** — the detail modal on its own: `<EventDetailDialog event={selected} onClose={() => setSelected(null)} />`. Same dialog `EventTimeline` opens on click.
+- **`EventActivityLog`** — the time-based, scrollable log primitive.
 - **Group filter** (`showFilters`, default on): soft toggle chips for the five
   lifecycle groups; select any to filter the list, with the header showing
   "N of M".
