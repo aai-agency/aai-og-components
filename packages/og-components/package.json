@@ -1,6 +1,6 @@
 {
   "name": "@aai-agency/og-components",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Production-grade O&G React components for AI coding agents — maps, charts, detail cards, and more",
   "author": "Husam @ aai.agency <husam@aai.agency>",
   "type": "module",
@@ -19,6 +19,10 @@
     "./decline-curve": {
       "types": "./dist/components/decline-curve/index.d.ts",
       "import": "./dist/components/decline-curve/index.js"
+    },
+    "./event-timeline": {
+      "types": "./dist/components/event-timeline/index.d.ts",
+      "import": "./dist/components/event-timeline/index.js"
     },
     "./line-chart": {
       "types": "./dist/components/line-chart/index.d.ts",
@@ -86,6 +90,7 @@
     "@deck.gl/mapbox": "^9.3.10",
     "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@radix-ui/react-context-menu": "^2.3.7",
+    "@radix-ui/react-dialog": "^1.1.7",
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@turf/turf": "^7.4.0",

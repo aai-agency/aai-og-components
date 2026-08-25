@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     "components/asset-card/index": "src/components/asset-card/index.ts",
     "components/decline-curve/index": "src/components/decline-curve/index.ts",
+    "components/event-timeline/index": "src/components/event-timeline/index.ts",
     "components/line-chart/index": "src/components/line-chart/index.ts",
     "components/map/index": "src/components/map/index.ts",
     "components/ui/index": "src/components/ui/index.ts",

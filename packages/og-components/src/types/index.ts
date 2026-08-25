@@ -110,6 +110,77 @@ export interface WellProperties {
   timeSeries?: TimeSeries[];
 }
 
+// ── Well Events / History ────────────────────────────────────────────────────
+
+/**
+ * Built-in well lifecycle event types. Users can extend with any string.
+ * The type drives default color, label, and grouping in the EventTimeline.
+ */
+export type BuiltInWellEventType =
+  | "permit"
+  | "spud"
+  | "drilling"
+  | "completion"
+  | "stimulation"
+  | "first-production"
+  | "workover"
+  | "recompletion"
+  | "artificial-lift"
+  | "test"
+  | "shut-in"
+  | "return-to-production"
+  | "inspection"
+  | "incident"
+  | "ownership"
+  | "note"
+  | "other";
+
+/** Well event type — built-in or any custom string. */
+export type WellEventType = BuiltInWellEventType | (string & {});
+
+/** A file or link attached to a well event (report, log, photo, permit, ...). */
+export interface WellEventAttachment {
+  /** Display name, e.g. "Frac stage report.pdf". */
+  name: string;
+  /** URL or data URI. Images are previewed inline; others render as a file card. */
+  url: string;
+  /** MIME type (e.g. "image/png", "application/pdf"); drives the preview. */
+  type?: string;
+  /** Optional human-readable size, e.g. "1.2 MB". */
+  size?: string;
+}
+
+/**
+ * A single event in an asset's history. Point events set only `date`; spans
+ * (drilling, shut-in periods, workovers) also set `endDate`. Rendered by the
+ * EventTimeline on a shared time axis beneath the production charts.
+ */
+export interface WellEvent {
+  id: string;
+  /** ISO date/timestamp when the event occurred, or when a span begins. */
+  date: string;
+  /** Optional ISO end date; when present the event renders as a span. */
+  endDate?: string;
+  /** Category driving color, label, and grouping. */
+  type: WellEventType;
+  /** Short human-readable title. */
+  title: string;
+  /** Optional short overview (typically AI-generated) shown in its own "Summary" section, marked with an AI tag, at the top of the detail dialog. */
+  summary?: string;
+  /** Optional longer detail shown in the tooltip and history log. */
+  description?: string;
+  /** Optional explicit color; overrides the type's default color. */
+  color?: string;
+  /** Optional swim-lane key; when any event sets it, the timeline renders lanes. */
+  lane?: string;
+  /** Optional numeric magnitude (stage count, cost, downtime) for context. */
+  value?: number;
+  /** Files or links attached to the event (reports, logs, photos). */
+  attachments?: WellEventAttachment[];
+  /** Arbitrary metadata — tags, source system, user-defined fields. */
+  meta?: Record<string, unknown>;
+}
+
 // ── Core Asset Model ─────────────────────────────────────────────────────────
 
 /**

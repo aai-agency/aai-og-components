@@ -35,6 +35,8 @@ Read these before generating code:
 | Interactive asset map           | `Map`                            | `assets`, `mapboxAccessToken`, `colorBy` |
 | Any time series                 | `Chart`                          | `kind`, `series: TimeSeries[]`           |
 | Forecast / variance editor      | `Chart`                          | `kind="line"`, `series`, `forecast`     |
+| Well events / history feed      | `EventTimeline`                  | `events: WellEvent[]`, `title` (vertical by default) |
+| Events aligned under a chart    | `EventTimeline`                  | `orientation="horizontal"`, `domain`, `padding` |
 | Asset info on click             | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
 | Multi-asset selection           | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
 | File overlay management         | `OverlayManager`                 | `overlays`, `onUpload`                   |
@@ -148,6 +150,7 @@ const MapPage = () => (
 import {
   Map,
   Chart,
+  EventTimeline,
   ProductionChart,
   DeclineCurve,
   AssetDetailCard,
@@ -160,6 +163,8 @@ import { Tooltip, TooltipProvider } from "@aai-agency/og-components";
 import type {
   Asset,
   TimeSeries,
+  WellEvent,
+  WellEventType,
   MapViewState,
   ColorScheme,
   MapOverlay,
@@ -184,6 +189,7 @@ import {
 import {
   parseAssets,
   safeParseAssets,
+  WellEventSchema,
 } from "@aai-agency/og-components/schemas";
 
 // Services
@@ -202,6 +208,7 @@ import {
   sampleDeclineCurveSegments,
   sampleDeclineCurveAnnotations,
   generateSampleDeclineCurveProduction,
+  sampleWellEvents,
 } from "@aai-agency/og-components/sample-data";
 ```
 

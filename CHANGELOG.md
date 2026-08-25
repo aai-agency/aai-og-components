@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.7.0] - 2026-08-25
+
+### Added — EventTimeline
+
+- New `EventTimeline` component: a well events/history component for O&G assets.
+- **Vertical history list (default)**: a clean, light, grouped list (shadcn/Notion style) — a muted date column, a color-coded status dot, the event title with a soft type tag (shown only when it adds information), spans with a duration and date range, and the description. Grouped by period on subtle dividers. Point events and spans (spud, drilling, completion, stimulation, first production, workover, shut-in, and more).
+- **Click a row to open a detail dialog** (accessible modal, Radix Dialog) laid out like a filled-out form: an optional AI-generated Summary section (marked with an AI tag), then name, date, tags, description, a details/property list, and **attachments** — images preview inline, other files show as cards with an extension badge, name, and size. Click a card to view the file (opens in a new tab) or use its download control to save it. The body scrolls, so long records fit. Rows show a paperclip count when an event has attachments.
+- **Extensible dialog**: a `renderDetail(event)` render-prop slot injects custom sections (an operations log, a sub-table, a chart) per event without forking the component. Only primitive `meta` values render in the built-in Details list; arrays/objects are left for `renderDetail`.
+- Exported components: **`EventTimeline`** (the history), **`EventDetailDialog`** (the detail modal, usable standalone), and **`EventActivityLog`** (a compact, time-based, internally-scrollable log — timestamp + event on a mini rail — for operations logs, run histories, or audit trails; drop it into `renderDetail` or use it anywhere).
+- New `WellEventAttachment` type + `attachments`, an optional `summary`, on `WellEvent`; a `WellEventAttachmentSchema`. Adds `@radix-ui/react-dialog`. `humanizeEventType` now splits camelCase keys while keeping acronyms.
+- **Group filter** (`showFilters`, default on): soft toggle chips for the five lifecycle groups; select any to filter the list, with the header showing "N of M".
+- **Horizontal lane** (`orientation="horizontal"`): a compact time-aligned lane. Pass `domain` matching a chart's visible X window and `padding` matching its plot inset to line the lane up directly beneath the chart. Swim-lanes: set a `lane` on events to split the lane into stacked bands per workstream.
+- Colors for concepts shared with chart annotations (stimulation/frac, workover, shut-in, note, other) mirror `ANNOTATION_TYPE_META` so the well reads consistently across the chart's annotation bands and this history; the remaining lifecycle types use distinct hues. A short operation code (`DRLG`, `FRAC`, ...) is available per type. Alignment and distinctness are guarded by tests.
+- Added the focused `@aai-agency/og-components/event-timeline` export plus pure layout/formatting services (`normalizeEvents`, `computeTimelineDomain`, `layoutTimeline`, `buildTimelineTicks`, `timelineLegend`, `withAlpha`, and more).
+- New `WellEvent` / `WellEventType` domain types, a `WellEventSchema` Zod schema, and a `sampleWellEvents` sample dataset (a full single-well lifecycle history).
 
 ## [0.6.1] - 2026-08-20
 
