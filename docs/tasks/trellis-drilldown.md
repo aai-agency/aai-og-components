@@ -26,11 +26,13 @@ The user could not tell how the old "Edit comparison / Add by" picker mapped to 
 - [x] Typed grouping/inclusion/custom membership transitions and regression tests.
 - [x] Explicit editor and preview reflect the actual rendered panel composition.
 - [x] Desktop/mobile browser checks, screenshots, types/lint/tests/builds.
-- [ ] Update existing PR #25, no merge or release.
+- [x] Update existing PR #25, no merge or release. Implementation commit `fc73b99`.
 
 Evidence: 234 tests / 22 files, strict typecheck, lint, library ESM+DTS build and playground build passed. Existing map chunk warning unchanged. Real browser checked 6 assets → 3 zone panels → 2 subsystem panels, exact preview member lists, custom members, new empty/custom panel, overlap warning, inclusion exclusion, clear/reselect, Done focus, and Apply of 5 unique assets. Overlay preview changes "1 chart" to "1 series". Desktop 1440×1000 and mobile 390×844 screenshots inspected; mobile dialog width=scrollWidth=354. Browser logs have no warnings/errors.
 
 Screenshots: `~/.codex/visualizations/trellis-grouping-20260830/01-zone-panel-preview.png`, `02-zone-charts.png`, `03-mobile-panel-preview.png`, `04-mobile-panel-members.png`.
+
+Final browser regression: cancel kept all six overview assets; reopening reset to six individual-asset panels. Task preview stopped and browser viewport restored after captures.
 
 - All grouping keys come directly from asset metadata, never a hard-coded domain enum.
 - Field activity remains bold.
