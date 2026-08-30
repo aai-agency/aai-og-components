@@ -9,6 +9,7 @@ const NAV_ITEMS = [
       { label: "Map", to: "/components/map" },
       { label: "Chart", to: "/components/line-chart" },
       { label: "EventTimeline", to: "/components/event-timeline" },
+      { label: "AssetBreakdown", to: "/components/asset-breakdown" },
       { label: "AssetDetailCard", to: "/components/asset-detail-card" },
       { label: "SelectionPanel", to: "/components/selection-panel" },
       { label: "OverlayManager", to: "/components/overlay-manager" },
@@ -25,7 +26,7 @@ const NAV_ITEMS = [
 
 const Sidebar = () => {
   return (
-    <aside className="fixed top-0 left-0 z-30 h-screen w-64 border-r border-border bg-background overflow-y-auto">
+    <aside className="fixed top-0 left-0 z-30 hidden h-screen w-64 overflow-y-auto border-r border-border bg-background md:block">
       <div className="px-6 py-5 border-b border-border">
         <Link to="/" className="text-sm font-semibold text-foreground tracking-tight">
           @aai/og-components
@@ -80,7 +81,7 @@ const RootLayout = () => {
     <TooltipProvider>
       <div className="min-h-screen bg-background text-foreground font-sans">
         <Sidebar />
-        <main className="ml-64 min-h-screen">
+        <main className="min-h-screen md:ml-64">
           <Outlet />
         </main>
       </div>

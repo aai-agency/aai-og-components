@@ -42,8 +42,27 @@ const well: Asset = {
     wellType: "oil",
     basin: "Bakken",
   },
+  meta: {
+    subsystem: "ESP network",
+    operatingArea: "North",
+  },
 };
 ```
+
+## Dynamic dimensions
+
+Use `properties` for domain fields shown on an individual asset. Use `meta` for
+dynamic classification keys that drive multi-asset filtering and breakdowns.
+The key is supplied at runtime and is not restricted to a library enum.
+
+```ts
+const dimensionKey = "subsystem";
+const dimensionValue = asset.meta?.[dimensionKey];
+```
+
+`dimensionKey` addresses one direct `meta` key. Do not interpret dots as nested
+paths. Link `TimeSeries` and `WellEvent` records to the asset with `assetId`;
+do not copy the asset dimension into every record.
 
 ## Properties Field
 

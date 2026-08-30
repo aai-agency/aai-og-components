@@ -1,3 +1,9 @@
+export type {
+  ChartBreakdownConfig,
+  ChartBreakdownMode,
+  PreparedAssetChartInput,
+} from "./asset-series-breakdown";
+export { prepareAssetChartInput } from "./asset-series-breakdown";
 export type { ChartGroupProps } from "./chart-group";
 export { ChartGroup } from "./chart-group";
 export type {

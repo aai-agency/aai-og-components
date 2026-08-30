@@ -3,6 +3,15 @@ import { type CSSProperties, Fragment, type ReactNode, useMemo, useState } from 
 
 import { BORDER, FONT_FAMILY, PANEL_BG, TEXT_FAINT, TEXT_HEADING, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
 import type { WellEvent, WellEventAttachment } from "../../types";
+import type { AssetDimensionValue, AssetScopeBinding } from "../asset-breakdown";
+import {
+  dimensionValueKey,
+  filterAssetsByScope,
+  filterEventsByAssetScope,
+  getDimensionValues,
+  setMetaFilter,
+  toggleMetaFilterValue,
+} from "../asset-breakdown";
 import { TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from "../ui/tooltip";
 import {
   buildTimelineTicks,
@@ -59,6 +68,10 @@ export interface EventTimelineProps {
   renderDetail?: (event: WellEvent) => ReactNode;
   /** Message shown when there are no plottable events. */
   emptyMessage?: string;
+  /** Controlled asset collection and filters used by linked events (`WellEvent.assetId`). */
+  assetScope?: AssetScopeBinding;
+  /** Dynamic grouping/filter key resolved directly from `Asset.meta`. */
+  breakdown?: EventBreakdownConfig;
 
   // ── Horizontal-only ──
   /**
@@ -83,6 +96,14 @@ export interface EventTimelineProps {
   style?: CSSProperties;
 }
 
+export interface EventBreakdownConfig {
+  dimensionKey: string;
+  label?: string;
+  missingLabel?: string;
+  /** Show controlled value filters above the timeline. Default `true`. */
+  showFilter?: boolean;
+}
+
 const LABEL_ROW_HEIGHT = 18;
 const MAX_LABEL_ROWS = 2;
 const LABEL_MIN_GAP = 0.16;
@@ -99,6 +120,62 @@ const T_TITLE = "#18181b"; // zinc-900
 const T_BODY = "#52525b"; // zinc-600
 const T_MUTED = "#71717a"; // zinc-500
 const T_FAINT = "#a1a1aa"; // zinc-400
+
+const EventBreakdownFilter = ({
+  binding,
+  breakdown,
+}: {
+  binding: AssetScopeBinding;
+  breakdown: EventBreakdownConfig;
+}) => {
+  if (breakdown.showFilter === false || !binding.onScopeChange) return null;
+  const baseScope = setMetaFilter(binding.scope, breakdown.dimensionKey, []);
+  const candidates = filterAssetsByScope(binding.assets, baseScope);
+  const options = getDimensionValues(candidates, {
+    key: breakdown.dimensionKey,
+    label: breakdown.label,
+    missingLabel: breakdown.missingLabel,
+  });
+  const selected = binding.scope?.metaFilters?.find((filter) => filter.key === breakdown.dimensionKey)?.values ?? [];
+  const isSelected = (value: AssetDimensionValue | null) =>
+    selected.some((candidate) => dimensionValueKey(candidate) === dimensionValueKey(value));
+  return (
+    <fieldset style={{ margin: "0 0 10px", padding: 0, border: 0 }}>
+      <legend style={{ marginBottom: 5, color: T_FAINT, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>
+        {(breakdown.label ?? breakdown.dimensionKey).toUpperCase()}
+      </legend>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {options.map((option) => {
+          const active = isSelected(option.value);
+          return (
+            <button
+              key={dimensionValueKey(option.value)}
+              type="button"
+              aria-pressed={active}
+              title={`Filter ${option.count} event asset${option.count === 1 ? "" : "s"} by ${option.label}`}
+              onClick={() =>
+                binding.onScopeChange?.(toggleMetaFilterValue(binding.scope, breakdown.dimensionKey, option.value))
+              }
+              style={{
+                minHeight: 30,
+                padding: "5px 9px",
+                border: `1px solid ${active ? T_TITLE : CARD_BORDER}`,
+                borderRadius: 6,
+                background: active ? T_TITLE : CARD_BG,
+                color: active ? CARD_BG : T_BODY,
+                cursor: "pointer",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {option.label} · {option.count}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+};
 
 const insetStyle = (padLeft: number, padRight: number) => {
   const inset = padLeft + padRight;
@@ -916,7 +993,7 @@ const HistoryFeed = ({
             borderBottom: `1px solid ${DIVIDER}`,
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 600, color: T_TITLE, letterSpacing: "-0.01em" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: T_TITLE, letterSpacing: "-0.01em" }}>
             {title ?? "History"}
           </span>
           <span style={{ fontSize: 13, color: T_FAINT }}>{subtitle}</span>
@@ -1312,6 +1389,8 @@ export const EventTimeline = ({
   formatDate = formatEventDate,
   renderDetail,
   emptyMessage = "No events",
+  assetScope,
+  breakdown,
   domain: domainProp,
   height = 76,
   padding,
@@ -1322,7 +1401,11 @@ export const EventTimeline = ({
   className,
   style,
 }: EventTimelineProps) => {
-  const normalized = useMemo(() => normalizeEvents(events), [events]);
+  const scopedEvents = useMemo(
+    () => (assetScope ? filterEventsByAssetScope(events, assetScope.assets, assetScope.scope) : events),
+    [events, assetScope],
+  );
+  const normalized = useMemo(() => normalizeEvents(scopedEvents), [scopedEvents]);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [uncontrolledSelected, setUncontrolledSelected] = useState<string | null>(defaultSelectedEventId);
@@ -1351,6 +1434,7 @@ export const EventTimeline = ({
     return (
       <>
         <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
+          {assetScope && breakdown ? <EventBreakdownFilter binding={assetScope} breakdown={breakdown} /> : null}
           {normalized.length === 0 ? (
             <EmptyTimeline height={120} message={emptyMessage} />
           ) : (
@@ -1408,7 +1492,7 @@ export const EventTimeline = ({
     return (
       <div className={className} style={{ fontFamily: FONT_FAMILY, ...style }}>
         {title ? (
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_HEADING, marginBottom: 8 }}>{title}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_HEADING, marginBottom: 8 }}>{title}</div>
         ) : null}
         <EmptyTimeline height={height} message={emptyMessage} />
       </div>
@@ -1418,6 +1502,7 @@ export const EventTimeline = ({
   return (
     <TooltipProvider delayDuration={120}>
       <div className={className} style={{ fontFamily: FONT_FAMILY, width: "100%", ...style }}>
+        {assetScope && breakdown ? <EventBreakdownFilter binding={assetScope} breakdown={breakdown} /> : null}
         {title || (showLegend && legend.length > 0) ? (
           <div
             style={{
@@ -1429,7 +1514,7 @@ export const EventTimeline = ({
               marginBottom: 6,
             }}
           >
-            {title ? <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_HEADING }}>{title}</div> : <span />}
+            {title ? <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_HEADING }}>{title}</div> : <span />}
             {showLegend && legend.length > 0 ? <Legend entries={legend} /> : null}
           </div>
         ) : null}

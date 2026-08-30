@@ -1,6 +1,7 @@
 export type {
   EventActivityLogEntry,
   EventActivityLogProps,
+  EventBreakdownConfig,
   EventDetailDialogProps,
   EventTimelineProps,
 } from "./event-timeline";

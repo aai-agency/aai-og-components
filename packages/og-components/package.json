@@ -16,6 +16,10 @@
       "types": "./dist/components/asset-card/index.d.ts",
       "import": "./dist/components/asset-card/index.js"
     },
+    "./asset-breakdown": {
+      "types": "./dist/components/asset-breakdown/index.d.ts",
+      "import": "./dist/components/asset-breakdown/index.js"
+    },
     "./decline-curve": {
       "types": "./dist/components/decline-curve/index.d.ts",
       "import": "./dist/components/decline-curve/index.js"

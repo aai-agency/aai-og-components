@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — dynamic asset breakdowns
+
+- Added a controlled `AssetScope` shared by charts, event timelines, filters,
+  metrics, drill-downs, and operational summaries.
+- Added dynamic dimensions resolved from any direct `Asset.meta` key. Series
+  and events link to their source with `assetId`, so metadata is not duplicated.
+- Extended `ChartGroup` with explicit all-asset and per-dimension aggregation,
+  and `EventTimeline` with the same asset, metadata, and date filtering.
+- Added the focused `@aai-agency/og-components/asset-breakdown` export with
+  `ScopeFilters`, `MetricCard`, `RecordDrilldownDialog`, and
+  `OperationalSummary`.
+- Added an interactive playground composition that switches between
+  `subsystem` and `zone` without changing component code.
+
 ## [0.7.0] - 2026-08-25
 
 ### Added — EventTimeline

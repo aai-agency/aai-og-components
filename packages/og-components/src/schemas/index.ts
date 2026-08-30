@@ -19,6 +19,7 @@ export const DataPointSchema = z.object({
 
 export const TimeSeriesSchema = z.object({
   id: z.string(),
+  assetId: z.string().optional(),
   seriesType: z.enum(["actual", "forecast"]).optional(),
   associatedType: z.string().min(1).optional(),
   fluidType: z.string().min(1).optional(),
@@ -28,6 +29,7 @@ export const TimeSeriesSchema = z.object({
   label: z.string().optional(),
   color: z.string().optional(),
   axis: z.enum(["left", "right"]).optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
   data: z.array(DataPointSchema),
 });
 
@@ -60,6 +62,7 @@ export const WellEventAttachmentSchema = z.object({
 
 export const WellEventSchema = z.object({
   id: z.string(),
+  assetId: z.string().optional(),
   date: z.string(),
   endDate: z.string().optional(),
   type: z.string().min(1),

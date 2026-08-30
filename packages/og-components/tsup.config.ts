@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    "components/asset-breakdown/index": "src/components/asset-breakdown/index.ts",
     "components/asset-card/index": "src/components/asset-card/index.ts",
     "components/decline-curve/index": "src/components/decline-curve/index.ts",
     "components/event-timeline/index": "src/components/event-timeline/index.ts",

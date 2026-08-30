@@ -3,7 +3,9 @@ import { useId, useMemo } from "react";
 
 import { chartGroupMachine } from "../../machines/chart-group.machine";
 import type { TimeSeries } from "../../types";
+import type { AssetScopeBinding } from "../asset-breakdown";
 import type { Annotation } from "../decline-curve/decline-math";
+import { type ChartBreakdownConfig, prepareAssetChartInput } from "./asset-series-breakdown";
 import {
   type ChartAxis,
   type ChartConfig,
@@ -31,6 +33,10 @@ export interface ChartGroupProps {
   /** Font family and pixel sizes shared by every panel in the group. */
   typography?: ChartTypography;
   emptyMessage?: string;
+  /** Controlled asset collection and filters used by linked series (`TimeSeries.assetId`). */
+  assetScope?: AssetScopeBinding;
+  /** Optional aggregation or metadata breakdown. `dimensionKey` resolves directly from `Asset.meta`. */
+  breakdown?: ChartBreakdownConfig;
 }
 
 /**
@@ -48,10 +54,16 @@ export const ChartGroup = ({
   formatYValue,
   typography,
   emptyMessage,
+  assetScope,
+  breakdown,
 }: ChartGroupProps) => {
+  const scopedInput = useMemo(
+    () => prepareAssetChartInput(series, charts, assetScope, breakdown),
+    [series, charts, assetScope, breakdown],
+  );
   const prepared = useMemo(
-    () => prepareChartGroup(series, charts, annotations, timeZone),
-    [series, charts, annotations, timeZone],
+    () => prepareChartGroup(scopedInput.series, scopedInput.charts, annotations, timeZone),
+    [scopedInput, annotations, timeZone],
   );
   const [snapshot, send] = useMachine(chartGroupMachine);
   const reactId = useId();

@@ -14,6 +14,10 @@ export default defineConfig({
         import.meta.dirname,
         "../../packages/og-components/src/components/asset-card/index.ts",
       ),
+      "@aai-agency/og-components/asset-breakdown": path.resolve(
+        import.meta.dirname,
+        "../../packages/og-components/src/components/asset-breakdown/index.ts",
+      ),
       "@aai-agency/og-components/decline-curve": path.resolve(
         import.meta.dirname,
         "../../packages/og-components/src/components/decline-curve/index.ts",
