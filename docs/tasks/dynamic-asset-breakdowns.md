@@ -25,7 +25,7 @@ is an arbitrary key in `asset.meta`, not a fixed domain enum.
       missing metadata are verified.
 - [x] Library build, typecheck, lint, and tests pass; the public API is
       documented and delivered through a PR.
-- [ ] petry's grouped artifact instructions consume the shared public contract
+- [x] petry's grouped artifact instructions consume the shared public contract
       instead of treating these capabilities as generated fallbacks.
 
 ## Non-goals
@@ -55,3 +55,5 @@ is an arbitrary key in `asset.meta`, not a fixed domain enum.
 - Browser console contained no warnings or errors during the exercise.
 - Captures are under
   `/Users/husamrahman/.codex/visualizations/dynamic-asset-breakdowns-20260829/`.
+- petry PR #9 now prefers the focused shared breakdown export and preserves a
+  custom fallback only when the installed declarations lack an exact primitive.
