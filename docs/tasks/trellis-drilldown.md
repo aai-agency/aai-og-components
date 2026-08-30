@@ -15,7 +15,7 @@ This builds on PR #24 (`codex/feature/dynamic-asset-breakdowns`). No release or 
 - [x] Playground entry points from production chart and cumulative KPI.
 - [x] Typecheck, lint, tests, package and playground builds.
 - [x] Real browser interactions and inspected desktop/mobile screenshots.
-- [ ] Documentation, pushed feature branch, stacked pull request.
+- [x] Documentation, pushed feature branch, stacked pull request: https://github.com/aai-agency/aai-og-components/pull/25 (base #24).
 
 ## Feedback retained
 
@@ -33,7 +33,10 @@ This builds on PR #24 (`codex/feature/dynamic-asset-breakdowns`). No release or 
 - Record regression: event KPI opened four records, selecting an event opened the standard EventDetailDialog alone (one dialog); Escape closed it.
 - Desktop 1440×900 and mobile 390×844 inspected. Mobile dialog clientWidth=scrollWidth=354 (no horizontal overflow), scrollable vertical content.
 - Browser warning/error log: empty.
+- Mobile comparison editor also inspected at 390×844: clientWidth=scrollWidth=354; source selector, search, chips and checkboxes fit.
 - Screenshots: `~/.codex/visualizations/trellis-drilldown-20260829/01-trellis-desktop.png`, `02-mixed-trellis.png`, `03-gas-overlay.png`, `04-mobile-trellis.png`.
+- Additional editor screenshot: `05-mobile-editor.png` in the same directory.
+- PR #25 initially reports no CI checks for its stacked base; all verification above was run locally. Nothing merged or released.
 
 ## Verification boundaries
 
