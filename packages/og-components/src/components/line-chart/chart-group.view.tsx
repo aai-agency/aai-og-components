@@ -426,6 +426,7 @@ const ChartPanelSurface = ({
 };
 
 export interface ChartGroupViewProps {
+  layout?: "stack" | "trellis";
   charts: readonly PreparedChart[];
   annotations: readonly Annotation[];
   syncKey: string;
@@ -592,6 +593,7 @@ const ChartSettingsPanel = ({
 
 /** Presentation-only chart group. XState-owned ranges and service-prepared data are supplied by its controller. */
 export const ChartGroupView = ({
+  layout = "stack",
   charts,
   annotations,
   syncKey,
@@ -621,7 +623,16 @@ export const ChartGroupView = ({
 }: ChartGroupViewProps) => {
   const xZoomed = !rangesMatch(xRange, fullRange);
   return (
-    <section aria-label="Chart group" style={{ width: "100%", fontFamily: typography.fontFamily }}>
+    <section
+      aria-label={layout === "trellis" ? "Chart trellis" : "Chart group"}
+      style={{
+        width: "100%",
+        fontFamily: typography.fontFamily,
+        ...(layout === "trellis"
+          ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14 }
+          : {}),
+      }}
+    >
       {charts.map((chart, index) => {
         const chartYRanges = yRanges[chart.id] ?? {};
         const controls = controlSettings[chart.id] ?? chart.controls;
@@ -644,8 +655,20 @@ export const ChartGroupView = ({
           Math.max(rightExtent[1], rightValue[1]),
         ];
         return (
-          <section key={chart.id} aria-label={chart.label} style={{ width: "100%" }}>
-            {index > 0 && <div style={{ height: 1, width: "100%", background: "#e2e8f0", marginTop: 12 }} />}
+          <section
+            key={chart.id}
+            aria-label={chart.label}
+            style={{
+              width: "100%",
+              minWidth: 0,
+              ...(layout === "trellis"
+                ? { padding: "10px 12px 4px", border: "1px solid #e4e4e7", borderRadius: 9, background: "#fff" }
+                : {}),
+            }}
+          >
+            {index > 0 && layout !== "trellis" && (
+              <div style={{ height: 1, width: "100%", background: "#e2e8f0", marginTop: 12 }} />
+            )}
             <div
               style={{
                 display: "flex",
@@ -684,6 +707,7 @@ export const ChartGroupView = ({
                 style={{
                   display: "flex",
                   flex: 1,
+                  minWidth: 0,
                   flexWrap: "wrap",
                   gap: "4px 10px",
                   padding: 0,
@@ -700,6 +724,8 @@ export const ChartGroupView = ({
                       gap: presentationMode ? 6 : 4,
                       fontSize: presentationMode ? typography.legendFontSize + 2 : typography.legendFontSize,
                       fontWeight: typography.legendFontWeight,
+                      minWidth: 0,
+                      overflowWrap: "anywhere",
                       color: TEXT_MUTED,
                     }}
                   >

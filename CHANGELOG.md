@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — trellis drill-down
+
+- Extended `ChartGroup` with a responsive trellis layout retaining shared time/cursor interaction.
+- Added typed `AssetTrellis` and `TrellisDrilldownDialog` for mixing assets and dynamic metadata groups, switching metrics, and overlay comparisons.
+- Added strict saved-state schemas and pure validation/aggregation services, including overlap deduplication, scope intersection and partial-coverage notices.
+- Extracted the shared accessible `DrilldownDialog` shell for chart, record and custom evidence content.
+- Added production chart/KPI playground entry points, local edits, explicit Apply, and contributor pagination.
+
 ### Added — dynamic asset breakdowns
 
 - Added a controlled `AssetScope` shared by charts, event timelines, filters,

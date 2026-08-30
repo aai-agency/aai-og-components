@@ -23,6 +23,10 @@ export type {
   OperationalSummaryData,
   OperationalSummaryInsight,
 } from "./asset-breakdown.types";
+export type { AssetTrellisProps, TrellisDrilldownDialogProps } from "./asset-trellis";
+export { AssetTrellis, TrellisDrilldownDialog } from "./asset-trellis";
+export type { DrilldownDialogProps } from "./drilldown-dialog";
+export { DrilldownDialog } from "./drilldown-dialog";
 export type { MetricCardProps } from "./metric-card";
 export { MetricCard } from "./metric-card";
 export type { OperationalSummaryProps } from "./operational-summary";
@@ -31,3 +35,12 @@ export type { RecordDrilldownDialogProps } from "./record-drilldown-dialog";
 export { RecordDrilldownDialog } from "./record-drilldown-dialog";
 export type { ScopeFiltersProps } from "./scope-filters";
 export { ScopeFilters } from "./scope-filters";
+export type { PreparedTrellis, TrellisMetric, TrellisPanel, TrellisSelection, TrellisState } from "./trellis.services";
+export {
+  prepareTrellis,
+  resolveTrellisAssets,
+  trellisChartConfigs,
+  trellisSelectionKey,
+  trellisSelectionSchema,
+  trellisStateSchema,
+} from "./trellis.services";
