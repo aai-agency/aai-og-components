@@ -44,3 +44,6 @@ export const SERIES_COLORS = {
   gas: "#f97066",
   water: "#38bdf8",
 } as const;
+
+/** Comparison identity, not fluid identity: multiple assets may share the same metric. */
+export const COMPARISON_SERIES_COLORS = ["#4e8274", "#6685ad", "#ae8551", "#9877a3", "#b16c73", "#628d9a"] as const;

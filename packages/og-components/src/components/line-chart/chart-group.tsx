@@ -3,7 +3,7 @@ import { useId, useMemo } from "react";
 
 import { chartGroupMachine } from "../../machines/chart-group.machine";
 import type { TimeSeries } from "../../types";
-import type { AssetScopeBinding } from "../asset-breakdown";
+import type { AssetScopeBinding } from "../asset-breakdown/asset-breakdown.types";
 import type { Annotation } from "../decline-curve/decline-math";
 import { type ChartBreakdownConfig, prepareAssetChartInput } from "./asset-series-breakdown";
 import {
@@ -18,6 +18,8 @@ import { type ChartTypography, type ChartYValueFormatter, resolveChartTypography
 import { EmptyLineChartView } from "./line-chart.view";
 
 export interface ChartGroupProps {
+  /** Trellis retains shared time/cursor synchronization in a responsive grid. */
+  layout?: "stack" | "trellis";
   /** Canonical source registry. Forecasts are ordinary series with seriesType="forecast". */
   series: readonly TimeSeries[];
   /** Ordered chart panels. Each panel chooses or derives the series it displays. */
@@ -45,6 +47,7 @@ export interface ChartGroupProps {
  * derivation; the view only renders prepared panels.
  */
 export const ChartGroup = ({
+  layout = "stack",
   series,
   charts,
   annotations = [],
@@ -108,6 +111,7 @@ export const ChartGroup = ({
 
   return (
     <ChartGroupView
+      layout={layout}
       charts={prepared.charts}
       annotations={annotations}
       syncKey={syncKey}

@@ -9,6 +9,8 @@ import {
   type OperationalSummaryInsight,
   RecordDrilldownDialog,
   ScopeFilters,
+  TrellisDrilldownDialog,
+  type TrellisMetric,
 } from "@aai-agency/og-components/asset-breakdown";
 import { type ChartConfig, ChartGroup } from "@aai-agency/og-components/chart";
 import { EventDetailDialog, EventTimeline } from "@aai-agency/og-components/event-timeline";
@@ -59,6 +61,12 @@ const makeSeries = (asset: Asset, metric: "oil" | "gas", assetIndex: number): Ti
 });
 
 const series = assets.flatMap((asset, index) => [makeSeries(asset, "oil", index), makeSeries(asset, "gas", index)]);
+const metrics: TrellisMetric[] = ["oil", "gas"].map((metric) => ({
+  id: metric,
+  label: metric === "oil" ? "Oil production" : "Gas production",
+  sourceSeriesIds: series.filter((item) => item.associatedType === metric).map((item) => item.id),
+  aggregation: "sum",
+}));
 const charts: ChartConfig[] = [
   {
     id: "oil",
@@ -139,6 +147,7 @@ const cumulativeOil = (assetId: string, scope: AssetScope): number =>
     .reduce((total, point) => total + point.value, 0);
 
 const AssetBreakdownPage = () => {
+  const [trellisOpen, setTrellisOpen] = useState(false);
   const [scope, setScope] = useState<AssetScope>({ dateRange: { from: MONTHS[0], to: MONTHS.at(-1) } });
   const [dimensionKey, setDimensionKey] = useState("subsystem");
   const [dialogRecords, setDialogRecords] = useState<DrilldownRecord[]>([]);
@@ -304,7 +313,7 @@ const AssetBreakdownPage = () => {
               unit="BBL"
               context="visible period"
               contributorCount={oilRecords.length}
-              onClick={() => openRecords("Cumulative oil contributors", oilRecords)}
+              onClick={() => setTrellisOpen(true)}
             />
             <MetricCard
               label="Vault events"
@@ -324,7 +333,25 @@ const AssetBreakdownPage = () => {
           />
 
           <section>
-            <h3 style={{ margin: "0 0 4px", fontSize: 14 }}>Production breakdown</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <h3 style={{ margin: "0 0 4px", fontSize: 14 }}>Production breakdown</h3>
+              <button
+                type="button"
+                title="Compare individual assets and metadata groups"
+                onClick={() => setTrellisOpen(true)}
+                style={{
+                  padding: "7px 12px",
+                  border: "1px solid #e4e4e7",
+                  borderRadius: 7,
+                  background: "white",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Drill down ↗
+              </button>
+            </div>
             <p style={{ margin: "0 0 10px", color: "#71717a", fontSize: 11 }}>
               ChartGroup · one summed series per asset.meta[{JSON.stringify(dimensionKey)}]
             </p>
@@ -381,6 +408,22 @@ const AssetBreakdownPage = () => {
         ]}
       />
 
+      <TrellisDrilldownDialog
+        open={trellisOpen}
+        onOpenChange={setTrellisOpen}
+        title="Production contributors"
+        description={`Wells Ranch · ${scope.dateRange?.from ?? "All dates"} – ${scope.dateRange?.to ?? "present"} · current scope`}
+        assets={assets}
+        series={series}
+        metrics={metrics}
+        scope={scope}
+        onApplyScope={setScope}
+        initialValue={{
+          metricId: "oil",
+          layout: "trellis",
+          selections: scopedAssets.map((asset) => ({ kind: "asset", assetId: asset.id })),
+        }}
+      />
       <RecordDrilldownDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

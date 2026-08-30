@@ -1,6 +1,11 @@
 import type { TimeSeries } from "../../types";
-import type { AssetScopeBinding } from "../asset-breakdown";
-import { dimensionValueKey, filterAssetsByScope, formatDimensionValue, getAssetMetaValue } from "../asset-breakdown";
+import {
+  dimensionValueKey,
+  filterAssetsByScope,
+  formatDimensionValue,
+  getAssetMetaValue,
+} from "../asset-breakdown/asset-breakdown.services";
+import type { AssetScopeBinding } from "../asset-breakdown/asset-breakdown.types";
 import type { ChartAggregation, ChartConfig, ChartSeriesConfig, ChartSeriesReference } from "./chart-group.services";
 
 export type ChartBreakdownMode = "aggregate" | "dimension" | "series";

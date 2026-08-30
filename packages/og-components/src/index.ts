@@ -203,6 +203,27 @@ export {
   updateForecastAndVariance,
   withAlpha,
 } from "./components";
+export type {
+  AssetTrellisProps,
+  DrilldownDialogProps,
+  PreparedTrellis,
+  TrellisDrilldownDialogProps,
+  TrellisMetric,
+  TrellisPanel,
+  TrellisSelection,
+  TrellisState,
+} from "./components/asset-breakdown";
+export {
+  AssetTrellis,
+  DrilldownDialog,
+  prepareTrellis,
+  resolveTrellisAssets,
+  TrellisDrilldownDialog,
+  trellisChartConfigs,
+  trellisSelectionKey,
+  trellisSelectionSchema,
+  trellisStateSchema,
+} from "./components/asset-breakdown";
 // UI primitives
 export { Tooltip, TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from "./components/ui/tooltip";
 export type {
@@ -219,7 +240,6 @@ export type {
 } from "./machines";
 // Machines (XState)
 export { chartGroupMachine, lineChartMachine, mapMachine } from "./machines";
-
 // Schemas
 export {
   AssetArraySchema,
