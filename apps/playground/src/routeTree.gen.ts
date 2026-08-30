@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ComponentsAssetBreakdownRouteImport } from './routes/components/asset-breakdown'
 import { Route as ComponentsAssetDetailCardRouteImport } from './routes/components/asset-detail-card'
 import { Route as ComponentsDeclineCurveRouteImport } from './routes/components/decline-curve'
 import { Route as ComponentsEventTimelineRouteImport } from './routes/components/event-timeline'
@@ -25,6 +26,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComponentsAssetBreakdownRoute =
+  ComponentsAssetBreakdownRouteImport.update({
+    id: '/components/asset-breakdown',
+    path: '/components/asset-breakdown',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ComponentsAssetDetailCardRoute =
   ComponentsAssetDetailCardRouteImport.update({
     id: '/components/asset-detail-card',
@@ -76,6 +83,7 @@ const UtilitiesSchemasRoute = UtilitiesSchemasRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/components/asset-breakdown': typeof ComponentsAssetBreakdownRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/event-timeline': typeof ComponentsEventTimelineRoute
@@ -88,6 +96,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/components/asset-breakdown': typeof ComponentsAssetBreakdownRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/event-timeline': typeof ComponentsEventTimelineRoute
@@ -101,6 +110,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/components/asset-breakdown': typeof ComponentsAssetBreakdownRoute
   '/components/asset-detail-card': typeof ComponentsAssetDetailCardRoute
   '/components/decline-curve': typeof ComponentsDeclineCurveRoute
   '/components/event-timeline': typeof ComponentsEventTimelineRoute
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/components/asset-breakdown'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
     | '/components/event-timeline'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/components/asset-breakdown'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
     | '/components/event-timeline'
@@ -139,6 +151,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/components/asset-breakdown'
     | '/components/asset-detail-card'
     | '/components/decline-curve'
     | '/components/event-timeline'
@@ -152,6 +165,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ComponentsAssetBreakdownRoute: typeof ComponentsAssetBreakdownRoute
   ComponentsAssetDetailCardRoute: typeof ComponentsAssetDetailCardRoute
   ComponentsDeclineCurveRoute: typeof ComponentsDeclineCurveRoute
   ComponentsEventTimelineRoute: typeof ComponentsEventTimelineRoute
@@ -170,6 +184,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/components/asset-breakdown': {
+      id: '/components/asset-breakdown'
+      path: '/components/asset-breakdown'
+      fullPath: '/components/asset-breakdown'
+      preLoaderRoute: typeof ComponentsAssetBreakdownRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/components/asset-detail-card': {
@@ -240,6 +261,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ComponentsAssetBreakdownRoute: ComponentsAssetBreakdownRoute,
   ComponentsAssetDetailCardRoute: ComponentsAssetDetailCardRoute,
   ComponentsDeclineCurveRoute: ComponentsDeclineCurveRoute,
   ComponentsEventTimelineRoute: ComponentsEventTimelineRoute,

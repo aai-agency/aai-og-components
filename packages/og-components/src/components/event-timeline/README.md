@@ -19,6 +19,7 @@ Each event is a `WellEvent`:
 ```ts
 interface WellEvent {
   id: string;
+  assetId?: string;     // links a multi-asset event to its current Asset
   date: string;        // ISO date/timestamp; the point, or the start of a span
   endDate?: string;    // ISO end; when present the event renders as a span
   type: WellEventType; // drives color, label, and grouping
@@ -45,6 +46,18 @@ Built-in `type` values: `permit`, `spud`, `drilling`, `completion`, `stimulation
 `shut-in`, `return-to-production`, `inspection`, `incident`, `ownership`, `note`,
 `other`. Any custom string works too — it falls back to a humanized label and a
 neutral color.
+
+For multi-asset histories, link every event with `assetId` and pass the same
+controlled `assetScope` used by `ChartGroup`. A `breakdown.dimensionKey` is any
+direct key in `Asset.meta` and adds a metadata filter above the timeline.
+
+```tsx
+<EventTimeline
+  events={events}
+  assetScope={{ assets, scope, onScopeChange: setScope }}
+  breakdown={{ dimensionKey: "subsystem" }}
+/>
+```
 
 ## History list (default)
 
@@ -119,6 +132,8 @@ events to split the lane into stacked swim-lanes per workstream.
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `events` | `WellEvent[]` | — | Events to plot. |
+| `assetScope` | `AssetScopeBinding` | — | Controlled assets, metadata filters, selected IDs, and date range. |
+| `breakdown` | `{ dimensionKey: string; ... }` | — | Optional dynamic direct `Asset.meta` filter. |
 | `orientation` | `"vertical" \| "horizontal"` | `"vertical"` | Feed, or a compact aligned lane. |
 | `title` | `string` | — | Heading above the timeline. |
 | `maxHeight` | `number` | `460` | Max height of the scrollable vertical feed. |

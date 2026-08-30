@@ -25,6 +25,7 @@ Read these before generating code:
 - [Map usage rules](./rules/map.md) — Required props, common mistakes, controls
 - [Data rules](./rules/data.md) — Asset schema, validation, stores
 - [Chart rules](./rules/charts.md) — TimeSeries format and the unified Chart API
+- [Asset breakdown rules](../../packages/og-components/src/components/asset-breakdown/README.md) — Shared scopes, dynamic `Asset.meta` dimensions, and drill-downs
 - [DeclineCurve rules](./rules/decline-curve.md) — Segments, equations, annotations, edit modes
 - [Styling rules](./rules/styling.md) — Tailwind, theme tokens, z-index
 
@@ -37,6 +38,9 @@ Read these before generating code:
 | Forecast / variance editor      | `Chart`                          | `kind="line"`, `series`, `forecast`     |
 | Well events / history feed      | `EventTimeline`                  | `events: WellEvent[]`, `title` (vertical by default) |
 | Events aligned under a chart    | `EventTimeline`                  | `orientation="horizontal"`, `domain`, `padding` |
+| Dynamic multi-asset breakdown   | `ChartGroup` + `ScopeFilters`    | `assetScope`, explicit `breakdown`                |
+| Aggregate contributor details   | `MetricCard` + `RecordDrilldownDialog` | controlled records and dimensions          |
+| Evidence-linked group summary   | `OperationalSummary`             | `summary`, `records`, `onInsightSelect`            |
 | Asset info on click             | `AssetDetailCard`                | `asset` (or use Map's `showDetailCard`)  |
 | Multi-asset selection           | `SelectionPanel`                 | `assets`, `overlayFeatures`              |
 | File overlay management         | `OverlayManager`                 | `overlays`, `onUpload`                   |
@@ -151,6 +155,10 @@ import {
   Map,
   Chart,
   EventTimeline,
+  MetricCard,
+  OperationalSummary,
+  RecordDrilldownDialog,
+  ScopeFilters,
   ProductionChart,
   DeclineCurve,
   AssetDetailCard,

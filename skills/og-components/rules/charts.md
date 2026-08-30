@@ -100,6 +100,30 @@ const charts: ChartConfig[] = [
 
 `ChartGroup` creates one ID-addressable registry while preserving every series' native timestamps. It creates an aligned array only inside the visible panel window or a declared derivation. Chart declaration order expresses data flow because derived output is registered for later charts, without coupling visual components.
 
+### Multi-asset breakdowns
+
+Link each source series with `assetId`, then pass one controlled asset scope.
+The dimension is a direct runtime key in `Asset.meta`.
+
+```tsx
+const assetScope = { assets, scope, onScopeChange: setScope };
+
+<ChartGroup
+  series={series}
+  charts={charts}
+  assetScope={assetScope}
+  breakdown={{
+    mode: "dimension",
+    dimensionKey: "subsystem",
+    aggregation: "sum",
+  }}
+/>
+```
+
+Use `mode: "aggregate"` for one total across the selected assets and
+`mode: "series"` for the individual member series. `dimensionKey` is never a
+fixed enum. Always choose the aggregation explicitly.
+
 Every panel has its own visible X and Y range sliders. X controls mirror one shared XState window, so moving any panel updates all time-based panels; left and right Y controls remain scoped to that panel and axis. Clicking a bar drills the shared window to that bar's calendar bucket. This lets a monthly parent reveal daily, hourly, or secondly native points in another panel. Pass `timeZone` when calendar boundaries should not use UTC.
 
 `ChartConfig.controls` supplies per-chart defaults for `presentationMode`, `showXZoom`, `showYZoom`, and `showZoomButtons`. At runtime, the panel settings menu can change those independently or copy the current panel settings to every chart. Presentation mode enlarges the chart, type, and spacing while temporarily suppressing interaction chrome without overwriting the three visibility preferences. The settings gear remains visible so presentation mode can always be turned off. These preferences and the open settings panel live in `chartGroupMachine`, not React component state.
@@ -201,6 +225,8 @@ Defining `annotations`, including as an empty array, enables the annotation engi
 | `kind` | Required single-panel renderer: `"line"` or `"bar"` |
 | `ChartGroup.series` | Shared source registry; forecasts are ordinary entries |
 | `ChartGroup.charts` | Ordered line/bar panels with ID references or derivations |
+| `ChartGroup.assetScope` | Controlled assets, metadata filters, asset IDs, and date range |
+| `ChartGroup.breakdown` | Explicit member, aggregate, or dynamic `Asset.meta` grouping |
 | `series` | Required domain-neutral `TimeSeries[]` input |
 | `forecast` | Optional forecast editor and variance configuration |
 | `annotations` | Optional controlled initial annotation ranges |

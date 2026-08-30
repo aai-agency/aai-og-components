@@ -13,6 +13,9 @@
       "~/*": ["./src/*"],
       "@aai-agency/og-components": ["../../packages/og-components/src/index.ts"],
       "@aai-agency/og-components/asset-card": ["../../packages/og-components/src/components/asset-card/index.ts"],
+      "@aai-agency/og-components/asset-breakdown": [
+        "../../packages/og-components/src/components/asset-breakdown/index.ts"
+      ],
       "@aai-agency/og-components/decline-curve": ["../../packages/og-components/src/components/decline-curve/index.ts"],
       "@aai-agency/og-components/event-timeline": [
         "../../packages/og-components/src/components/event-timeline/index.ts"

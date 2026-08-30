@@ -65,6 +65,8 @@ export interface DataPoint {
 
 export interface TimeSeries {
   id: string;
+  /** Source asset ID. Dimension values resolve from that asset's current `meta`. */
+  assetId?: string;
   /** Defaults to `actual`. Forecasts are ordinary series with this set to `forecast`. */
   seriesType?: SeriesType;
   /** Optional semantic association such as oil, water, gas, pressure, or insight-score. */
@@ -81,6 +83,8 @@ export interface TimeSeries {
   color?: string;
   /** Optional axis assignment; legacy rightAxisFluids configuration remains supported. */
   axis?: "left" | "right";
+  /** Arbitrary series metadata. Asset dimensions belong on the linked asset, not here. */
+  meta?: Record<string, unknown>;
   data: DataPoint[];
 }
 
@@ -157,6 +161,8 @@ export interface WellEventAttachment {
  */
 export interface WellEvent {
   id: string;
+  /** Source asset ID. Dimension values resolve from that asset's current `meta`. */
+  assetId?: string;
   /** ISO date/timestamp when the event occurred, or when a span begins. */
   date: string;
   /** Optional ISO end date; when present the event renders as a span. */
