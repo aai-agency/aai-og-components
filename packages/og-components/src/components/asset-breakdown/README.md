@@ -94,6 +94,22 @@ const restored = trellisStateSchema.parse(JSON.parse(savedState));
 
 ### Data and interaction contract
 
+- **Arrange panels** separates inclusion from layout. "Assets included" selects
+  eligible assets; "Split panels by" rebuilds their panels as one per asset or
+  one per value of any metadata key. The live preview lists exact member names
+  and counts, aligned to the actual charts. Grouping and aggregation remain visible
+  after closing the editor.
+- "Customize members" changes only that panel and marks the overall arrangement
+  custom. "Add panel" creates an empty custom panel to populate with included assets.
+  Assets can appear in multiple panels; overlap remains explicit. Removing a panel
+  does not remove assets from inclusion; unassigned assets are called out.
+- `TrellisState.grouping` and `includedAssetIds` are optional additions. Old states
+  infer inclusion from their selections and infer grouping (mixed selections are
+  custom). `includedAssetIds: []` explicitly means none, unlike `AssetScope`.
+  Custom selections use `{ kind: "custom", id, label, assetIds }`; their members
+  still intersect inclusion and the parent scope. These fields are saved with the
+  controlled state and enforced together by `AssetTrellis`.
+
 - Direct non-empty metadata keys are discovered automatically. Pass `dimensions`
   for a labeled allowlist. Number `1`, string `"1"`, false and missing/null remain
   distinct. Dots are literal, not property paths.

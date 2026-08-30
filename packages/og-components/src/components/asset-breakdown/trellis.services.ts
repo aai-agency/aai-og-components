@@ -12,6 +12,14 @@ export const trellisSelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("asset"), assetId: z.string().min(1) }).strict(),
   z
     .object({
+      kind: z.literal("custom"),
+      id: z.string().min(1),
+      label: z.string().min(1),
+      assetIds: z.array(z.string().min(1)),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("dimension"),
       dimensionKey: z.string().min(1),
       value: z.union([z.string(), z.number().finite(), z.boolean(), z.null()]),
@@ -23,6 +31,16 @@ export const trellisStateSchema = z
     metricId: z.string().min(1),
     layout: z.enum(["trellis", "overlay"]),
     selections: z.array(trellisSelectionSchema),
+    /** Optional for backwards compatibility with saved comparison-only views. */
+    grouping: z
+      .discriminatedUnion("kind", [
+        z.object({ kind: z.literal("asset") }).strict(),
+        z.object({ kind: z.literal("dimension"), dimensionKey: z.string().min(1) }).strict(),
+        z.object({ kind: z.literal("custom") }).strict(),
+      ])
+      .optional(),
+    /** Here [] means none. This is deliberately separate from AssetScope's [] means all. */
+    includedAssetIds: z.array(z.string().min(1)).optional(),
   })
   .strict();
 export type TrellisSelection = z.infer<typeof trellisSelectionSchema>;
@@ -57,7 +75,9 @@ export interface PreparedTrellis {
 export const trellisSelectionKey = (selection: TrellisSelection): string =>
   selection.kind === "asset"
     ? JSON.stringify(["asset", selection.assetId])
-    : JSON.stringify(["dimension", selection.dimensionKey, selection.value]);
+    : selection.kind === "custom"
+      ? JSON.stringify(["custom", selection.id])
+      : JSON.stringify(["dimension", selection.dimensionKey, selection.value]);
 
 export const resolveTrellisAssets = (
   assets: readonly Asset[],
@@ -67,7 +87,9 @@ export const resolveTrellisAssets = (
   filterAssetsByScope(assets, scope).filter((asset) =>
     selection.kind === "asset"
       ? asset.id === selection.assetId
-      : getAssetMetaValue(asset, selection.dimensionKey) === selection.value,
+      : selection.kind === "custom"
+        ? selection.assetIds.includes(asset.id)
+        : getAssetMetaValue(asset, selection.dimensionKey) === selection.value,
   );
 
 const aggregate = (values: readonly number[], method: ChartAggregation): number => {
@@ -132,7 +154,9 @@ export const prepareTrellis = (
     const label =
       selection.kind === "asset"
         ? (assets.find((asset) => asset.id === selection.assetId)?.name ?? selection.assetId)
-        : `${selection.dimensionKey}: ${formatDimensionValue(selection.value)}`;
+        : selection.kind === "custom"
+          ? selection.label
+          : `${selection.dimensionKey}: ${formatDimensionValue(selection.value)}${typeof selection.value === "number" || typeof selection.value === "boolean" ? ` (${typeof selection.value})` : ""}`;
     const selectedSources = sources.filter((item) => item.assetId && memberIds.has(item.assetId));
     const buckets = new Map<number, number[]>();
     for (const source of selectedSources) {

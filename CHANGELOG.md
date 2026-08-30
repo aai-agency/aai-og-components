@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — trellis drill-down
 
+- Replaced the ambiguous comparison picker with explicit asset inclusion, panel grouping, live member previews, and per-panel customization.
+
 - Extended `ChartGroup` with a responsive trellis layout retaining shared time/cursor interaction.
 - Added typed `AssetTrellis` and `TrellisDrilldownDialog` for mixing assets and dynamic metadata groups, switching metrics, and overlay comparisons.
 - Added strict saved-state schemas and pure validation/aggregation services, including overlap deduplication, scope intersection and partial-coverage notices.

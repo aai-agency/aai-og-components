@@ -1,20 +1,15 @@
-import { Columns3, Layers2, SlidersHorizontal, X } from "lucide-react";
+import { Columns3, Layers2, SlidersHorizontal } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useMemo, useRef, useState } from "react";
 
 import type { Asset, TimeSeries } from "../../types";
 import { ChartGroup } from "../line-chart/chart-group";
-import { filterAssetsByScope, getDimensionValues } from "./asset-breakdown.services";
+import { filterAssetsByScope } from "./asset-breakdown.services";
 import type { AssetDimension, AssetScope } from "./asset-breakdown.types";
 import { DrilldownDialog } from "./drilldown-dialog";
-import {
-  prepareTrellis,
-  type TrellisMetric,
-  type TrellisSelection,
-  type TrellisState,
-  trellisChartConfigs,
-  trellisSelectionKey,
-} from "./trellis.services";
+import { prepareTrellis, type TrellisMetric, type TrellisState, trellisChartConfigs } from "./trellis.services";
+import { describeTrellisGrouping, getTrellisPreparationScope } from "./trellis-breakdown.services";
+import { TrellisBreakdownEditor } from "./trellis-breakdown-editor";
 
 const buttonStyle: CSSProperties = {
   display: "inline-flex",
@@ -59,8 +54,6 @@ export const AssetTrellis = ({
 }: AssetTrellisProps) => {
   const [editing, setEditing] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
-  const [sourceKey, setSourceKey] = useState("");
-  const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const scopedAssets = useMemo(() => filterAssetsByScope(assets, scope), [assets, scope]);
   const availableDimensions = useMemo(
@@ -72,30 +65,22 @@ export const AssetTrellis = ({
     [scopedAssets, dimensions],
   );
   const metric = metrics.find((item) => item.id === value.metricId);
+  const preparation = useMemo(() => getTrellisPreparationScope(assets, value, scope), [assets, value, scope]);
   const prepared = useMemo(
-    () => prepareTrellis(assets, series, metric, value.selections, scope),
-    [assets, series, metric, value.selections, scope],
+    () => prepareTrellis(assets, series, metric, preparation.selections, preparation.scope),
+    [assets, series, metric, preparation],
   );
-  const selectionKeys = new Set(value.selections.map(trellisSelectionKey));
-  const options: { selection: TrellisSelection; label: string; count: number }[] =
-    sourceKey === ""
-      ? scopedAssets.map((asset) => ({ selection: { kind: "asset", assetId: asset.id }, label: asset.name, count: 1 }))
-      : getDimensionValues(scopedAssets, { key: sourceKey }).map((group) => ({
-          selection: { kind: "dimension", dimensionKey: sourceKey, value: group.value },
-          label: `${group.label}${typeof group.value === "number" || typeof group.value === "boolean" ? ` (${typeof group.value})` : ""}`,
-          count: group.count,
-        }));
-  const filteredOptions = options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()));
-  const toggle = (selection: TrellisSelection) => {
-    const key = trellisSelectionKey(selection);
-    onChange({
-      ...value,
-      selections: selectionKeys.has(key)
-        ? value.selections.filter((item) => trellisSelectionKey(item) !== key)
-        : [...value.selections, selection],
-    });
-    setPage(0);
-  };
+  const aggregationLabel = metric
+    ? {
+        sum: "summed within each panel",
+        average: "averaged within each panel",
+        min: "minimum within each panel",
+        max: "maximum within each panel",
+        first: "first source within each panel",
+        last: "last source within each panel",
+      }[metric.aggregation]
+    : "choose a metric";
+  const breakdownSummary = `${prepared.panels.length} panels · ${describeTrellisGrouping(value)} · ${aggregationLabel}`;
   const pageCount = Math.max(1, Math.ceil(prepared.panels.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const visiblePanels =
@@ -134,14 +119,14 @@ export const AssetTrellis = ({
         </label>
         <button
           type="button"
-          title="Choose assets and metadata groups"
+          title="Choose included assets and how they form chart panels"
           aria-expanded={editing}
           ref={editButton}
           onClick={() => setEditing(!editing)}
           style={buttonStyle}
         >
           <SlidersHorizontal size={14} />
-          Edit comparison
+          Arrange panels
         </button>
         <fieldset
           aria-label="Comparison layout"
@@ -179,125 +164,21 @@ export const AssetTrellis = ({
         </fieldset>
       </div>
       {editing && (
-        <section
-          aria-label="Comparison editor"
-          style={{ padding: "16px 22px", background: "#fafafa", borderBottom: "1px solid #e4e4e7" }}
-        >
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              Add by
-              <select
-                aria-label="Comparison source"
-                value={sourceKey}
-                onChange={(event) => {
-                  setSourceKey(event.currentTarget.value);
-                  setQuery("");
-                }}
-                style={selectStyle}
-              >
-                <option value="">Individual asset</option>
-                {availableDimensions
-                  .filter((dimension) => dimension.key !== "")
-                  .map((dimension) => (
-                    <option key={dimension.key} value={dimension.key}>
-                      {dimension.label ?? dimension.key}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <input
-              aria-label="Find comparisons"
-              placeholder="Find an asset or group…"
-              value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
-              style={{ ...buttonStyle, flex: "1 1 160px", minWidth: 0, textAlign: "left" }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                onChange({ ...value, selections: [] });
-                setPage(0);
-              }}
-              style={buttonStyle}
-            >
-              Clear all
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(false);
-                editButton.current?.focus();
-              }}
-              style={{ ...buttonStyle, background: "#18181b", color: "white", borderColor: "#18181b" }}
-            >
-              Done
-            </button>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
-              gap: 6,
-              maxHeight: 180,
-              overflow: "auto",
-              marginTop: 12,
-            }}
-          >
-            {filteredOptions.map(({ selection, label, count }) => (
-              <label
-                key={trellisSelectionKey(selection)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #e4e4e7",
-                  background: "white",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectionKeys.has(trellisSelectionKey(selection))}
-                  onChange={() => toggle(selection)}
-                  style={{ accentColor: "#18181b" }}
-                />
-                <span style={{ flex: 1, overflowWrap: "anywhere" }}>{label}</span>
-                <span style={{ color: "#71717a", fontSize: 10 }}>{count}</span>
-              </label>
-            ))}
-            {filteredOptions.length === 0 && (
-              <p style={{ color: "#71717a" }}>No matching assets or groups in this scope.</p>
-            )}
-          </div>
-          {prepared.panels.length > 0 && (
-            <section
-              aria-label="Selected comparisons"
-              style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}
-            >
-              {prepared.panels.map((panel) => (
-                <button
-                  key={panel.id}
-                  type="button"
-                  title={`Remove ${panel.label}`}
-                  aria-label={`Remove ${panel.label}`}
-                  onClick={() => {
-                    onChange({
-                      ...value,
-                      selections: value.selections.filter((selection) => trellisSelectionKey(selection) !== panel.id),
-                    });
-                    setPage(0);
-                  }}
-                  style={{ ...buttonStyle, fontSize: 10, minHeight: 26, padding: "3px 7px" }}
-                >
-                  {panel.label}
-                  <X size={11} />
-                </button>
-              ))}
-            </section>
-          )}
-        </section>
+        <TrellisBreakdownEditor
+          assets={scopedAssets}
+          dimensions={availableDimensions}
+          value={value}
+          prepared={prepared}
+          summary={breakdownSummary}
+          onChange={(next) => {
+            onChange(next);
+            setPage(0);
+          }}
+          onDone={() => {
+            setEditing(false);
+            editButton.current?.focus();
+          }}
+        />
       )}
       <div style={{ padding: "16px 22px 20px", background: "#fcfcfd" }}>
         <div
@@ -313,11 +194,10 @@ export const AssetTrellis = ({
           }}
         >
           <span>
-            <strong style={{ color: "#3f3f46", fontWeight: 600 }}>{prepared.panels.length} comparisons</strong> ·{" "}
-            {prepared.assetIds.length} unique assets
+            <strong style={{ color: "#3f3f46", fontWeight: 600 }}>{breakdownSummary}</strong>
           </span>
           <span>
-            {metric?.aggregation ?? "—"} per timestamp ·{" "}
+            {prepared.assetIds.length} unique assets ·{" "}
             {value.layout === "trellis" ? "Shared time · independent Y scales" : "Shared time and Y scale"}
           </span>
         </div>
@@ -357,10 +237,10 @@ export const AssetTrellis = ({
           />
         ) : (
           <div style={{ padding: "48px 16px", textAlign: "center" }}>
-            <strong>No comparisons to display</strong>
+            <strong>No panels to display</strong>
             <p style={{ color: "#71717a" }}>Choose assets or metadata groups with data in the current date range.</p>
             <button type="button" onClick={() => setEditing(true)} style={buttonStyle}>
-              Choose comparisons
+              Arrange panels
             </button>
           </div>
         )}
