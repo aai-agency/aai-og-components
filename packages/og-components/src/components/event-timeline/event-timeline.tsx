@@ -993,7 +993,7 @@ const HistoryFeed = ({
             borderBottom: `1px solid ${DIVIDER}`,
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 600, color: T_TITLE, letterSpacing: "-0.01em" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: T_TITLE, letterSpacing: "-0.01em" }}>
             {title ?? "History"}
           </span>
           <span style={{ fontSize: 13, color: T_FAINT }}>{subtitle}</span>
@@ -1492,7 +1492,7 @@ export const EventTimeline = ({
     return (
       <div className={className} style={{ fontFamily: FONT_FAMILY, ...style }}>
         {title ? (
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_HEADING, marginBottom: 8 }}>{title}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_HEADING, marginBottom: 8 }}>{title}</div>
         ) : null}
         <EmptyTimeline height={height} message={emptyMessage} />
       </div>
@@ -1514,7 +1514,7 @@ export const EventTimeline = ({
               marginBottom: 6,
             }}
           >
-            {title ? <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_HEADING }}>{title}</div> : <span />}
+            {title ? <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_HEADING }}>{title}</div> : <span />}
             {showLegend && legend.length > 0 ? <Legend entries={legend} /> : null}
           </div>
         ) : null}
