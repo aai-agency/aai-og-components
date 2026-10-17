@@ -5,6 +5,7 @@ export {
   ACCENT_15,
   ACCENT_30,
   ACCENT_60,
+  ACCENT_90,
   ACTIVE_BG,
   BLUR_LG,
   BLUR_MD,

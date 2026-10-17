@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-10-17
+
+### Fixed: accessibility (Lighthouse on the aai.agency docs)
+
+- Map control buttons have accessible names and `aria-pressed`, using the same text as their tooltips. The legend collapse button has a name and `aria-expanded`.
+- The asset detail card's close button has a name.
+- Chart zoom handles, the legend toggle and the card's expand buttons have 24px tap targets, the WCAG minimum. The visible dots and icons are unchanged.
+- The map's cluster stroke used an 8-digit hex colour, which Mapbox paint properties reject. It now uses a new `ACCENT_90` rgba token.
+
 ## [0.7.0] - 2026-08-25
 
 ### Added — EventTimeline

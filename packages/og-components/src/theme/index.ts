@@ -19,11 +19,13 @@ export const BUTTON_BG = "rgba(30, 41, 59, 0.5)";
 // Matches the neutral shadcn primary. Accent aliases remain for internal
 // compatibility while every interactive state resolves to this one token.
 export const PRIMARY = "#18181b";
+export const PRIMARY_90 = "rgba(24, 24, 27, 0.9)";
 export const PRIMARY_60 = "rgba(24, 24, 27, 0.6)";
 export const PRIMARY_30 = "rgba(24, 24, 27, 0.3)";
 export const PRIMARY_15 = "rgba(24, 24, 27, 0.15)";
 export const PRIMARY_10 = "rgba(24, 24, 27, 0.1)";
 export const ACCENT = PRIMARY;
+export const ACCENT_90 = PRIMARY_90;
 export const ACCENT_60 = PRIMARY_60;
 export const ACCENT_30 = PRIMARY_30;
 export const ACCENT_15 = PRIMARY_15;

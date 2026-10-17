@@ -20,6 +20,7 @@ import {
   ACCENT,
   ACCENT_15,
   ACCENT_60,
+  ACCENT_90,
   BLUR_LG,
   BLUR_SM,
   BORDER,
@@ -477,13 +478,16 @@ const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapL
         <Tooltip label={collapsed ? "Expand legend" : "Collapse legend"}>
           <button
             type="button"
+            aria-label={collapsed ? "Expand legend" : "Collapse legend"}
+            aria-expanded={!collapsed}
             onClick={() => setCollapsed(!collapsed)}
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 20,
-              height: 20,
+              // 24px is the WCAG minimum tap target
+              width: 24,
+              height: 24,
               borderRadius: 4,
               border: BORDER,
               background: "#ffffff",
@@ -903,7 +907,8 @@ export const OGMap = ({
           "circle-radius": ["get", "size"],
           "circle-color": ACCENT_60,
           "circle-stroke-width": 2,
-          "circle-stroke-color": `${ACCENT}e6`,
+          // Mapbox paint colours reject 8-digit hex, so use the rgba token.
+          "circle-stroke-color": ACCENT_90,
         },
       });
       map.addLayer({
