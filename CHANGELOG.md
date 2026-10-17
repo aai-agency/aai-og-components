@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-10-17
+
+### Fixed: text contrast and tap targets (Lighthouse on the aai.agency product and docs pages)
+
+- `TEXT_FAINT` now equals `TEXT_MUTED` (`#64748b`). The old slate (`#94a3b8`) was 2.6:1 on white, under the 4.5:1 WCAG AA minimum for text. The EventTimeline's faint grey moves to its muted zinc for the same reason.
+- Badge text on the asset card and the EventTimeline type tags is darkened from its own color until it reads at 4.5:1 on its tint. The dots and tints keep the original color. New `readableTextColor(color, tintAlpha)` helper in `utils`.
+- EventTimeline's neutral chips and AI tag use the body grey on the zinc-100 wash (the muted grey was 4.39:1).
+- The forecast chart's zoom range knobs have 24px tap targets around the same 8px dots.
+- The map legend sits left of the control column when controls are shown, so on short maps it no longer covers the lower buttons.
+
 ## [0.7.1] - 2026-10-17
 
 ### Fixed: accessibility (Lighthouse on the aai.agency docs)

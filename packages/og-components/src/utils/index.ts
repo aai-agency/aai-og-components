@@ -145,6 +145,40 @@ export const getAssetColor = (
   }
 };
 
+const parseHex = (color: string): [number, number, number] | null => {
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!match) return null;
+  const hex = match[1].length === 3 ? match[1].replace(/(.)/g, "$1$1") : match[1];
+  const int = Number.parseInt(hex, 16);
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+};
+
+const relativeLuminance = (rgb: number[]): number => {
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/**
+ * Darken a hex `color` until text in it reaches WCAG AA contrast (4.5:1) on white
+ * washed with the same color at `tintAlpha`, the usual badge look. Colors that
+ * already pass come back as they are; non-hex colors are returned untouched.
+ */
+export const readableTextColor = (color: string, tintAlpha = 0): string => {
+  const rgb = parseHex(color);
+  if (!rgb) return color;
+  const background = relativeLuminance(rgb.map((v) => v * tintAlpha + 255 * (1 - tintAlpha)));
+  for (let step = 0; step <= 20; step++) {
+    const shade = rgb.map((v) => Math.round(v * (1 - step / 20)));
+    if ((background + 0.05) / (relativeLuminance(shade) + 0.05) >= 4.5) {
+      return step === 0 ? color : `#${shade.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+    }
+  }
+  return "#000000";
+};
+
 // ── Formatting ───────────────────────────────────────────────────────────────
 
 /** Format large numbers for display (e.g., 1234567 -> "1.23M") */
