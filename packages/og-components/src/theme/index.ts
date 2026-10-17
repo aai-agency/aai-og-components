@@ -5,7 +5,9 @@ export const TEXT_HEADING = "#0f172a";
 export const TEXT_PRIMARY = "#1e293b";
 export const TEXT_SECONDARY = "#334155";
 export const TEXT_MUTED = "#64748b";
-export const TEXT_FAINT = "#94a3b8";
+// Lighter slates fall under the 4.5:1 WCAG AA text contrast on white, so faint
+// text shares the muted grey and keeps its quieter look through size.
+export const TEXT_FAINT = TEXT_MUTED;
 
 // ── Surfaces ──
 export const PANEL_BG = "#ffffff";

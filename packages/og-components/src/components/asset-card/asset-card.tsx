@@ -17,7 +17,7 @@ import {
   TYPE_COLORS,
 } from "../../theme";
 import type { Asset, AssetTypeConfig, FieldConfig, TimeSeries } from "../../types";
-import { formatNumber } from "../../utils";
+import { formatNumber, readableTextColor } from "../../utils";
 import { Chart } from "../line-chart";
 import { Tooltip, TooltipProvider } from "../ui/tooltip";
 
@@ -746,7 +746,7 @@ export const AssetDetailCard = memo(
                       padding: "3px 8px",
                       borderRadius: 4,
                       background: `${typeColor}20`,
-                      color: typeColor,
+                      color: readableTextColor(typeColor, 0x20 / 255),
                     }}
                   >
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: typeColor }} />
@@ -765,7 +765,7 @@ export const AssetDetailCard = memo(
                       padding: "3px 8px",
                       borderRadius: 4,
                       background: `${statusColor}20`,
-                      color: statusColor,
+                      color: readableTextColor(statusColor, 0x20 / 255),
                     }}
                   >
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />

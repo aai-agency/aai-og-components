@@ -333,7 +333,13 @@ const OverlayFeatureTooltip = ({
   );
 };
 
+// The control column is 42px wide at right: 12, so on short maps a legend in the
+// same corner covers the lower buttons. Keep an 8px gap to its left instead.
+const LEGEND_RIGHT_WITH_CONTROLS = 12 + 42 + 8;
+
 interface MapLegendProps {
+  /** Distance from the map's right edge; clears the control column when it is shown. */
+  right?: number;
   label: string;
   items: { color: string; label: string }[];
   schemes: { value: string; label: string }[];
@@ -341,7 +347,7 @@ interface MapLegendProps {
   onSchemeChange?: (scheme: string) => void;
 }
 
-const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapLegendProps) => {
+const MapLegend = ({ right = 12, label, items, schemes, activeScheme, onSchemeChange }: MapLegendProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -362,7 +368,7 @@ const MapLegend = ({ label, items, schemes, activeScheme, onSchemeChange }: MapL
       style={{
         position: "absolute",
         bottom: 12,
-        right: 12,
+        right,
         background: "#ffffff",
         borderRadius: 8,
         padding: collapsed ? "6px 10px" : "10px 14px",
@@ -1670,6 +1676,7 @@ export const OGMap = ({
         {/* Legend */}
         {showLegend && legend && (
           <MapLegend
+            right={showControls && interactive ? LEGEND_RIGHT_WITH_CONTROLS : undefined}
             label={legend.label}
             items={legend.items}
             schemes={availableSchemes}

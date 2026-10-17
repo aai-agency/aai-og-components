@@ -3,6 +3,7 @@ import { type CSSProperties, Fragment, type ReactNode, useMemo, useState } from 
 
 import { BORDER, FONT_FAMILY, PANEL_BG, TEXT_FAINT, TEXT_HEADING, TEXT_MUTED, TEXT_SECONDARY } from "../../theme";
 import type { WellEvent, WellEventAttachment } from "../../types";
+import { readableTextColor } from "../../utils";
 import { TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from "../ui/tooltip";
 import {
   buildTimelineTicks,
@@ -98,7 +99,8 @@ const ROW_HOVER = "#fafafa"; // zinc-50
 const T_TITLE = "#18181b"; // zinc-900
 const T_BODY = "#52525b"; // zinc-600
 const T_MUTED = "#71717a"; // zinc-500
-const T_FAINT = "#a1a1aa"; // zinc-400
+// zinc-400 falls under 4.5:1 on white, so faint text shares the muted grey.
+const T_FAINT = T_MUTED;
 
 const insetStyle = (padLeft: number, padRight: number) => {
   const inset = padLeft + padRight;
@@ -158,7 +160,7 @@ const TypeBadge = ({ label, color }: { label: string; color: string }) => (
       lineHeight: 1.5,
       padding: "1px 8px",
       borderRadius: 6,
-      color,
+      color: readableTextColor(color, 0.1),
       background: withAlpha(color, 0.1),
       whiteSpace: "nowrap",
       flex: "0 0 auto",
@@ -197,7 +199,7 @@ const AiTag = () => (
       fontWeight: 600,
       letterSpacing: "0.04em",
       textTransform: "uppercase",
-      color: T_MUTED,
+      color: T_BODY,
       background: DIVIDER,
       padding: "1px 6px 1px 5px",
       borderRadius: 999,
@@ -338,7 +340,7 @@ const NeutralChip = ({ label }: { label: string }) => (
       padding: "1px 8px",
       borderRadius: 6,
       background: DIVIDER,
-      color: T_MUTED,
+      color: T_BODY,
       whiteSpace: "nowrap",
     }}
   >

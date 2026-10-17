@@ -2623,6 +2623,17 @@ const ParamInput = ({
 // the window's center to the click point. All edits flow through onChange
 // which the parent uses to drive setScale on both the prod and variance charts.
 
+const KNOB_HIT_AREA: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 const RangeSlider = ({
   fullMin,
   fullMax,
@@ -2795,29 +2806,34 @@ const RangeSlider = ({
         />
         {/* Knobs — small light circles at each edge of the window. Sized to
             sit just slightly proud of the rail so they read as grabbable
-            without dominating the slider visually. */}
+            without dominating the slider visually. The button around each
+            dot is the 24px WCAG target. */}
         <button
           type="button"
           aria-label="Adjust chart zoom start"
-          className={cn(
-            "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
-            isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
-          )}
-          style={loKnobStyle}
+          className={cn("absolute z-10", isVertical ? "cursor-ns-resize" : "cursor-ew-resize")}
+          style={{ ...KNOB_HIT_AREA, ...loKnobStyle }}
           onMouseDown={startDrag("lo")}
           title="Drag to resize"
-        />
+        >
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500"
+          />
+        </button>
         <button
           type="button"
           aria-label="Adjust chart zoom end"
-          className={cn(
-            "absolute z-10 h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500",
-            isVertical ? "cursor-ns-resize" : "cursor-ew-resize",
-          )}
-          style={hiKnobStyle}
+          className={cn("absolute z-10", isVertical ? "cursor-ns-resize" : "cursor-ew-resize")}
+          style={{ ...KNOB_HIT_AREA, ...hiKnobStyle }}
           onMouseDown={startDrag("hi")}
           title="Drag to resize"
-        />
+        >
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full border border-background bg-slate-400 hover:bg-slate-500"
+          />
+        </button>
       </div>
     </div>
   );
