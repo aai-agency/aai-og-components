@@ -430,8 +430,9 @@ const LineChartSection = memo(({ asset }: { asset: Asset }) => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: 20,
-                  height: 20,
+                  // 24px is the WCAG minimum tap target
+                  width: 24,
+                  height: 24,
                   borderRadius: 4,
                   color: TEXT_MUTED,
                   cursor: "pointer",
@@ -776,6 +777,7 @@ export const AssetDetailCard = memo(
               <Tooltip label="Close">
                 <button
                   type="button"
+                  aria-label={`Close ${asset.name}`}
                   onClick={handleClose}
                   style={{
                     width: 28,

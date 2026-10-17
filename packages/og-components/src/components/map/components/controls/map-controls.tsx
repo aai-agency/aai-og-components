@@ -172,6 +172,9 @@ const ControlButton = memo(({ icon, title, active, disabled, onClick }: ControlB
     <Tooltip label={title}>
       <button
         type="button"
+        aria-label={title}
+        aria-pressed={active}
+        aria-disabled={disabled}
         onClick={disabled ? undefined : onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}

@@ -120,19 +120,34 @@ export const ChartRangeControl = ({
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
       style={{
+        // A 24px hit area (WCAG target size) around the 10px dot that's drawn inside.
         position: "absolute",
         zIndex: 3,
-        width: 10,
-        height: 10,
+        width: 24,
+        height: 24,
         padding: 0,
-        borderRadius: "50%",
-        border: "2px solid #fff",
-        background: "#b4bdc9",
-        boxShadow: "0 0 0 1px #d5dbe3",
+        border: "none",
+        background: "transparent",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         cursor: vertical ? "ns-resize" : "ew-resize",
         ...handleStyle(percent),
       }}
-    />
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          border: "2px solid #fff",
+          background: "#b4bdc9",
+          boxShadow: "0 0 0 1px #d5dbe3",
+          boxSizing: "border-box",
+        }}
+      />
+    </button>
   );
 
   return (
